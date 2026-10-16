@@ -4,7 +4,6 @@ set dotenv-load := true
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 web_dir := "web"
-image := "taut-api"
 
 # Lista las recetas disponibles
 default:
@@ -24,7 +23,7 @@ setup:
 up:
     docker compose up -d --wait
 
-# Levanta también la api (construye la imagen)
+# Levanta también los servicios de taut (construye las imágenes)
 up-all:
     GIT_SHA=$(git rev-parse --short HEAD) docker compose --profile app up -d --build --wait
 
@@ -43,6 +42,27 @@ logs *args:
 # Corre la api recompilando al guardar
 dev:
     cargo watch -q -c -x 'run -p taut-api'
+
+# Corre un servicio en su puerto local: just run checker
+run svc:
+    TAUT_HTTP__ADDR=0.0.0.0:$(just port {{svc}}) cargo run -p taut-{{svc}}
+
+# Corre juntos los servicios de fondo (scheduler, checker, incidents); Ctrl-C los detiene
+workers:
+    cargo build -p taut-scheduler -p taut-checker -p taut-incidents
+    trap 'kill 0' EXIT; \
+    for svc in scheduler checker incidents; do \
+      TAUT_HTTP__ADDR=0.0.0.0:$(just port $svc) ./target/debug/taut-$svc & \
+    done; \
+    wait
+
+# Puerto local de cada servicio (el mismo que publica compose)
+[private]
+port svc:
+    @case {{svc}} in \
+      api) echo 8080 ;; scheduler) echo 8081 ;; checker) echo 8082 ;; incidents) echo 8083 ;; \
+      *) echo "servicio desconocido: {{svc}}" >&2; exit 1 ;; \
+    esac
 
 # Corre el servidor de desarrollo del frontend
 web:
@@ -97,9 +117,9 @@ db-reset:
 sqlx-prepare:
     cargo sqlx prepare --workspace
 
-# Construye la imagen de la api con el commit actual
-image:
-    docker build -f services/api/Dockerfile --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t {{image}}:dev .
+# Construye la imagen de un servicio con el commit actual: just image checker
+image svc="api":
+    docker build --build-arg SERVICE={{svc}} --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t taut-{{svc}}:dev .
 
 # Pruebas de carga con k6 (llegan en la semana 6)
 loadtest:

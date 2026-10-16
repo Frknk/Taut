@@ -20,6 +20,33 @@
         "dev"
       ],
       "port": 5173
+    },
+    {
+      "name": "scheduler",
+      "runtimeExecutable": "just",
+      "runtimeArgs": [
+        "run",
+        "scheduler"
+      ],
+      "port": 8081
+    },
+    {
+      "name": "checker",
+      "runtimeExecutable": "just",
+      "runtimeArgs": [
+        "run",
+        "checker"
+      ],
+      "port": 8082
+    },
+    {
+      "name": "incidents",
+      "runtimeExecutable": "just",
+      "runtimeArgs": [
+        "run",
+        "incidents"
+      ],
+      "port": 8083
     }
   ]
 }
