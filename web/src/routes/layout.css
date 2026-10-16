@@ -1,1 +1,21 @@
 @import 'tailwindcss';
+
+/*
+ * Chart tokens (dataviz reference palette, validated on the white card surface). The panel is
+ * light-only for now; a dark theme redefines these same roles.
+ */
+:root {
+  --viz-surface: #ffffff;
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-muted: #898781;
+  --viz-ink: #0b0b0b;
+  --viz-ink-secondary: #52514e;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+  --status-none: #e1e0d9;
+}

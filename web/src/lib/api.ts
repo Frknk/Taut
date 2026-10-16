@@ -3,6 +3,11 @@ export const API_URL: string = (
   (import.meta.env.PUBLIC_API_URL as string | undefined) ?? 'http://localhost:8080'
 ).replace(/\/$/, '');
 
+/** Base URL of taut-status-bff (public status pages), from `PUBLIC_STATUS_URL`. */
+export const STATUS_URL: string = (
+  (import.meta.env.PUBLIC_STATUS_URL as string | undefined) ?? 'http://localhost:8085'
+).replace(/\/$/, '');
+
 /** Failure of an API call: HTTP status (0 when the API was unreachable) and error code. */
 export class ApiError extends Error {
   readonly status: number;
