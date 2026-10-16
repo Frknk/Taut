@@ -135,6 +135,19 @@ pub struct SchedulerSettings {
     pub lock_ttl_secs: u64,
 }
 
+/// Notifier settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotifierSettings {
+    /// SMTP server: `smtp://host:1025` without TLS (Mailpit in development),
+    /// `smtp://user:pass@host:587?tls=required` for STARTTLS or `smtps://user:pass@host:465`.
+    /// Carries credentials in production, so it only comes from the environment.
+    pub smtp_url: String,
+    /// Sender of alert emails.
+    pub email_from: String,
+    /// Base URL of the panel, for links in alerts.
+    pub panel_url: String,
+}
+
 /// Complete configuration of a service.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -154,6 +167,8 @@ pub struct Settings {
     pub checks: ChecksSettings,
     /// Scheduler.
     pub scheduler: SchedulerSettings,
+    /// Notifier.
+    pub notifier: NotifierSettings,
 }
 
 impl Default for Settings {
@@ -192,6 +207,11 @@ impl Default for Settings {
             scheduler: SchedulerSettings {
                 resync_secs: 30,
                 lock_ttl_secs: 10,
+            },
+            notifier: NotifierSettings {
+                smtp_url: "smtp://localhost:1025".to_owned(),
+                email_from: "taut <alertas@taut.localhost>".to_owned(),
+                panel_url: "http://localhost:5173".to_owned(),
             },
         }
     }
