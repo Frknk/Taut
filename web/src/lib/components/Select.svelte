@@ -4,17 +4,35 @@
 
   import { inputBox } from '#lib/ui.js';
 
-  /** A native `<select>` with the look of an input and a caret, 6px below its label. */
+  /**
+   * A native `<select>` with the look of an input and a caret, 6px below its label. `inline`
+   * drops that gap, for a select inside a table row; `onchange` runs after `value` updated.
+   */
   let {
     id,
     value = $bindable(),
     disabled = false,
+    inline = false,
+    onchange,
     children,
-  }: { id: string; value: T; disabled?: boolean; children: Snippet } = $props();
+  }: {
+    id: string;
+    value: T;
+    disabled?: boolean;
+    inline?: boolean;
+    onchange?: (value: T) => void;
+    children: Snippet;
+  } = $props();
 </script>
 
-<span class="relative mt-1.5 block">
-  <select {id} class={[inputBox, 'cursor-pointer appearance-none pr-9']} bind:value {disabled}>
+<span class={['relative block', !inline && 'mt-1.5']}>
+  <select
+    {id}
+    class={[inputBox, 'cursor-pointer appearance-none pr-9']}
+    bind:value
+    {disabled}
+    onchange={() => onchange?.(value)}
+  >
     {@render children()}
   </select>
   <CaretDownIcon

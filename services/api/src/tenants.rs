@@ -38,12 +38,7 @@ async fn create(
     user: CurrentUser,
     Json(input): Json<NewTenant>,
 ) -> Result<(StatusCode, Json<TenantWithRole>), AppError> {
-    let name = input.name.trim();
-    if name.is_empty() || name.chars().count() > MAX_NAME_CHARS {
-        return Err(AppError::BadRequest(format!(
-            "name must be between 1 and {MAX_NAME_CHARS} characters"
-        )));
-    }
+    let name = validated_name(&input.name)?;
     let slug = input.slug.trim().to_ascii_lowercase();
     if !is_valid_slug(&slug) {
         return Err(AppError::BadRequest(
@@ -134,6 +129,17 @@ async fn show(
         .await?
         .map(Json)
         .ok_or_else(|| AppError::NotFound("tenant not found".to_owned()))
+}
+
+/// The trimmed display name, 1–100 characters (the `tenants.name` CHECK).
+pub(crate) fn validated_name(raw: &str) -> Result<&str, AppError> {
+    let name = raw.trim();
+    if name.is_empty() || name.chars().count() > MAX_NAME_CHARS {
+        return Err(AppError::BadRequest(format!(
+            "name must be between 1 and {MAX_NAME_CHARS} characters"
+        )));
+    }
+    Ok(name)
 }
 
 /// Same rule as the `tenants.slug` CHECK: 3–40 characters, `[a-z0-9-]`, no hyphen at the ends.

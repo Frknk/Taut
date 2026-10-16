@@ -11,6 +11,7 @@
     { href: resolve('/(app)/settings/profile'), label: 'Perfil' },
     { href: resolve('/(app)/settings/security'), label: 'Seguridad' },
     { href: resolve('/(app)/settings/members'), label: 'Miembros' },
+    { href: resolve('/(app)/settings/tenant'), label: 'Organización' },
   ];
 </script>
 

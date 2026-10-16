@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM invitations WHERE tenant_id = $1 AND email = $2 AND accepted_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6ff62cb37867b1e6c547cc74fcbe4f4c890432ec38664f3e0730f19937de3973"
+}

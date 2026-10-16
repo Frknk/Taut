@@ -77,4 +77,5 @@ invitaciones y API keys.
 - Un `staging` configurado por error como `dev` enviaría cookies sin `Secure`; la variable
   `TAUT_APP__ENV` pasa a ser de seguridad, no solo de logs.
 - Pendiente para los PRs siguientes: 2FA con TOTP y step-up por `auth_time`, invitaciones y
-  ciclo de vida del tenant, API keys.
+  ciclo de vida del tenant, API keys. (2FA y step-up llegaron en el PR 2; invitaciones, roles y
+  borrado del tenant en el PR 3.)

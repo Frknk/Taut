@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { page } from '$app/state';
   import type { Snippet } from 'svelte';
 
   import Logo from '#lib/components/Logo.svelte';
@@ -8,9 +9,11 @@
 
   let { children }: { children: Snippet } = $props();
 
-  // Signed in already: these pages make no sense, go pick an organization.
+  // Signed in already: these pages make no sense, go pick an organization. Invitations are
+  // the exception: they are accepted with a session.
+  const forAnyone = $derived(page.route.id?.startsWith('/(auth)/invite/') ?? false);
   $effect(() => {
-    if (session.status === 'authenticated') void goto(resolve('/'));
+    if (session.status === 'authenticated' && !forAnyone) void goto(resolve('/'));
   });
 </script>
 
