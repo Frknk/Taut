@@ -1,0 +1,78 @@
+# Infraestructura local de taut.
+#   just up      levanta postgres, redis y nats
+#   just up-all  además construye y levanta la api (perfil "app")
+#   just nuke    borra también los volúmenes
+name: taut
+
+services:
+  postgres:
+    # TimescaleDB sobre PostgreSQL 17; no existe tag "latest" a propósito (docs/adr/0002).
+    image: timescale/timescaledb:2.26.1-pg17
+    environment:
+      POSTGRES_USER: taut
+      POSTGRES_PASSWORD: taut
+      POSTGRES_DB: taut
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taut -d taut"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # Sin persistencia en local: la caché y los locks se reconstruyen solos.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats:
+    image: nats:2.11-alpine
+    command: ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+    environment:
+      TAUT_APP__ENV: dev
+      TAUT_HTTP__ADDR: 0.0.0.0:8080
+      TAUT_HTTP__CORS_ORIGINS: http://localhost:5173
+      TAUT_TELEMETRY__LOG_FORMAT: json
+      DATABASE_URL: postgres://taut:taut@postgres:5432/taut
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  nats-data:

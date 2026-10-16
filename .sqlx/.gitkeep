@@ -1,0 +1,1 @@
+# Caché offline de sqlx (cargo sqlx prepare --workspace). Se regenera cuando hay query!/query_as!.
