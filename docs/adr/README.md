@@ -25,3 +25,4 @@ después, y no se edita para cambiarla: una decisión nueva reemplaza a la anter
 | 0003 | [Tooling: just, lefthook, Conventional Commits, bun, oxlint y oxfmt](0003-tooling-just-lefthook-bun-oxc.md) | Aceptado | 2026-10-15 |
 | 0004 | [Idioma: código en inglés, documentación en español](0004-idioma-codigo-ingles-docs-espanol.md) | Aceptado | 2026-10-15 |
 | 0005 | [Frontend SvelteKit como SPA estática](0005-frontend-sveltekit-spa-estatica.md)              | Aceptado | 2026-10-15 |
+| 0006 | [Licencia MIT para el repositorio](0006-licencia-mit.md)                                     | Aceptado | 2026-10-15 |

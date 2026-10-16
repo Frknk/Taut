@@ -429,4 +429,4 @@ Criterio de cada compuerta:
 - [ ] PaaS para el entregable de la semana 1–2 (Fly.io, Render o Railway).
 - [ ] Tamaño del equipo y reparto de servicios (el sílabo trabaja en equipos de 2 en sem. 9 y 10).
 - [ ] Dominio para la página de estado pública (status.<dominio>/<slug> o <slug>.status.<dominio>).
-- [ ] Licencia del repositorio (privado por ahora; se elige antes de hacerlo público).
+- [x] Licencia del repositorio → **MIT**, decidida el 15-10-2026 ([ADR 0006](adr/0006-licencia-mit.md)).
