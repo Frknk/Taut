@@ -344,6 +344,34 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   el layout: ante un `reauth_required` de la api o de auth pide la contraseña (y el código si hay
   2FA), llama a `reauth` y reintenta la petición original.
 
+**Semana 13–14 (identidad y cuentas, PR 3 de 4: invitaciones, miembros y ciclo de vida del tenant)**
+
+- Invitaciones por correo: `POST /v1/invitations {email, role}` (solo owners, como mucho 20
+  pendientes por tenant) guarda el SHA-256 de un secreto de 256 bits en `invitations` y publica
+  `tenants.member_invited` con el enlace `{TAUT_APP__PANEL_URL}/invite/{token}`, que el notifier
+  envía («[taut] Te invitaron a …»). El enlace vale 7 días; invitar otra vez al mismo correo
+  reemplaza la invitación pendiente (solo el último enlace funciona) y `DELETE
+  /v1/invitations/{id}` la revoca. Invitar a quien ya es miembro responde `409`.
+- `GET /v1/invitations/{token}` no pide sesión (el secreto es el enlace) y devuelve solo el
+  nombre del tenant, el correo, el rol y el vencimiento. `POST /v1/invitations/{token}/accept`
+  exige sesión y que el correo de la cuenta sea el invitado (`403` si no); vencida `400`, usada o
+  revocada `404`, ya miembro `409`. Crea la membresía con el rol ofrecido.
+- Miembros: `PUT /v1/members/{user_id} {role}` y `DELETE /v1/members/{user_id}` (owners) y
+  `POST /v1/tenant/leave` (cualquiera). Un tenant nunca se queda sin owner: degradar, quitar o
+  salir siendo el último responde `409 the tenant needs at least one owner`. La comprobación
+  bloquea la fila del tenant (`FOR UPDATE`), así dos owners no pueden degradarse a la vez.
+- Tenant: `GET /v1/tenant`, `PUT /v1/tenant {name}` (owner; el slug no cambia) y `DELETE
+  /v1/tenant` (owner + step-up). El borrado es definitivo: en una transacción borra los
+  `check_results` del tenant (la hypertable no tiene clave foránea) y luego el tenant, que arrastra
+  monitores, incidentes, canales, miembros e invitaciones; el scheduler suelta los monitores en
+  su siguiente resincronización.
+- Panel: `/invite/{token}` muestra la invitación; sin sesión ofrece entrar o crear la cuenta y
+  vuelve al enlace con `?next=`; con otra cuenta lo dice y ofrece cambiarla; con la correcta
+  acepta y entra al tenant. `/settings/members` añade, para owners, el selector de rol, quitar
+  (con diálogo), invitar y la lista de pendientes con revocar; los members la ven de lectura.
+  `/settings/tenant` renombra, sale y borra escribiendo el slug (y la contraseña vía
+  `ReauthDialog` si el login tiene más de 5 min).
+
 **Semana 13–14 (identidad y cuentas, PR 4 de 4: API keys)**
 
 - API keys por tenant para scripts y CI: `taut_live_` + 32 bytes aleatorios en base64url. La
@@ -354,7 +382,7 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   `GET /v1/api-keys` (sin la clave, con último uso y revocación) y `DELETE /v1/api-keys/{id}`,
   que marca `revoked_at` y responde `204`. Revocar no pide step-up para poder cortar una clave
   filtrada al instante; la fila queda para la auditoría.
-- Uso: `Authorization: Bearer taut_live_…`. El tenant sale de la clave; `X-Tenant-Id` es
+- Uso: `Authorization: ****** El tenant sale de la clave; `X-Tenant-Id` es
   opcional y si nombra otro tenant responde `403`. Clave desconocida o revocada: `401`. La api
   la busca por hash (`Actor::ApiKey { key_id, scope }`), anota `api_key_id` en el span de la
   petición y escribe `last_used_at` fuera de la petición, como mucho una vez por minuto.

@@ -61,8 +61,8 @@ Toda ruta de `/v1` lleva `Authorization: Bearer <access token>`; el token lo emi
 (`POST /v1/auth/login`, 15 min) y se renueva con la cookie de sesión (`POST /v1/auth/refresh`).
 Las rutas que actúan sobre un tenant llevan además la cabecera `X-Tenant-Id` con su UUID: la api
 comprueba que el usuario es miembro y de ahí sale su rol (`owner` todo; `member` lee todo y
-gestiona monitores). Las acciones delicadas (canales de alerta, crear API keys; después borrar
-el tenant) exigen además que el usuario haya confirmado su contraseña hace menos de 5 min:
+gestiona monitores). Las acciones delicadas (canales de alerta, borrar el tenant y crear API
+keys) exigen además que el usuario haya confirmado su contraseña hace menos de 5 min:
 si no, `403 reauth_required` y el panel pide la contraseña (`POST /v1/auth/reauth`) y reintenta.
 Los errores son siempre `{"error": {"code", "message", "trace_id"}}`.
 
@@ -86,6 +86,10 @@ keys, `/v1/tenants` y el tenant les responden `401`/`403`. Revocada, responde `4
 | `POST /v1/tenants`                    | Crea un tenant (`name`, `slug`); quien lo crea es owner      |
 | `GET /v1/tenants` · `/v1/tenants/{id}` | Mis tenants con mi rol, o uno de ellos                     |
 | `GET /v1/members`                     | Miembros del tenant con su rol                              |
+| `PUT/DELETE /v1/members/{user_id}`    | Cambia el rol (`role`) o quita a un miembro (owner); nunca al último owner (`409`) |
+| `GET/POST /v1/invitations` · `DELETE /{id}` | Invitaciones pendientes; invitar (`email`, `role`; owner, máx. 20, enlace de 7 días por correo); revocar |
+| `GET /v1/invitations/{token}` · `POST /{token}/accept` | Lo que muestra el enlace (sin sesión); aceptar con la cuenta del correo invitado |
+| `GET/PUT/DELETE /v1/tenant` · `POST /v1/tenant/leave` | El tenant actual: ver, renombrar (`name`), borrar (owner + reautenticación) o salir |
 | `GET/POST /v1/api-keys` · `DELETE /{id}` | API keys del tenant (owners): crear (`name`, `scope` = `read`/`write`; devuelve `key` una sola vez), listar con último uso, revocar |
 | `GET /v1/monitors` · `POST`           | Lista o crea monitores del tenant                           |
 | `GET/PUT/DELETE /v1/monitors/{id}`    | Lee, reemplaza la configuración o elimina un monitor        |
@@ -163,7 +167,7 @@ taut/
 │   ├── net/         taut-net: cliente HTTP saliente que rechaza direcciones internas
 │   └── identity/    taut-identity: firma y verificación de tokens (Ed25519, JWKS), API keys
 ├── services/
-│   ├── api/         taut-api: tenants, miembros, monitores (/v1) y pings de heartbeat (/h)
+│   ├── api/         taut-api: tenants, miembros, invitaciones, monitores (/v1) y pings (/h)
 │   ├── auth/        taut-auth: registro, login (con 2FA TOTP), sesiones, reautenticación, JWKS
 │   ├── scheduler/   taut-scheduler: planifica los chequeos (líder por lock en Redis)
 │   ├── checker/     taut-checker: ejecuta HTTP, palabra clave y TCP

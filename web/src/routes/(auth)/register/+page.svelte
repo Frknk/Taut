@@ -1,11 +1,20 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { page } from '$app/state';
 
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
   import { authRequest, describeError } from '#lib/api.js';
   import { validateRegister, type AuthErrors, type RegisterValues } from '#lib/auth-forms.js';
   import { fieldError, help, input, label, link } from '#lib/ui.js';
+
+  // Coming from an invitation: the login links take the user back to it.
+  const next = $derived(page.url.searchParams.get('next'));
+  const loginHref = $derived(
+    next?.startsWith('/')
+      ? `${resolve('/(auth)/login')}?next=${encodeURIComponent(next)}`
+      : resolve('/(auth)/login'),
+  );
 
   let values = $state<RegisterValues>({ name: '', email: '', password: '', confirm: '' });
   let errors = $state<AuthErrors<RegisterValues>>({});
@@ -64,7 +73,7 @@
     {:else}
       <button type="button" class={link} onclick={resend}>Reenviar el correo</button>
     {/if}
-    · <a class={link} href={resolve('/(auth)/login')}>Ir a entrar</a>
+    · <a class={link} href={loginHref}>Ir a entrar</a>
   </p>
 {:else}
   <div>
@@ -137,6 +146,6 @@
   </form>
 
   <p class="text-sm text-subtle">
-    ¿Ya tienes cuenta? <a class={link} href={resolve('/(auth)/login')}>Entra</a>
+    ¿Ya tienes cuenta? <a class={link} href={loginHref}>Entra</a>
   </p>
 {/if}
