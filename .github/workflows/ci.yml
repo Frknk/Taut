@@ -2,10 +2,13 @@
 # Lo mismo que `just check` en local, repartido en tres jobs independientes.
 name: ci
 
+# Los cambios que solo tocan documentación no lanzan nada (ahorra minutos de Actions).
 on:
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md", ".claude/**"]
   push:
     branches: [main]
+    paths-ignore: ["docs/**", "**/*.md", ".claude/**"]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -19,6 +22,28 @@ env:
   RUST_BACKTRACE: "1"
 
 jobs:
+  # Decide si hace falta validar la imagen: un PR que solo toca web/ no la cambia.
+  changes:
+    name: changes (rutas relevantes)
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.filter.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            image:
+              - "Dockerfile"
+              - ".dockerignore"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "crates/**"
+              - "services/**"
+              - "migrations/**"
+              - ".sqlx/**"
+
   rust:
     name: rust (fmt, clippy, deny, tests)
     runs-on: ubuntu-latest
@@ -112,8 +137,10 @@ jobs:
 
   docker:
     # El Dockerfile es el mismo para todos los servicios; construir uno lo valida. build.yml
-    # construye y publica todos al fusionar en main.
+    # construye y publica todos al crear un tag v* o a mano.
     name: docker (build de la imagen de la api)
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

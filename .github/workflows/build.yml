@@ -1,12 +1,13 @@
-# Publica la imagen de cada servicio en GHCR en cada push a main y en cada tag v*.
+# Publica la imagen de cada servicio en GHCR en cada tag v* o a mano (Actions > build > Run workflow).
+# No corre en cada push a main: son 7 builds de Rust y consumen los minutos de Actions.
 # Por ahora solo linux/amd64: compilar Rust bajo QEMU para arm64 tarda demasiado.
 # Cuando se elija la nube (semana 2) se agrega arm64 con runners nativos o cross-compilación.
 name: build
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
