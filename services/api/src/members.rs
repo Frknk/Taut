@@ -195,7 +195,7 @@ async fn leave(
     CurrentTenant { tenant, actor }: CurrentTenant,
 ) -> Result<StatusCode, AppError> {
     actor.require(Permission::Read)?;
-    drop_membership(&state, tenant.id, actor.user_id()).await?;
+    drop_membership(&state, tenant.id, actor.user_id()?).await?;
     tracing::info!("member left the tenant");
     Ok(StatusCode::NO_CONTENT)
 }

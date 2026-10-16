@@ -147,11 +147,12 @@ async fn create(
     Json(input): Json<NewInvitation>,
 ) -> Result<(StatusCode, Json<Invitation>), AppError> {
     actor.require(Permission::Tenant)?;
+    let user_id = actor.user_id()?;
     let email = normalize_email(&input.email)?;
 
     let mut tx = state.pool.begin().await?;
     make_room(&mut tx, tenant.id, &email).await?;
-    let inviter = sqlx::query_scalar!("SELECT name FROM users WHERE id = $1", actor.user_id())
+    let inviter = sqlx::query_scalar!("SELECT name FROM users WHERE id = $1", user_id)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -169,7 +170,7 @@ async fn create(
         email,
         input.role.as_str(),
         random::sha256_hex(&token),
-        actor.user_id(),
+        user_id,
         expires_at,
     )
     .fetch_one(&mut *tx)

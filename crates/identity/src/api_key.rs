@@ -3,6 +3,9 @@
 //! The plain key is shown once; the database keeps its SHA-256 and the first characters for
 //! display. A bearer token that starts with the prefix is an API key; anything else is a JWT.
 
+use std::fmt;
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
 use crate::random::{opaque_token, sha256_hex};
@@ -29,6 +32,29 @@ impl Scope {
         match self {
             Self::Read => "read",
             Self::Write => "write",
+        }
+    }
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// A scope name that is neither `read` nor `write`.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("unknown api key scope {0:?}")]
+pub struct UnknownScope(pub String);
+
+impl FromStr for Scope {
+    type Err = UnknownScope;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "read" => Ok(Self::Read),
+            "write" => Ok(Self::Write),
+            other => Err(UnknownScope(other.to_owned())),
         }
     }
 }
@@ -77,6 +103,14 @@ mod tests {
         assert_eq!(key.hash, sha256_hex(&key.plain));
         assert_eq!(key.display_prefix.len(), PREFIX.len() + DISPLAY_CHARS);
         assert!(key.plain.starts_with(&key.display_prefix));
+    }
+
+    #[test]
+    fn scopes_round_trip_through_their_names() {
+        for scope in [Scope::Read, Scope::Write] {
+            assert_eq!(scope.as_str().parse::<Scope>(), Ok(scope));
+        }
+        assert!("admin".parse::<Scope>().is_err());
     }
 
     #[test]
