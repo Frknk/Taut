@@ -1,0 +1,30 @@
+# Hooks de git gestionados por lefthook. `lefthook install` los activa (`just setup` lo hace).
+# Saltar en una emergencia: LEFTHOOK=0 git commit ...
+
+pre-commit:
+  parallel: true
+  commands:
+    rust-fmt:
+      glob: "*.rs"
+      run: cargo fmt --all -- --check
+    web-lint:
+      root: "web/"
+      glob: "*.{ts,js,svelte}"
+      run: bunx oxlint {staged_files}
+    web-fmt:
+      root: "web/"
+      glob: "*.{ts,js,svelte,css,json,md}"
+      run: bunx oxfmt --check {staged_files}
+
+commit-msg:
+  commands:
+    conventional:
+      run: scripts/check-commit-msg.sh {1}
+
+pre-push:
+  commands:
+    clippy:
+      run: cargo clippy --workspace --all-targets -- -D warnings
+    unit-tests:
+      # Solo tests unitarios: los de integración necesitan la BD y corren en `just check` y en CI.
+      run: cargo test --workspace --lib

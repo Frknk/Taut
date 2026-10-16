@@ -12,6 +12,8 @@ ignore = []
 [licenses]
 version = 2
 confidence-threshold = 0.8
+# Los crates del workspace son privados (publish = false) y aún no tienen licencia.
+private = { ignore = true }
 allow = [
   "MIT",
   "Apache-2.0",
@@ -25,11 +27,14 @@ allow = [
   "CC0-1.0",
   "0BSD",
   "OpenSSL",
+  "CDLA-Permissive-2.0", # webpki-roots: datos de certificados raíz de Mozilla
 ]
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Los crates del workspace se referencian por ruta sin versión; eso no es un comodín real.
+allow-wildcard-paths = true
 highlight = "all"
 
 [sources]
