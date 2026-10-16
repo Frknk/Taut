@@ -74,6 +74,9 @@ getrandom = "0.4"
 subtle = "2"
 axum-extra = { version = "0.12", default-features = false, features = ["cookie"] }
 time = "0.3"
+# Segundo factor: TOTP (RFC 6238) y AES-256-GCM para guardar el secreto cifrado en la base.
+totp-rs = { version = "6", features = ["otpauth", "gen_secret"] }
+aes-gcm = "0.11"
 
 # Errores y utilidades
 thiserror = "2"

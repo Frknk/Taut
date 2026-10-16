@@ -145,6 +145,16 @@ pub fn token_for(keys: &KeyPair, user_id: Uuid) -> String {
 
 /// An access token for `user_id` that expires `ttl_secs` from now (negative: already expired).
 pub fn token_with(keys: &KeyPair, user_id: Uuid, ttl_secs: i64) -> String {
+    token_signed(keys, user_id, ttl_secs, 0)
+}
+
+/// An access token whose last authentication was `auth_age_secs` ago: old enough and the
+/// sensitive routes answer `403 reauth_required`.
+pub fn token_authenticated_ago(keys: &KeyPair, user_id: Uuid, auth_age_secs: i64) -> String {
+    token_signed(keys, user_id, 900, auth_age_secs)
+}
+
+fn token_signed(keys: &KeyPair, user_id: Uuid, ttl_secs: i64, auth_age_secs: i64) -> String {
     let now = Utc::now().timestamp();
     keys.sign(&Claims {
         iss: ISSUER.to_owned(),
@@ -153,7 +163,7 @@ pub fn token_with(keys: &KeyPair, user_id: Uuid, ttl_secs: i64) -> String {
         sid: Uuid::now_v7(),
         iat: now,
         exp: now + ttl_secs,
-        auth_time: now,
+        auth_time: now - auth_age_secs,
         mfa: false,
         ver: 1,
         kind: TokenKind::Access,

@@ -9,6 +9,7 @@
 
   const sections = [
     { href: resolve('/(app)/settings/profile'), label: 'Perfil' },
+    { href: resolve('/(app)/settings/security'), label: 'Seguridad' },
     { href: resolve('/(app)/settings/members'), label: 'Miembros' },
   ];
 </script>

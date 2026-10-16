@@ -318,3 +318,28 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   es el selector de organizaciones (crear una o esperar invitación); `/settings/profile` (cambio
   de contraseña) y `/settings/members`. Al cargar, el panel pide un refresh con la cookie; un
   `401` de la api provoca un refresh y un reintento, y si falla vuelve a `/login`.
+
+**Semana 13–14 (identidad y cuentas, PR 2 de 4: verificación en dos pasos y step-up)**
+
+- 2FA opcional por usuario con TOTP (RFC 6238: SHA-1, 6 dígitos, pasos de 30 s, ±1 paso de
+  tolerancia), la configuración que entiende cualquier app de autenticación. `POST
+  /v1/auth/mfa/enroll` genera el secreto (en Redis, `mfa:pending:{user_id}`, 10 min) y la URI
+  `otpauth://` que el panel dibuja como QR; `POST /v1/auth/mfa/confirm {code}` lo guarda cifrado
+  con AES-256-GCM bajo `TAUT_AUTH__TOTP_KEY` (32 bytes base64; obligatoria fuera de dev, clave
+  fija de desarrollo si falta) y devuelve 8 códigos de respaldo `xxxx-xxxx`, que solo se muestran
+  una vez y se guardan como SHA-256 en `mfa_backup_codes`; cada uno sirve una sola vez.
+- Con 2FA activo el login responde `200 {status: "mfa_required", mfa_token}` sin abrir sesión:
+  el `mfa_token` es un JWT `kind: mfa` de 5 min que la api y `me` rechazan. `POST /v1/auth/mfa
+  {mfa_token, code | backup_code}` abre la sesión con `mfa: true`; el token se gasta al usarlo.
+  Un código TOTP solo se acepta una vez (`totp:used:{user_id}:{step}`, 90 s) y 5 códigos
+  erróneos en 15 min bloquean el segundo factor (`rl:mfa:{user_id}`, `429`).
+- Step-up: las acciones delicadas exigen que `auth_time` (último login o reautenticación) tenga
+  menos de 5 min; si no, `403 reauth_required`. `POST /v1/auth/reauth {password, code?}` emite un
+  access nuevo con `auth_time = now` sin tocar la cookie. Lo exigen crear, editar, probar y
+  borrar canales de alerta (`Actor::require_recent_auth`), cambiar la contraseña, desactivar 2FA
+  y regenerar códigos; borrar el tenant y crear API keys lo heredarán en sus PRs.
+- Panel: `/settings/security` (activar con QR vía `uqr` o clave manual, códigos de respaldo con
+  botón de copiar, regenerar, desactivar con contraseña y código), segundo paso en `/login` (el
+  mismo campo acepta el código de la app o uno de respaldo) y `ReauthDialog`, montado una vez en
+  el layout: ante un `reauth_required` de la api o de auth pide la contraseña (y el código si hay
+  2FA), llama a `reauth` y reintenta la petición original.

@@ -7,6 +7,7 @@
 
   import Button from '#lib/components/Button.svelte';
   import Logo from '#lib/components/Logo.svelte';
+  import ReauthDialog from '#lib/components/ReauthDialog.svelte';
   import { session } from '#lib/session.svelte.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import { focusRing } from '#lib/ui.js';
@@ -83,5 +84,6 @@
     <main class="mx-auto max-w-5xl px-4 py-8">
       {@render children()}
     </main>
+    <ReauthDialog />
   </div>
 {/if}

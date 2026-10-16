@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, name, password_hash, email_verified_at, token_version, created_at\n         FROM users WHERE email = $1",
+  "query": "INSERT INTO users (id, email, name, password_hash) VALUES ($1, $2, $3, $4)\n         ON CONFLICT (email) DO NOTHING\n         RETURNING id, email, name, password_hash, email_verified_at, token_version,\n                   totp_secret, totp_enabled_at, created_at",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,28 @@
       },
       {
         "ordinal": 6,
+        "name": "totp_secret",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "totp_secret"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "totp_enabled_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "totp_enabled_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -83,6 +105,9 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Text",
+        "Text",
         "Text"
       ]
     },
@@ -93,8 +118,10 @@
       false,
       true,
       false,
+      true,
+      true,
       false
     ]
   },
-  "hash": "d02f044ad563493017fe527ccb90df2ca3384e9efbab414ba00788f0dba85e7a"
+  "hash": "cd3bf56f93ff82953a7a96369620ce4050906a3edc92c2c75b6416466b6d737b"
 }

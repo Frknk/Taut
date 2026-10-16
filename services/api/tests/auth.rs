@@ -175,6 +175,93 @@ async fn members_manage_monitors_but_not_channels(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn changing_channels_needs_a_recent_authentication(pool: PgPool) {
+    let app = common::app(pool).await;
+    let tenant = common::create_tenant(&app, "acme").await;
+    let channel = json!({ "name": "Ops", "type": "email", "config": { "to": "ops@test.taut" } });
+    let (status, created) = common::send(
+        &app,
+        Method::POST,
+        "/v1/alert-channels",
+        Some(&tenant),
+        Some(channel.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    let channel_id = created["id"].as_str().unwrap();
+
+    // Same owner, same session, but the password was confirmed too long ago.
+    let stale = common::token_authenticated_ago(&app.keys, app.user_id, 301);
+    for (method, path, body) in [
+        (Method::POST, "/v1/alert-channels".to_owned(), Some(channel)),
+        (
+            Method::PUT,
+            format!("/v1/alert-channels/{channel_id}"),
+            Some(
+                json!({ "name": "Ops", "type": "email", "config": { "to": "x@test.taut" }, "active": false }),
+            ),
+        ),
+        (
+            Method::POST,
+            format!("/v1/alert-channels/{channel_id}/test"),
+            None,
+        ),
+        (
+            Method::DELETE,
+            format!("/v1/alert-channels/{channel_id}"),
+            None,
+        ),
+    ] {
+        let (status, body) = common::send_raw(
+            &app,
+            method.clone(),
+            &path,
+            Some(&stale),
+            Some(&tenant),
+            body,
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{method} {path}: {body}");
+        assert_eq!(body["error"]["code"], "reauth_required", "{method} {path}");
+    }
+
+    // Reading channels and managing monitors never ask for it.
+    let (status, _) = common::send_raw(
+        &app,
+        Method::GET,
+        "/v1/alert-channels",
+        Some(&stale),
+        Some(&tenant),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = common::send_raw(
+        &app,
+        Method::POST,
+        "/v1/monitors",
+        Some(&stale),
+        Some(&tenant),
+        Some(http_monitor("Sitio")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    // Within the five minutes it passes.
+    let fresh = common::token_authenticated_ago(&app.keys, app.user_id, 200);
+    let (status, _) = common::send_raw(
+        &app,
+        Method::DELETE,
+        &format!("/v1/alert-channels/{channel_id}"),
+        Some(&fresh),
+        Some(&tenant),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+}
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn members_are_listed_with_roles(pool: PgPool) {
     let app = common::app(pool).await;
     let tenant = common::create_tenant(&app, "acme").await;

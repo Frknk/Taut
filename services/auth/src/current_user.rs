@@ -2,6 +2,7 @@
 
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
+use chrono::Utc;
 use taut_http::AppError;
 use taut_identity::Claims;
 use taut_identity::bearer::{self, Credential};
@@ -18,6 +19,21 @@ pub struct CurrentUser {
     pub claims: Claims,
     /// The user row.
     pub user: User,
+}
+
+impl CurrentUser {
+    /// Fails with `403 reauth_required` unless the user confirmed their password within the
+    /// last five minutes (`POST /v1/auth/reauth`). The sensitive routes call it first.
+    pub fn require_recent_auth(&self) -> Result<(), AppError> {
+        if self.claims.is_recent(Utc::now()) {
+            Ok(())
+        } else {
+            Err(AppError::Denied {
+                code: "reauth_required",
+                message: "confirm your password to continue".to_owned(),
+            })
+        }
+    }
 }
 
 impl FromRequestParts<AppState> for CurrentUser {

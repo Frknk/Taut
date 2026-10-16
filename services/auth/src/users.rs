@@ -26,6 +26,10 @@ pub struct User {
     pub email_verified_at: Option<DateTime<Utc>>,
     /// Bumped on every password change; sessions carry the version they started with.
     pub token_version: i32,
+    /// TOTP secret encrypted with the service key (`crate::mfa`); `None` without 2FA.
+    pub totp_secret: Option<String>,
+    /// When the second factor was confirmed; `None` means 2FA is off.
+    pub totp_enabled_at: Option<DateTime<Utc>>,
     /// Creation time.
     pub created_at: DateTime<Utc>,
 }
@@ -41,7 +45,7 @@ pub struct PublicUser {
     pub name: String,
     /// When the address was confirmed.
     pub email_verified_at: Option<DateTime<Utc>>,
-    /// Whether a second factor is enrolled (always `false` until 2FA ships).
+    /// Whether a second factor (TOTP) is enrolled.
     pub mfa_enabled: bool,
     /// Creation time.
     pub created_at: DateTime<Utc>,
@@ -55,9 +59,14 @@ impl User {
             email: self.email.clone(),
             name: self.name.clone(),
             email_verified_at: self.email_verified_at,
-            mfa_enabled: false,
+            mfa_enabled: self.mfa_enabled(),
             created_at: self.created_at,
         }
+    }
+
+    /// Whether logging in needs a second factor.
+    pub fn mfa_enabled(&self) -> bool {
+        self.totp_enabled_at.is_some() && self.totp_secret.is_some()
     }
 }
 
@@ -99,7 +108,8 @@ pub fn normalize_name(name: &str) -> Result<String, AppError> {
 pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "SELECT id, email, name, password_hash, email_verified_at, token_version, created_at
+        "SELECT id, email, name, password_hash, email_verified_at, token_version,
+                totp_secret, totp_enabled_at, created_at
          FROM users WHERE email = $1",
         email
     )
@@ -111,7 +121,8 @@ pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, s
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "SELECT id, email, name, password_hash, email_verified_at, token_version, created_at
+        "SELECT id, email, name, password_hash, email_verified_at, token_version,
+                totp_secret, totp_enabled_at, created_at
          FROM users WHERE id = $1",
         id
     )
@@ -130,7 +141,8 @@ pub async fn insert(
         User,
         "INSERT INTO users (id, email, name, password_hash) VALUES ($1, $2, $3, $4)
          ON CONFLICT (email) DO NOTHING
-         RETURNING id, email, name, password_hash, email_verified_at, token_version, created_at",
+         RETURNING id, email, name, password_hash, email_verified_at, token_version,
+                   totp_secret, totp_enabled_at, created_at",
         Uuid::now_v7(),
         email,
         name,
@@ -177,6 +189,35 @@ pub async fn set_password(
     .fetch_one(pool)
     .await?;
     Ok(row.token_version)
+}
+
+/// Turns the second factor on with the already encrypted `totp_secret`.
+pub async fn enable_totp(pool: &PgPool, id: Uuid, totp_secret: &str) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE users SET totp_secret = $2, totp_enabled_at = now(), updated_at = now()
+         WHERE id = $1",
+        id,
+        totp_secret,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Turns the second factor off: forgets the secret and every backup code.
+pub async fn disable_totp(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    sqlx::query!(
+        "UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, updated_at = now()
+         WHERE id = $1",
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!("DELETE FROM mfa_backup_codes WHERE user_id = $1", id)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await
 }
 
 #[cfg(test)]

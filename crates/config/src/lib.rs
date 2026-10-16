@@ -167,7 +167,15 @@ pub struct AuthSettings {
     pub access_ttl_secs: u64,
     /// Seconds a refresh token (and so a session) lives without use.
     pub refresh_ttl_secs: u64,
+    /// Key that encrypts the TOTP secrets at rest (AES-256-GCM): 32 bytes in base64. Empty:
+    /// see [`AuthSettings::totp_key`]. `openssl rand -base64 32` makes one.
+    pub totp_key: String,
 }
+
+/// Error of a malformed `TAUT_AUTH__TOTP_KEY`.
+#[derive(Debug, thiserror::Error)]
+#[error("TAUT_AUTH__TOTP_KEY must be 32 random bytes in base64 (openssl rand -base64 32)")]
+pub struct TotpKeyError;
 
 impl AuthSettings {
     /// The signing key PEM from `signing_key` or `signing_key_file`, or `None` when neither is
@@ -180,6 +188,21 @@ impl AuthSettings {
             return std::fs::read_to_string(self.signing_key_file.trim()).map(Some);
         }
         Ok(None)
+    }
+
+    /// The TOTP encryption key, or `None` when it is not set. Outside development the auth
+    /// service refuses to start without one; in development it falls back to a fixed key.
+    pub fn totp_key(&self) -> Result<Option<[u8; 32]>, TotpKeyError> {
+        use base64::Engine;
+        let raw = self.totp_key.trim();
+        if raw.is_empty() {
+            return Ok(None);
+        }
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(raw)
+            .map_err(|_| TotpKeyError)?;
+        let key: [u8; 32] = bytes.try_into().map_err(|_| TotpKeyError)?;
+        Ok(Some(key))
     }
 }
 
@@ -258,6 +281,7 @@ impl Default for Settings {
                 signing_key_file: String::new(),
                 access_ttl_secs: 15 * 60,
                 refresh_ttl_secs: 7 * 24 * 3600,
+                totp_key: String::new(),
             },
         }
     }
@@ -392,8 +416,24 @@ mod tests {
             assert_eq!(settings.app.panel_url, "http://localhost:5173");
             assert!(!settings.http.trust_proxy);
             assert_eq!(settings.auth.signing_key_pem().unwrap(), None);
+            assert_eq!(settings.auth.totp_key().unwrap(), None);
             Ok(())
         });
+    }
+
+    #[test]
+    fn totp_key_must_be_32_base64_bytes() {
+        let auth = |totp_key: &str| AuthSettings {
+            totp_key: totp_key.to_owned(),
+            ..Settings::default().auth
+        };
+        let key = auth(" AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= ")
+            .totp_key()
+            .unwrap()
+            .unwrap();
+        assert_eq!(key, [0u8; 32]);
+        assert!(auth("AAAA").totp_key().is_err(), "too short");
+        assert!(auth("not base64!").totp_key().is_err());
     }
 
     #[test]

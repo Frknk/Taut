@@ -36,6 +36,36 @@ export interface SessionResponse {
   user: User;
 }
 
+/** A login whose password was right but whose account asks for a second factor. */
+export interface MfaRequired {
+  status: 'mfa_required';
+  /** Short-lived token for `POST /v1/auth/mfa`; not an access token. */
+  mfa_token: string;
+}
+
+/** What `POST /v1/auth/login` answers: a session, or the request for the second step. */
+export type LoginResponse = SessionResponse | MfaRequired;
+
+/** Body of `POST /v1/auth/mfa/enroll`. */
+export interface MfaEnrollment {
+  /** Base32 secret, for apps that cannot scan the QR. */
+  secret: string;
+  /** `otpauth://totp/…`, what the QR encodes. */
+  otpauth_uri: string;
+}
+
+/** Body of `POST /v1/auth/mfa/confirm` and `/backup-codes`: shown once. */
+export interface BackupCodes {
+  backup_codes: string[];
+}
+
+/** Body of `GET /v1/auth/mfa`. */
+export interface MfaStatus {
+  enabled: boolean;
+  enabled_at: string | null;
+  backup_codes_left: number;
+}
+
 /** One row of `GET /v1/members`. */
 export interface Member {
   user_id: string;

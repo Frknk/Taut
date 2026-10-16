@@ -135,6 +135,41 @@ impl SessionStore {
         })
     }
 
+    /// Changes session `sid` in place (a re-authentication refreshes `auth_time`, confirming
+    /// the second factor sets `mfa`) and returns it; `None` when the session is gone. The
+    /// refresh token and the TTL stay as they are.
+    pub async fn touch(
+        &self,
+        sid: Uuid,
+        change: impl FnOnce(&mut Session),
+    ) -> redis::RedisResult<Option<Session>> {
+        let mut redis = self.redis.clone();
+        let hash: Option<String> = redis::cmd("GET")
+            .arg(format!("sid:{sid}"))
+            .query_async(&mut redis)
+            .await?;
+        let Some(hash) = hash else {
+            return Ok(None);
+        };
+        let record: Option<String> = redis::cmd("GET")
+            .arg(format!("session:{hash}"))
+            .query_async(&mut redis)
+            .await?;
+        let Some(mut session) = record.and_then(|r| serde_json::from_str::<Session>(&r).ok())
+        else {
+            return Ok(None);
+        };
+        change(&mut session);
+        let record = serde_json::to_string(&session).expect("a session serializes");
+        redis::cmd("SET")
+            .arg(format!("session:{hash}"))
+            .arg(record)
+            .arg("KEEPTTL")
+            .exec_async(&mut redis)
+            .await?;
+        Ok(Some(session))
+    }
+
     /// Ends the session `token` belongs to, if any.
     pub async fn revoke(&self, token: &str) -> redis::RedisResult<()> {
         let hash = sha256_hex(token.trim());
