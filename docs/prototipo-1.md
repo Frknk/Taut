@@ -343,3 +343,26 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   mismo campo acepta el código de la app o uno de respaldo) y `ReauthDialog`, montado una vez en
   el layout: ante un `reauth_required` de la api o de auth pide la contraseña (y el código si hay
   2FA), llama a `reauth` y reintenta la petición original.
+
+**Semana 13–14 (identidad y cuentas, PR 4 de 4: API keys)**
+
+- API keys por tenant para scripts y CI: `taut_live_` + 32 bytes aleatorios en base64url. La
+  tabla `api_keys` guarda el SHA-256 (`key_hash`, único), un prefijo para reconocerlas
+  (`taut_live_Ab12cd34`), el `scope` (`read` o `write`), quién la creó, `last_used_at` y
+  `revoked_at`. La clave completa solo aparece en la respuesta de `POST /v1/api-keys`.
+- Solo owners: `POST /v1/api-keys {name, scope}` (exige step-up; máximo 20 activas por tenant),
+  `GET /v1/api-keys` (sin la clave, con último uso y revocación) y `DELETE /v1/api-keys/{id}`,
+  que marca `revoked_at` y responde `204`. Revocar no pide step-up para poder cortar una clave
+  filtrada al instante; la fila queda para la auditoría.
+- Uso: `Authorization: Bearer taut_live_…`. El tenant sale de la clave; `X-Tenant-Id` es
+  opcional y si nombra otro tenant responde `403`. Clave desconocida o revocada: `401`. La api
+  la busca por hash (`Actor::ApiKey { key_id, scope }`), anota `api_key_id` en el span de la
+  petición y escribe `last_used_at` fuera de la petición, como mucho una vez por minuto.
+- Permisos: `read` solo `GET`; `write` es como un member (lee todo y gestiona monitores). Las
+  claves solo llegan a monitores (con chequeos y métricas) e incidentes (`API_KEY_ROUTES`): el
+  resto de rutas de tenant (miembros, invitaciones, canales, API keys, el tenant) responden `403`
+  «api keys cannot manage the tenant», y las que no son de un tenant (`/v1/tenants`, auth) `401`.
+  Una ruta nueva queda cerrada a las claves hasta que se agregue a la lista.
+- Panel: `/settings/api-keys` (solo owners) con la lista (prefijo, permiso, creada, último uso,
+  revocada), un diálogo de creación que pasa por `ReauthDialog` y muestra la clave una vez con
+  botones para copiarla y copiar un `curl` de prueba, y revocar con confirmación.

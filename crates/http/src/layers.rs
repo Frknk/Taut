@@ -128,7 +128,8 @@ async fn trace_id_scope(req: Request, next: Next) -> Response {
 }
 
 fn make_span(req: &http::Request<Body>) -> Span {
-    // `tenant_id` and `user_id` start empty; the service records them once it knows them.
+    // `tenant_id`, `user_id` and `api_key_id` start empty; the service records them once it
+    // knows them.
     tracing::info_span!(
         "request",
         trace_id = %trace_id_from(req),
@@ -136,6 +137,7 @@ fn make_span(req: &http::Request<Body>) -> Span {
         path = %req.uri().path(),
         tenant_id = tracing::field::Empty,
         user_id = tracing::field::Empty,
+        api_key_id = tracing::field::Empty,
     )
 }
 

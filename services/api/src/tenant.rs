@@ -5,8 +5,14 @@
 //! the two and gives the role. Handlers take a [`CurrentTenant`] and ask its [`Actor`] for the
 //! [`Permission`] they need before writing anything; the sensitive ones also ask for a recent
 //! authentication ([`Actor::require_recent_auth`]).
+//!
+//! A bearer that starts with `taut_live_` is a tenant API key instead: its tenant comes from
+//! the key (the header is optional and must match), and it only reaches the monitoring routes
+//! ([`API_KEY_ROUTES`]). Members, invitations, alert channels, API keys and the tenant itself
+//! are for people.
 
 use axum::extract::FromRequestParts;
+use axum::http::Method;
 use axum::http::request::Parts;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -14,6 +20,7 @@ use sqlx::PgPool;
 use taut_http::AppError;
 use taut_http::layers::TENANT_ID_HEADER;
 use taut_identity::Claims;
+use taut_identity::api_key::{self, Scope};
 use taut_identity::bearer::{self, Credential};
 use uuid::Uuid;
 
@@ -140,6 +147,27 @@ pub enum Permission {
     Tenant,
 }
 
+/// Path prefixes an API key may reach: monitors (with their checks and metrics) and
+/// incidents. Every other tenant route answers `403` to a key, so a new route stays closed to
+/// keys until it is added here.
+pub const API_KEY_ROUTES: &[&str] = &["/v1/monitors", "/v1/incidents"];
+
+/// How often, at most, a key's `last_used_at` is written (the `UPDATE` in `touch` says the
+/// same in SQL).
+const LAST_USED_RESOLUTION_SECS: i64 = 60;
+
+/// Whether an API key may reach `path` (see [`API_KEY_ROUTES`]).
+pub fn api_key_may_reach(path: &str) -> bool {
+    API_KEY_ROUTES.iter().any(|prefix| {
+        path.strip_prefix(prefix)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    })
+}
+
+fn api_key_denied() -> AppError {
+    AppError::Forbidden("api keys cannot manage the tenant".to_owned())
+}
+
 /// Who makes a request, once verified.
 #[derive(Debug, Clone)]
 pub enum Actor {
@@ -154,28 +182,45 @@ pub enum Actor {
         /// When the user last proved who they are.
         auth_time: DateTime<Utc>,
     },
+    /// A tenant API key: `read` only reads, `write` also manages monitors.
+    ApiKey {
+        /// Key id (not the key).
+        key_id: Uuid,
+        /// What the key may do.
+        scope: Scope,
+    },
 }
 
 impl Actor {
     /// Fails with `403` unless this actor may do `permission` here.
     pub fn require(&self, permission: Permission) -> Result<(), AppError> {
-        let Self::User { role, .. } = self;
-        let allowed = match permission {
-            Permission::Read | Permission::Monitors => true,
-            Permission::Channels | Permission::Tenant => *role == Role::Owner,
-        };
-        if allowed {
-            Ok(())
-        } else {
-            Err(AppError::Forbidden("owner role required".to_owned()))
+        match (self, permission) {
+            (_, Permission::Read) | (Self::User { .. }, Permission::Monitors) => Ok(()),
+            (Self::User { role, .. }, Permission::Channels | Permission::Tenant) => {
+                if *role == Role::Owner {
+                    Ok(())
+                } else {
+                    Err(AppError::Forbidden("owner role required".to_owned()))
+                }
+            }
+            (Self::ApiKey { scope, .. }, Permission::Monitors) => match scope {
+                Scope::Write => Ok(()),
+                Scope::Read => Err(AppError::Forbidden("this api key is read-only".to_owned())),
+            },
+            (Self::ApiKey { .. }, Permission::Channels | Permission::Tenant) => {
+                Err(api_key_denied())
+            }
         }
     }
 
     /// Fails with `403 reauth_required` unless the user confirmed their password within the
     /// last five minutes (`POST /v1/auth/reauth` on the auth service). For the actions a
     /// stolen session must not be enough for: alert channels, API keys, deleting the tenant.
+    /// An API key never passes: it cannot prove anything again.
     pub fn require_recent_auth(&self) -> Result<(), AppError> {
-        let Self::User { auth_time, .. } = self;
+        let Self::User { auth_time, .. } = self else {
+            return Err(api_key_denied());
+        };
         let age = Utc::now().signed_duration_since(*auth_time).num_seconds();
         if age <= taut_identity::claims::RECENT_AUTH_SECS {
             Ok(())
@@ -187,15 +232,17 @@ impl Actor {
         }
     }
 
-    /// The user behind the request.
-    pub fn user_id(&self) -> Uuid {
-        let Self::User { user_id, .. } = self;
-        *user_id
+    /// The user behind the request; `403` for an API key, which has none.
+    pub fn user_id(&self) -> Result<Uuid, AppError> {
+        match self {
+            Self::User { user_id, .. } => Ok(*user_id),
+            Self::ApiKey { .. } => Err(api_key_denied()),
+        }
     }
 }
 
 /// The signed-in user, from the bearer token alone. For routes that are not about one tenant
-/// (listing or creating tenants).
+/// (listing or creating tenants); API keys get `401` here.
 #[derive(Debug, Clone)]
 pub struct CurrentUser {
     /// User id.
@@ -212,7 +259,7 @@ impl FromRequestParts<AppState> for CurrentUser {
             Some(Credential::Jwt(token)) => token,
             Some(Credential::ApiKey(_)) => {
                 return Err(AppError::Unauthorized(
-                    "api keys are not accepted yet".to_owned(),
+                    "api keys are not accepted on this route".to_owned(),
                 ));
             }
             None => return Err(AppError::Unauthorized("missing bearer token".to_owned())),
@@ -231,11 +278,14 @@ impl FromRequestParts<AppState> for CurrentUser {
 }
 
 /// The tenant a request acts on and who acts: a valid bearer token, the `X-Tenant-Id`
-/// header and a membership joining them.
+/// header and a membership joining them; or an API key, whose tenant is its own.
 ///
 /// `401` without a valid token, `400` without a well-formed header, `403` with code
 /// `not_a_member` when the user does not belong to that tenant (or it does not exist: the
-/// answer never tells which). On success the tenant id is recorded on the request span.
+/// answer never tells which). An API key answers `401` when unknown or revoked, `403` when
+/// the header names another tenant, the route is not in [`API_KEY_ROUTES`] or a `read` key
+/// tries anything but `GET`. On success the tenant id (and the key id) is recorded on the
+/// request span.
 #[derive(Debug, Clone)]
 pub struct CurrentTenant {
     /// The tenant.
@@ -248,18 +298,12 @@ impl FromRequestParts<AppState> for CurrentTenant {
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, AppError> {
+        if let Some(Credential::ApiKey(key)) = bearer::credential(&parts.headers) {
+            return from_api_key(parts, state, key).await;
+        }
         let user = CurrentUser::from_request_parts(parts, state).await?;
-        let header = parts
-            .headers
-            .get(TENANT_ID_HEADER)
+        let id = tenant_header(parts)?
             .ok_or_else(|| AppError::BadRequest(format!("missing {TENANT_ID_HEADER} header")))?;
-        let id = header
-            .to_str()
-            .ok()
-            .and_then(|value| Uuid::parse_str(value.trim()).ok())
-            .ok_or_else(|| {
-                AppError::BadRequest(format!("{TENANT_ID_HEADER} must be a tenant id"))
-            })?;
         let found = find_for_member(&state.pool, id, user.user_id)
             .await?
             .ok_or_else(|| AppError::Denied {
@@ -277,6 +321,98 @@ impl FromRequestParts<AppState> for CurrentTenant {
             },
         })
     }
+}
+
+/// The `X-Tenant-Id` header: `None` when absent, `400` when it is not a UUID.
+fn tenant_header(parts: &Parts) -> Result<Option<Uuid>, AppError> {
+    let Some(header) = parts.headers.get(TENANT_ID_HEADER) else {
+        return Ok(None);
+    };
+    header
+        .to_str()
+        .ok()
+        .and_then(|value| Uuid::parse_str(value.trim()).ok())
+        .map(Some)
+        .ok_or_else(|| AppError::BadRequest(format!("{TENANT_ID_HEADER} must be a tenant id")))
+}
+
+async fn from_api_key(
+    parts: &Parts,
+    state: &AppState,
+    key: &str,
+) -> Result<CurrentTenant, AppError> {
+    let hash = api_key::lookup_hash(key)
+        .ok_or_else(|| AppError::Unauthorized("invalid api key".to_owned()))?;
+    let row = sqlx::query!(
+        r#"
+        SELECT k.id AS key_id, k.scope, k.last_used_at,
+               t.id, t.slug, t.name, t.plan AS "plan: Plan", t.created_at
+        FROM api_keys k
+        JOIN tenants t ON t.id = k.tenant_id
+        WHERE k.key_hash = $1 AND k.revoked_at IS NULL
+        "#,
+        hash,
+    )
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| AppError::Unauthorized("invalid or revoked api key".to_owned()))?;
+    let span = tracing::Span::current();
+    span.record("tenant_id", tracing::field::display(row.id));
+    span.record("api_key_id", tracing::field::display(row.key_id));
+
+    if tenant_header(parts)?.is_some_and(|id| id != row.id) {
+        return Err(AppError::Forbidden(
+            "this api key belongs to another tenant".to_owned(),
+        ));
+    }
+    if !api_key_may_reach(parts.uri.path()) {
+        return Err(api_key_denied());
+    }
+    let scope: Scope = row.scope.parse().map_err(anyhow::Error::from)?;
+    if scope == Scope::Read && !matches!(parts.method, Method::GET | Method::HEAD) {
+        return Err(AppError::Forbidden("this api key is read-only".to_owned()));
+    }
+
+    let due = row.last_used_at.is_none_or(|at| {
+        Utc::now().signed_duration_since(at).num_seconds() >= LAST_USED_RESOLUTION_SECS
+    });
+    if due {
+        touch(state.pool.clone(), row.key_id);
+    }
+
+    Ok(CurrentTenant {
+        tenant: Tenant {
+            id: row.id,
+            slug: row.slug,
+            name: row.name,
+            plan: row.plan,
+            created_at: row.created_at,
+        },
+        actor: Actor::ApiKey {
+            key_id: row.key_id,
+            scope,
+        },
+    })
+}
+
+/// Writes `last_used_at` in the background: the request never waits for it, and the
+/// condition keeps concurrent requests from writing more than once a minute.
+fn touch(pool: PgPool, key_id: Uuid) {
+    tokio::spawn(async move {
+        let result = sqlx::query!(
+            r#"
+            UPDATE api_keys SET last_used_at = now()
+            WHERE id = $1
+              AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')
+            "#,
+            key_id,
+        )
+        .execute(&pool)
+        .await;
+        if let Err(err) = result {
+            tracing::warn!(api_key_id = %key_id, error = %err, "could not record api key use");
+        }
+    });
 }
 
 #[cfg(test)]
@@ -303,6 +439,50 @@ mod tests {
         };
         let err = stale.require_recent_auth().unwrap_err();
         assert_eq!(err.code(), "reauth_required");
+    }
+
+    #[test]
+    fn api_keys_read_or_manage_monitors_and_nothing_else() {
+        let read = Actor::ApiKey {
+            key_id: Uuid::nil(),
+            scope: Scope::Read,
+        };
+        let write = Actor::ApiKey {
+            key_id: Uuid::nil(),
+            scope: Scope::Write,
+        };
+        assert!(read.require(Permission::Read).is_ok());
+        assert!(read.require(Permission::Monitors).is_err());
+        assert!(write.require(Permission::Read).is_ok());
+        assert!(write.require(Permission::Monitors).is_ok());
+        for key in [&read, &write] {
+            assert!(key.require(Permission::Channels).is_err());
+            assert!(key.require(Permission::Tenant).is_err());
+            assert!(key.require_recent_auth().is_err());
+            assert!(key.user_id().is_err());
+        }
+    }
+
+    #[test]
+    fn api_keys_reach_only_the_monitoring_routes() {
+        for path in [
+            "/v1/monitors",
+            "/v1/monitors/0192/metrics",
+            "/v1/incidents",
+            "/v1/incidents/0192",
+        ] {
+            assert!(api_key_may_reach(path), "{path}");
+        }
+        for path in [
+            "/v1/members",
+            "/v1/api-keys",
+            "/v1/alert-channels",
+            "/v1/tenant",
+            "/v1/monitorsx",
+            "/v1/invitations",
+        ] {
+            assert!(!api_key_may_reach(path), "{path}");
+        }
     }
 
     #[test]

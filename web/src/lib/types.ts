@@ -75,6 +75,25 @@ export interface Member {
   joined_at: string;
 }
 
+export type ApiKeyScope = 'read' | 'write';
+
+/** A tenant API key as `GET /v1/api-keys` lists it: never the key itself. */
+export interface ApiKey {
+  id: string;
+  name: string;
+  /** First characters of the key, to tell keys apart (`taut_live_Ab12cd34`). */
+  prefix: string;
+  scope: ApiKeyScope;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+/** Body of `POST /v1/api-keys`: the key plus its full value, shown this one time. */
+export interface CreatedApiKey extends ApiKey {
+  key: string;
+}
+
 export interface Monitor {
   id: string;
   tenant_id: string;

@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT k.id AS key_id, k.scope, k.last_used_at,\n               t.id, t.slug, t.name, t.plan AS \"plan: Plan\", t.created_at\n        FROM api_keys k\n        JOIN tenants t ON t.id = k.tenant_id\n        WHERE k.key_hash = $1 AND k.revoked_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "api_keys",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "scope",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "api_keys",
+            "name": "scope"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "last_used_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "api_keys",
+            "name": "last_used_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "tenants",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tenants",
+            "name": "slug"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tenants",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "plan: Plan",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tenants",
+            "name": "plan"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "tenants",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2ee984dca8374895a4e3804ea8c129c763f73f761f1769743921f9b7382cdbc6"
+}

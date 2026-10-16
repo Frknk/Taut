@@ -4,6 +4,7 @@
 //! opening a socket. `main.rs` only wires configuration, telemetry, the database and the
 //! server loop around it.
 
+pub mod api_keys;
 pub mod channels;
 pub mod heartbeats;
 pub mod incidents;
@@ -82,6 +83,7 @@ pub fn app(
         .merge(metrics_api::router())
         .merge(incidents::router())
         .merge(channels::router())
+        .merge(api_keys::router())
         .merge(heartbeats::router())
         .with_state(state);
 
