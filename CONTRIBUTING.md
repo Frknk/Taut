@@ -58,3 +58,8 @@ agregado endpoint de monitores      → falta el tipo y va en español
 - Si agregaste una migración, es compatible hacia atrás (expand → migrate → contract).
 - Documentación al día: README si cambia el uso, ADR si cambia una decisión, `AGENTS.md` si cambia
   una convención.
+
+## Licencia de las contribuciones
+
+El repositorio está bajo la licencia [MIT](LICENSE). Al abrir un PR aceptas que tu contribución se
+publique bajo esa misma licencia, con el aviso de copyright del repositorio.

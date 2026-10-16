@@ -104,5 +104,6 @@ prefijo porque sqlx-cli y las imágenes oficiales usan esos nombres.
 
 ## Licencia
 
-Pendiente de decidir. El repositorio es privado por ahora; la licencia se elige antes de hacerlo
-público.
+[MIT](LICENSE), © 2026 Frank Rivera y colaboradores de taut
+([ADR 0006](docs/adr/0006-licencia-mit.md)). El repositorio es privado por ahora; la licencia ya
+rige cuando se haga público.
