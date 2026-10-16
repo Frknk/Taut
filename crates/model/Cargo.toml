@@ -1,6 +1,6 @@
 [package]
 name = "taut-model"
-description = "Domain types shared by taut services: monitor kinds and states, address rules"
+description = "Domain types shared by taut services: monitors, bus events, address rules"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,8 +9,10 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+chrono.workspace = true
 serde.workspace = true
 sqlx.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

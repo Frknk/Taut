@@ -4,7 +4,7 @@
 //!
 //! ```ignore
 //! let router = Router::new()
-//!     .merge(taut_http::health::router(info, pool))
+//!     .merge(taut_http::health::router(info, vec![Probe::database(pool)]))
 //!     .merge(taut_http::metrics::router(handle))
 //!     .merge(my_routes);
 //! let router = taut_http::layers::apply(router, &settings.http);
@@ -20,6 +20,6 @@ pub mod serve;
 
 pub use error::AppError;
 pub use extract::{Json, Path, Query};
-pub use health::ServiceInfo;
+pub use health::{Probe, ServiceInfo};
 pub use layers::current_trace_id;
-pub use serve::{ServeError, serve};
+pub use serve::{ServeError, serve, serve_with_worker};

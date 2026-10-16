@@ -119,6 +119,20 @@ pub struct ChecksSettings {
     /// so a tenant cannot use taut to probe the cluster's internal network; `.env.example`
     /// turns it on so local development can monitor services on the same machine.
     pub allow_private_targets: bool,
+    /// Region label of this checker, stored with every result (`local` in development).
+    pub region: String,
+    /// Checks one checker process runs at the same time.
+    pub concurrency: usize,
+}
+
+/// Scheduler settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchedulerSettings {
+    /// Seconds between full reloads of the active monitors from the database. Events from
+    /// the API apply changes immediately; the reload repairs any event that was missed.
+    pub resync_secs: u64,
+    /// Seconds the leader lock lives in Redis without renewal. Only the leader schedules.
+    pub lock_ttl_secs: u64,
 }
 
 /// Complete configuration of a service.
@@ -138,6 +152,8 @@ pub struct Settings {
     pub telemetry: TelemetrySettings,
     /// Monitor checks.
     pub checks: ChecksSettings,
+    /// Scheduler.
+    pub scheduler: SchedulerSettings,
 }
 
 impl Default for Settings {
@@ -170,6 +186,12 @@ impl Default for Settings {
             },
             checks: ChecksSettings {
                 allow_private_targets: false,
+                region: "local".to_owned(),
+                concurrency: 100,
+            },
+            scheduler: SchedulerSettings {
+                resync_secs: 30,
+                lock_ttl_secs: 10,
             },
         }
     }
