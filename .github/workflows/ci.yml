@@ -45,6 +45,12 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
+      # SMTP de prueba: los tests del notifier leen los correos por su API (puerto 8025).
+      mailpit:
+        image: axllent/mailpit:v1.31
+        ports:
+          - 1025:1025
+          - 8025:8025
     env:
       DATABASE_URL: postgres://taut:taut@localhost:5432/taut
       REDIS_URL: redis://localhost:6379

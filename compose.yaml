@@ -1,5 +1,5 @@
 # Infraestructura local de taut.
-#   just up      levanta postgres, redis y nats
+#   just up      levanta postgres, redis, nats y mailpit
 #   just up-all  además construye y levanta los servicios de taut (perfil "app")
 #   just nuke    borra también los volúmenes
 name: taut
@@ -10,6 +10,7 @@ x-taut-env: &taut-env
   TAUT_HTTP__ADDR: 0.0.0.0:8080
   TAUT_TELEMETRY__LOG_FORMAT: json
   TAUT_CHECKS__ALLOW_PRIVATE_TARGETS: "true"
+  TAUT_NOTIFIER__SMTP_URL: smtp://mailpit:1025
   DATABASE_URL: postgres://taut:taut@postgres:5432/taut
   REDIS_URL: redis://redis:6379
   NATS_URL: nats://nats:4222
@@ -66,6 +67,18 @@ services:
       timeout: 3s
       retries: 10
 
+  # SMTP de desarrollo: guarda todo correo enviado y lo muestra en http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # Servicios de taut: una imagen por servicio desde el Dockerfile de la raíz. Los puertos del
   # host son los mismos que usa `just run <servicio>`.
   api:
@@ -116,6 +129,21 @@ services:
       - "8083:8080"
     depends_on:
       <<: *taut-deps
+      api:
+        condition: service_started
+
+  notifier:
+    profiles: ["app"]
+    build:
+      context: .
+      args: { SERVICE: notifier, GIT_SHA: "${GIT_SHA:-dev}" }
+    environment: *taut-env
+    ports:
+      - "8084:8080"
+    depends_on:
+      <<: *taut-deps
+      mailpit:
+        condition: service_healthy
       api:
         condition: service_started
 
