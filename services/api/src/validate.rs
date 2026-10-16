@@ -7,8 +7,9 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::Deserialize;
-use taut_model::MonitorKind;
+use serde_json::{Value, json};
 use taut_model::net::is_internal_host;
+use taut_model::{ChannelKind, MonitorKind};
 use url::Url;
 
 /// Check intervals the API accepts, in seconds (F-14).
@@ -253,6 +254,89 @@ fn is_hostname(host: &str) -> bool {
         })
 }
 
+/// Body of `POST /v1/alert-channels` and `PUT /v1/alert-channels/{id}`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChannelInput {
+    /// Display name.
+    pub name: String,
+    /// Where alerts go. Serialized as `type`.
+    #[serde(rename = "type")]
+    pub kind: ChannelKind,
+    /// `{"to": "ops@example.com"}` for email, `{"url": "https://..."}` for the webhook kinds.
+    pub config: Value,
+    /// `false` mutes the channel without deleting it; `true` when absent.
+    pub active: Option<bool>,
+}
+
+/// Alert channel after validation, with its config normalized.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChannelSpec {
+    /// Trimmed display name.
+    pub name: String,
+    /// Where alerts go.
+    pub kind: ChannelKind,
+    /// Normalized config with only the known key.
+    pub config: Value,
+    /// Whether alerts are sent.
+    pub active: bool,
+}
+
+const MAX_EMAIL_CHARS: usize = 254;
+
+/// Validates an alert channel. `allow_internal` permits webhooks on private networks.
+pub fn channel(input: &ChannelInput, allow_internal: bool) -> Result<ChannelSpec, String> {
+    let name = input.name.trim();
+    if name.is_empty() || name.chars().count() > MAX_NAME_CHARS {
+        return Err(format!(
+            "name must be between 1 and {MAX_NAME_CHARS} characters"
+        ));
+    }
+    let field = |key: &str| {
+        input
+            .config
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    };
+    let config = match input.kind {
+        ChannelKind::Email => {
+            let to = field("to").ok_or("config.to is required for email channels")?;
+            if !is_email(to) {
+                return Err("config.to must be an email address".to_owned());
+            }
+            json!({ "to": to })
+        }
+        ChannelKind::Webhook | ChannelKind::Discord | ChannelKind::Slack => {
+            let url = field("url").ok_or("config.url is required for webhook channels")?;
+            let url = http_target(url, allow_internal)
+                .map_err(|err| err.replacen("target", "config.url", 1))?;
+            json!({ "url": url })
+        }
+    };
+    Ok(ChannelSpec {
+        name: name.to_owned(),
+        kind: input.kind,
+        config,
+        active: input.active.unwrap_or(true),
+    })
+}
+
+/// One `@`, something on each side, a dot in the domain and no whitespace. The SMTP server
+/// is the real judge; this only catches typos.
+fn is_email(value: &str) -> bool {
+    value.len() <= MAX_EMAIL_CHARS
+        && !value.chars().any(char::is_whitespace)
+        && value.split_once('@').is_some_and(|(local, domain)| {
+            !local.is_empty()
+                && !domain.contains('@')
+                && domain.contains('.')
+                && !domain.starts_with('.')
+                && !domain.ends_with('.')
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,6 +526,76 @@ mod tests {
         assert_eq!(
             error(input(MonitorKind::Heartbeat, Some("https://example.com"))),
             "heartbeat monitors have no target"
+        );
+    }
+
+    fn channel_input(kind: ChannelKind, config: Value) -> ChannelInput {
+        ChannelInput {
+            name: " Ops ".to_owned(),
+            kind,
+            config,
+            active: None,
+        }
+    }
+
+    #[test]
+    fn email_channels_need_an_address() {
+        let spec = channel(
+            &channel_input(ChannelKind::Email, json!({ "to": " ops@example.com " })),
+            false,
+        )
+        .unwrap();
+        assert_eq!(spec.name, "Ops");
+        assert_eq!(spec.config, json!({ "to": "ops@example.com" }));
+        assert!(spec.active);
+
+        for bad in [
+            json!({}),
+            json!({ "to": "ops" }),
+            json!({ "to": "a b@c.d" }),
+            json!({ "to": "a@b" }),
+        ] {
+            assert!(
+                channel(&channel_input(ChannelKind::Email, bad.clone()), false).is_err(),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn webhook_channels_need_a_public_url() {
+        let spec = channel(
+            &channel_input(
+                ChannelKind::Discord,
+                json!({ "url": "https://discord.com/api/webhooks/1/abc", "extra": 1 }),
+            ),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.config,
+            json!({ "url": "https://discord.com/api/webhooks/1/abc" }),
+            "unknown keys are dropped"
+        );
+
+        let err = channel(
+            &channel_input(
+                ChannelKind::Webhook,
+                json!({ "url": "http://10.0.0.1/hook" }),
+            ),
+            false,
+        )
+        .unwrap_err();
+        assert!(
+            err.starts_with("config.url must be a public address"),
+            "{err}"
+        );
+        assert!(
+            channel(
+                &channel_input(ChannelKind::Slack, json!({ "url": "ftp://x" })),
+                false
+            )
+            .is_err()
         );
     }
 }

@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT d.channel_id, c.name AS channel_name, c.kind AS \"channel_kind: ChannelKind\",\n               d.event, d.status, d.attempts, d.last_error, d.updated_at\n        FROM notification_deliveries d\n        JOIN alert_channels c ON c.id = d.channel_id\n        WHERE d.incident_id = $1\n        ORDER BY d.updated_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "channel_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "notification_deliveries",
+            "name": "channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "alert_channels",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_kind: ChannelKind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "alert_channels",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "event",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_deliveries",
+            "name": "event"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_deliveries",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "attempts",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "notification_deliveries",
+            "name": "attempts"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "last_error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_deliveries",
+            "name": "last_error"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "notification_deliveries",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "e903f88aa27b5feed7b8187e8552f04a706efa304e224a030f0e3b903e532227"
+}

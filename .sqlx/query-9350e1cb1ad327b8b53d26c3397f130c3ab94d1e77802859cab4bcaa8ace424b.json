@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT m.id, m.tenant_id, m.name, m.kind AS \"kind: MonitorKind\", m.target, m.interval_s,\n               m.timeout_s, m.expected_status, m.keyword, m.confirmation_period_s,\n               m.recovery_period_s, m.grace_period_s, m.heartbeat_token, m.last_ping_at,\n               m.active,\n               CASE WHEN m.active THEN 'pending' ELSE 'paused' END AS \"status!: MonitorStatus\",\n               last.at AS \"last_check_at?\", last.ok AS \"last_check_ok?\",\n               last.latency_ms AS \"last_latency_ms?\", m.created_at, m.updated_at\n        FROM monitors m\n        LEFT JOIN LATERAL (\n            SELECT r.at, r.ok, r.latency_ms FROM check_results r\n            WHERE r.monitor_id = m.id ORDER BY r.at DESC LIMIT 1\n        ) last ON true\n        WHERE m.tenant_id = $1\n        ORDER BY m.created_at\n        ",
+  "query": "\n        SELECT m.id, m.tenant_id, m.name, m.kind AS \"kind: MonitorKind\", m.target, m.interval_s,\n               m.timeout_s, m.expected_status, m.keyword, m.confirmation_period_s,\n               m.recovery_period_s, m.grace_period_s, m.heartbeat_token, m.last_ping_at,\n               m.active,\n               CASE WHEN NOT m.active THEN 'paused' ELSE coalesce(s.status, 'pending') END\n                   AS \"status!: MonitorStatus\",\n               last.at AS \"last_check_at?\", last.ok AS \"last_check_ok?\",\n               last.latency_ms AS \"last_latency_ms?\", m.created_at, m.updated_at\n        FROM monitors m\n        LEFT JOIN monitor_status s ON s.monitor_id = m.id\n        LEFT JOIN LATERAL (\n            SELECT r.at, r.ok, r.latency_ms FROM check_results r\n            WHERE r.monitor_id = m.id ORDER BY r.at DESC LIMIT 1\n        ) last ON true\n        WHERE m.tenant_id = $1\n        ORDER BY m.created_at\n        ",
   "describe": {
     "columns": [
       {
@@ -252,12 +252,12 @@
       true,
       false,
       null,
-      false,
-      false,
+      true,
+      true,
       true,
       false,
       false
     ]
   },
-  "hash": "a08999754254f152339992fa26f220b5db3189f1cacebe43f04061e10901ec20"
+  "hash": "9350e1cb1ad327b8b53d26c3397f130c3ab94d1e77802859cab4bcaa8ace424b"
 }

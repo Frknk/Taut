@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE monitor_status\n        SET status = $2, consecutive_failures = $3, consecutive_successes = $4,\n            failing_since = $5, failure_cause = $6, last_checked_at = $7, updated_at = now()\n        WHERE monitor_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4",
+        "Int4",
+        "Timestamptz",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "22167ce78b73bdcc16a4627999b8c5f8617419edf8be453b08676942bd86eb26"
+}

@@ -1,0 +1,99 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT i.id, i.monitor_id, m.name AS monitor_name, i.started_at, i.resolved_at, i.cause,\n               floor(extract(epoch FROM coalesce(i.resolved_at, now()) - i.started_at))::bigint\n                   AS \"duration_s!\"\n        FROM incidents i\n        JOIN monitors m ON m.id = i.monitor_id\n        WHERE i.tenant_id = $1\n          AND ($2::uuid IS NULL OR i.monitor_id = $2)\n          AND ((i.resolved_at IS NULL AND $3) OR (i.resolved_at IS NOT NULL AND $4))\n        ORDER BY i.resolved_at IS NULL DESC, i.started_at DESC\n        LIMIT $5\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "incidents",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "monitor_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "incidents",
+            "name": "monitor_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "monitor_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "incidents",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "resolved_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "incidents",
+            "name": "resolved_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "cause",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "incidents",
+            "name": "cause"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "duration_s!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Bool",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "da3a761a06659335d7619343948eb4d2c1d7bf5d1a30040985c115468bc0b676"
+}
