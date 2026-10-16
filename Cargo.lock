@@ -2708,6 +2708,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "taut-status-bff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "http",
+ "http-body-util",
+ "metrics-exporter-prometheus",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "taut-config",
+ "taut-db",
+ "taut-http",
+ "taut-model",
+ "taut-telemetry",
+ "tokio",
+ "tower",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "taut-telemetry"
 version = "0.1.0"
 dependencies = [
