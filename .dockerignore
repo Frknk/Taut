@@ -1,0 +1,16 @@
+# Solo lo necesario para compilar la api; el contexto de build es la raíz del repo.
+.git
+target
+web
+docs
+infra
+loadtest
+scripts
+.github
+**/.env
+**/.env.*
+*.md
+Brewfile
+justfile
+lefthook.yml
+compose.yaml
