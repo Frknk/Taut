@@ -4,13 +4,20 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
 
+  import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
+
+  import Banner from '#lib/components/Banner.svelte';
+  import Button from '#lib/components/Button.svelte';
+  import Dialog from '#lib/components/Dialog.svelte';
   import IncidentList from '#lib/components/IncidentList.svelte';
+  import LayerCard from '#lib/components/LayerCard.svelte';
   import MetricsPanel from '#lib/components/MetricsPanel.svelte';
   import StatusBadge from '#lib/components/StatusBadge.svelte';
   import { API_URL, describeError, request } from '#lib/api.js';
   import { KIND_LABELS, formatDateTime, formatSeconds, timeAgo } from '#lib/format.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { CheckResult, Incident, Monitor } from '#lib/types.js';
+  import { backLink, table } from '#lib/ui.js';
 
   const id = $derived(page.params.id ?? '');
   const tenantId = $derived(selectedTenant.current?.id ?? '');
@@ -20,6 +27,7 @@
   let incidents = $state<Incident[]>([]);
   let error = $state('');
   let copied = $state(false);
+  let confirmingDelete = $state(false);
 
   const pingUrl = $derived(
     monitor?.heartbeat_token ? `${API_URL}/h/${monitor.heartbeat_token}` : '',
@@ -62,7 +70,7 @@
   }
 
   async function remove() {
-    if (!monitor || !confirm(`¿Eliminar «${monitor.name}» y todo su historial?`)) return;
+    confirmingDelete = false;
     try {
       await request<void>('DELETE', `/v1/monitors/${id}`, { tenant: tenantId });
       await goto(resolve('/(app)/monitors'));
@@ -76,104 +84,121 @@
     const timer = setInterval(load, 10_000);
     return () => clearInterval(timer);
   });
-
-  const button =
-    'rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50';
 </script>
 
 <svelte:head>
   <title>{monitor?.name ?? 'Monitor'} · taut</title>
 </svelte:head>
 
-<a href={resolve('/(app)/monitors')} class="text-sm text-neutral-500 hover:text-neutral-900">
-  ← Monitores
+<a href={resolve('/(app)/monitors')} class={backLink}>
+  <ArrowLeftIcon size={14} aria-hidden="true" />
+  Monitores
 </a>
 
 {#if error}
-  <p class="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+  <Banner tone="danger" class="mt-6">{error}</Banner>
 {/if}
 
 {#if monitor}
   <div class="mt-2 flex flex-wrap items-center gap-3">
-    <h1 class="text-xl font-semibold text-neutral-900">{monitor.name}</h1>
+    <h1 class="text-2xl font-semibold text-strong">{monitor.name}</h1>
     <StatusBadge status={monitor.status} />
     <div class="ml-auto flex gap-2">
-      <a href={resolve('/(app)/monitors/[id]/edit', { id })} class={button}>Editar</a>
-      <button class={button} onclick={toggle}>{monitor.active ? 'Pausar' : 'Reanudar'}</button>
-      <button class={[button, 'text-red-700']} onclick={remove}>Eliminar</button>
+      <Button href={resolve('/(app)/monitors/[id]/edit', { id })}>Editar</Button>
+      <Button onclick={toggle}>{monitor.active ? 'Pausar' : 'Reanudar'}</Button>
+      <Button variant="secondary-destructive" onclick={() => (confirmingDelete = true)}>
+        Eliminar
+      </Button>
     </div>
   </div>
 
-  <dl
-    class="mt-6 grid gap-x-8 gap-y-4 rounded-xl border border-neutral-200 bg-white p-6 text-sm sm:grid-cols-2"
+  <Dialog
+    bind:open={confirmingDelete}
+    alert
+    title="¿Eliminar «{monitor.name}»?"
+    description="Se borran el monitor, sus chequeos y sus incidentes. Esto no se puede deshacer."
   >
-    <div>
-      <dt class="text-neutral-500">Tipo</dt>
-      <dd class="font-medium text-neutral-900">{KIND_LABELS[monitor.type]}</dd>
-    </div>
-    {#if monitor.target}
+    {#snippet actions()}
+      <Button variant="ghost" onclick={() => (confirmingDelete = false)}>Cancelar</Button>
+      <Button variant="destructive" onclick={remove}>Eliminar monitor</Button>
+    {/snippet}
+  </Dialog>
+
+  <LayerCard title="Configuración" class="mt-6">
+    <dl class="grid gap-x-8 gap-y-4 sm:grid-cols-2">
       <div>
-        <dt class="text-neutral-500">Destino</dt>
-        <dd class="font-medium break-all text-neutral-900">{monitor.target}</dd>
+        <dt class="text-xs text-subtle">Tipo</dt>
+        <dd class="mt-0.5 font-medium text-default">{KIND_LABELS[monitor.type]}</dd>
       </div>
-    {/if}
-    <div>
-      <dt class="text-neutral-500">Frecuencia</dt>
-      <dd class="font-medium text-neutral-900">Cada {formatSeconds(monitor.interval_s)}</dd>
-    </div>
-    {#if monitor.type === 'heartbeat'}
+      {#if monitor.target}
+        <div>
+          <dt class="text-xs text-subtle">Destino</dt>
+          <dd class="mt-0.5 break-all text-default"><code>{monitor.target}</code></dd>
+        </div>
+      {/if}
       <div>
-        <dt class="text-neutral-500">Periodo de gracia</dt>
-        <dd class="font-medium text-neutral-900">{formatSeconds(monitor.grace_period_s)}</dd>
+        <dt class="text-xs text-subtle">Frecuencia</dt>
+        <dd class="mt-0.5 font-medium text-default">Cada {formatSeconds(monitor.interval_s)}</dd>
       </div>
-    {:else}
+      {#if monitor.type === 'heartbeat'}
+        <div>
+          <dt class="text-xs text-subtle">Periodo de gracia</dt>
+          <dd class="mt-0.5 font-medium text-default">{formatSeconds(monitor.grace_period_s)}</dd>
+        </div>
+      {:else}
+        <div>
+          <dt class="text-xs text-subtle">Timeout</dt>
+          <dd class="mt-0.5 font-medium text-default">{formatSeconds(monitor.timeout_s)}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-subtle">Confirmación / recuperación</dt>
+          <dd class="mt-0.5 font-medium text-default">
+            {formatSeconds(monitor.confirmation_period_s)} / {formatSeconds(
+              monitor.recovery_period_s,
+            )}
+          </dd>
+        </div>
+      {/if}
+      {#if monitor.type === 'http' || monitor.type === 'keyword'}
+        <div>
+          <dt class="text-xs text-subtle">Código esperado</dt>
+          <dd class="mt-0.5 font-medium text-default">
+            {monitor.expected_status ?? 'Cualquier 2xx'}
+          </dd>
+        </div>
+      {/if}
+      {#if monitor.keyword}
+        <div>
+          <dt class="text-xs text-subtle">Texto esperado</dt>
+          <dd class="mt-0.5 font-medium text-default">«{monitor.keyword}»</dd>
+        </div>
+      {/if}
       <div>
-        <dt class="text-neutral-500">Timeout</dt>
-        <dd class="font-medium text-neutral-900">{formatSeconds(monitor.timeout_s)}</dd>
+        <dt class="text-xs text-subtle">Creado</dt>
+        <dd class="mt-0.5 font-medium text-default">{formatDateTime(monitor.created_at)}</dd>
       </div>
-      <div>
-        <dt class="text-neutral-500">Confirmación / recuperación</dt>
-        <dd class="font-medium text-neutral-900">
-          {formatSeconds(monitor.confirmation_period_s)} / {formatSeconds(
-            monitor.recovery_period_s,
-          )}
-        </dd>
-      </div>
-    {/if}
-    {#if monitor.type === 'http' || monitor.type === 'keyword'}
-      <div>
-        <dt class="text-neutral-500">Código esperado</dt>
-        <dd class="font-medium text-neutral-900">{monitor.expected_status ?? 'Cualquier 2xx'}</dd>
-      </div>
-    {/if}
-    {#if monitor.keyword}
-      <div>
-        <dt class="text-neutral-500">Texto esperado</dt>
-        <dd class="font-medium text-neutral-900">«{monitor.keyword}»</dd>
-      </div>
-    {/if}
-    <div>
-      <dt class="text-neutral-500">Creado</dt>
-      <dd class="font-medium text-neutral-900">{formatDateTime(monitor.created_at)}</dd>
-    </div>
-  </dl>
+    </dl>
+  </LayerCard>
 
   {#if monitor.type === 'heartbeat'}
-    <section class="mt-6 rounded-xl border border-neutral-200 bg-white p-6 text-sm">
-      <h2 class="font-medium text-neutral-900">URL de ping</h2>
-      <p class="mt-1 text-neutral-500">
+    <LayerCard title="URL de ping" class="mt-6">
+      {#snippet actions()}
+        <Button variant="ghost" size="sm" onclick={copyPingUrl}>
+          {copied ? 'Copiada' : 'Copiar URL'}
+        </Button>
+      {/snippet}
+      <p class="text-subtle">
         Tu tarea programada la llama al terminar; si no llega en
         {formatSeconds(monitor.interval_s + monitor.grace_period_s)}, se abre un incidente.
         {#if monitor.last_ping_at}Último ping {timeAgo(monitor.last_ping_at)}.{:else}Pendiente hasta
           el primer ping.{/if}
       </p>
-      <div class="mt-3 flex gap-2">
-        <code class="min-w-0 flex-1 truncate rounded-lg bg-neutral-100 px-3 py-2">{pingUrl}</code>
-        <button class={button} onclick={copyPingUrl}>{copied ? 'Copiada' : 'Copiar'}</button>
-      </div>
+      <code class="mt-3 block truncate rounded-md bg-recessed px-3 py-2 ring ring-hairline"
+        >{pingUrl}</code
+      >
       <pre
-        class="mt-3 overflow-x-auto rounded-lg bg-neutral-900 px-3 py-2 text-xs text-neutral-100">0 3 * * * /usr/local/bin/backup.sh && curl -fsS {pingUrl} || curl -fsS {pingUrl}/fail</pre>
-    </section>
+        class="mt-3 overflow-x-auto rounded-md bg-recessed px-3 py-2 font-mono text-xs text-default ring ring-hairline">0 3 * * * /usr/local/bin/backup.sh && curl -fsS {pingUrl} || curl -fsS {pingUrl}/fail</pre>
+    </LayerCard>
   {/if}
 
   {#if monitor.type !== 'heartbeat'}
@@ -182,55 +207,55 @@
 
   {#if incidents.length > 0}
     <section class="mt-6">
-      <h2 class="text-sm font-medium text-neutral-900">Incidentes</h2>
+      <h2 class="text-base font-semibold text-strong">Incidentes</h2>
       <div class="mt-2">
         <IncidentList {incidents} {tenantId} showMonitor={false} />
       </div>
     </section>
   {/if}
 
-  <section class="mt-6">
-    <h2 class="text-sm font-medium text-neutral-900">Últimos chequeos</h2>
-    {#if checks.length === 0}
-      <p class="mt-2 text-sm text-neutral-500">
+  {#if checks.length === 0}
+    <section class="mt-6">
+      <h2 class="text-base font-semibold text-strong">Últimos chequeos</h2>
+      <p class="mt-2 text-subtle">
         {monitor.active ? 'Todavía no hay resultados.' : 'El monitor está pausado.'}
       </p>
-    {:else}
-      <div class="mt-2 overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-        <table class="w-full text-left text-sm">
-          <thead class="border-b border-neutral-200 text-xs text-neutral-500">
-            <tr>
-              <th class="px-4 py-2 font-medium">Cuándo</th>
-              <th class="px-4 py-2 font-medium">Resultado</th>
-              <th class="px-4 py-2 font-medium">Código</th>
-              <th class="px-4 py-2 font-medium">Latencia</th>
-              <th class="px-4 py-2 font-medium">Causa</th>
+    </section>
+  {:else}
+    <LayerCard title="Últimos chequeos" class="mt-6" flush>
+      <table class={table.root}>
+        <thead>
+          <tr>
+            <th scope="col" class={table.th}>Cuándo</th>
+            <th scope="col" class={table.th}>Resultado</th>
+            <th scope="col" class={table.th}>Código</th>
+            <th scope="col" class={[table.th, 'text-right']}>Latencia</th>
+            <th scope="col" class={table.th}>Causa</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each checks as check (check.at + check.region)}
+            <tr class={table.row}>
+              <td
+                class={[table.td, 'whitespace-nowrap text-subtle']}
+                title={formatDateTime(check.at)}
+              >
+                {timeAgo(check.at)}
+              </td>
+              <td class={table.td}>
+                <span class={check.ok ? 'text-success' : 'font-medium text-danger'}>
+                  {check.ok ? 'OK' : 'Falla'}
+                </span>
+              </td>
+              <td class={[table.td, 'tabular-nums']}>{check.status ?? '—'}</td>
+              <td class={[table.td, 'text-right whitespace-nowrap tabular-nums']}>
+                {check.latency_ms === null ? '—' : `${check.latency_ms} ms`}
+              </td>
+              <td class={[table.td, 'text-subtle']}>{check.error ?? ''}</td>
             </tr>
-          </thead>
-          <tbody class="divide-y divide-neutral-100">
-            {#each checks as check (check.at + check.region)}
-              <tr>
-                <td
-                  class="px-4 py-2 whitespace-nowrap text-neutral-600"
-                  title={formatDateTime(check.at)}
-                >
-                  {timeAgo(check.at)}
-                </td>
-                <td class="px-4 py-2">
-                  <span class={check.ok ? 'text-emerald-700' : 'font-medium text-red-700'}>
-                    {check.ok ? 'OK' : 'Falla'}
-                  </span>
-                </td>
-                <td class="px-4 py-2 text-neutral-600">{check.status ?? '—'}</td>
-                <td class="px-4 py-2 text-neutral-600">
-                  {check.latency_ms === null ? '—' : `${check.latency_ms} ms`}
-                </td>
-                <td class="px-4 py-2 text-neutral-600">{check.error ?? ''}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  </section>
+          {/each}
+        </tbody>
+      </table>
+    </LayerCard>
+  {/if}
 {/if}

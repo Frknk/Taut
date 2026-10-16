@@ -2,11 +2,18 @@
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
 
+  import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
+
+  import Banner from '#lib/components/Banner.svelte';
+  import Button from '#lib/components/Button.svelte';
+  import Empty from '#lib/components/Empty.svelte';
+  import LayerCard from '#lib/components/LayerCard.svelte';
   import StatusBadge from '#lib/components/StatusBadge.svelte';
   import { describeError, request } from '#lib/api.js';
   import { KIND_LABELS, formatSeconds, timeAgo } from '#lib/format.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { Monitor } from '#lib/types.js';
+  import { focusRing, table } from '#lib/ui.js';
 
   const QUOTA = 10;
 
@@ -53,67 +60,85 @@
 
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
-    <h1 class="text-xl font-semibold text-neutral-900">Monitores</h1>
-    <p class="mt-1 text-sm text-neutral-500">
+    <h1 class="text-2xl font-semibold text-strong">Monitores</h1>
+    <p class="mt-0.5 text-[13px]/[18px] text-subtle tabular-nums">
       {monitors.length - heartbeats} / {QUOTA} monitores · {heartbeats} / {QUOTA} heartbeats (plan free)
     </p>
   </div>
-  <a
-    href={resolve('/(app)/monitors/new')}
-    class="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-  >
+  <Button variant="primary" href={resolve('/(app)/monitors/new')}>
+    <PlusIcon size={16} aria-hidden="true" />
     Nuevo monitor
-  </a>
+  </Button>
 </div>
 
 {#if error}
-  <p class="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+  <Banner tone="danger" class="mt-6">{error}</Banner>
 {/if}
 
 {#if loaded && monitors.length === 0 && !error}
-  <div class="mt-10 rounded-xl border border-dashed border-neutral-300 p-10 text-center">
-    <p class="text-sm text-neutral-600">Todavía no hay monitores.</p>
-    <a
-      href={resolve('/(app)/monitors/new')}
-      class="mt-2 inline-block text-sm font-medium underline"
+  <div class="mt-6">
+    <Empty
+      title="Todavía no hay monitores"
+      text="Un monitor comprueba una URL, un puerto o un heartbeat cada pocos segundos y te avisa cuando falla."
     >
-      Crea el primero
-    </a>
+      <Button variant="primary" href={resolve('/(app)/monitors/new')}>
+        <PlusIcon size={16} aria-hidden="true" />
+        Crea el primero
+      </Button>
+    </Empty>
   </div>
 {:else if monitors.length > 0}
-  <ul class="mt-6 divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
-    {#each monitors as monitor (monitor.id)}
-      <li class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-        <StatusBadge status={monitor.status} />
-        <a
-          href={resolve('/(app)/monitors/[id]', { id: monitor.id })}
-          class="min-w-0 flex-1 hover:underline"
-        >
-          <span class="block truncate font-medium text-neutral-900">{monitor.name}</span>
-          <span class="block truncate text-xs text-neutral-500">
-            {KIND_LABELS[monitor.type]}
-            {#if monitor.target}· {monitor.target}{/if}
-            · cada {formatSeconds(monitor.interval_s)}
-          </span>
-        </a>
-        <span class="text-right text-xs text-neutral-500">
-          {#if monitor.last_check_at}
-            <span class={monitor.last_check_ok ? 'text-emerald-700' : 'text-red-700'}>
-              {monitor.last_check_ok ? 'OK' : 'Falla'}
-            </span>
-            {timeAgo(monitor.last_check_at)}
-            {#if monitor.last_latency_ms !== null}· {monitor.last_latency_ms} ms{/if}
-          {:else}
-            Sin chequeos aún
-          {/if}
-        </span>
-        <button
-          class="rounded-lg border border-neutral-300 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
-          onclick={() => toggle(monitor)}
-        >
-          {monitor.active ? 'Pausar' : 'Reanudar'}
-        </button>
-      </li>
-    {/each}
-  </ul>
+  <LayerCard class="mt-6" flush>
+    <table class={table.root}>
+      <thead>
+        <tr>
+          <th scope="col" class={table.th}>Nombre</th>
+          <th scope="col" class={table.th}>Estado</th>
+          <th scope="col" class={table.th}>Último chequeo</th>
+          <th scope="col" class={[table.th, 'text-right']}>Latencia</th>
+          <th scope="col" class={table.th}><span class="sr-only">Acciones</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each monitors as monitor (monitor.id)}
+          <tr class={table.row}>
+            <td class={[table.td, 'max-w-80']}>
+              <a
+                href={resolve('/(app)/monitors/[id]', { id: monitor.id })}
+                class={[
+                  'block truncate rounded-sm font-medium text-default hover:underline',
+                  focusRing,
+                ]}
+              >
+                {monitor.name}
+              </a>
+              <span class="block truncate text-xs text-subtle">
+                {KIND_LABELS[monitor.type]} · cada {formatSeconds(monitor.interval_s)}
+                {#if monitor.target}· <code>{monitor.target}</code>{/if}
+              </span>
+            </td>
+            <td class={table.td}><StatusBadge status={monitor.status} /></td>
+            <td class={[table.td, 'whitespace-nowrap text-subtle']}>
+              {#if monitor.last_check_at}
+                <span class={monitor.last_check_ok ? 'text-success' : 'font-medium text-danger'}>
+                  {monitor.last_check_ok ? 'OK' : 'Falla'}
+                </span>
+                · {timeAgo(monitor.last_check_at)}
+              {:else}
+                Sin chequeos aún
+              {/if}
+            </td>
+            <td class={[table.td, 'text-right whitespace-nowrap tabular-nums']}>
+              {monitor.last_latency_ms === null ? '—' : `${monitor.last_latency_ms} ms`}
+            </td>
+            <td class={[table.td, 'text-right']}>
+              <Button size="sm" onclick={() => toggle(monitor)}>
+                {monitor.active ? 'Pausar' : 'Reanudar'}
+              </Button>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </LayerCard>
 {/if}

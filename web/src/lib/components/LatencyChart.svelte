@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatLatency, nearestIndex, niceCeil, scale, segments, ticks } from '#lib/charts.js';
+  import { focusRing, link } from '#lib/ui.js';
   import type { MetricsPoint } from '#lib/types.js';
 
   interface Props {
@@ -134,10 +135,7 @@
       ></span>
       Intervalos con fallas
     </span>
-    <button
-      class="ml-auto underline decoration-dotted underline-offset-2 hover:text-neutral-900"
-      onclick={() => (showTable = !showTable)}
-    >
+    <button class={['ml-auto cursor-pointer', link]} onclick={() => (showTable = !showTable)}>
       {showTable ? 'Ver gráfico' : 'Ver tabla'}
     </button>
   </div>
@@ -145,7 +143,7 @@
   {#if showTable}
     <div class="mt-3 max-h-72 overflow-auto">
       <table class="w-full text-left tabular-nums">
-        <thead class="sticky top-0 bg-white" style:color="var(--viz-muted)">
+        <thead class="sticky top-0 bg-base text-subtle">
           <tr>
             <th class="py-1 pr-4 font-medium">Intervalo</th>
             <th class="py-1 pr-4 font-medium">Chequeos</th>
@@ -156,7 +154,7 @@
         </thead>
         <tbody>
           {#each points as point, index (point.t)}
-            <tr class="border-t border-neutral-100">
+            <tr class="border-t border-hairline">
               <td class="py-1 pr-4">{formatBucket(index)}</td>
               <td class="py-1 pr-4">{point.checks}</td>
               <td class="py-1 pr-4">{point.failures}</td>
@@ -179,7 +177,7 @@
         aria-valuenow={active ?? points.length - 1}
         aria-valuetext={valueText}
         tabindex="0"
-        class="block touch-none outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+        class={['block touch-none rounded-sm', focusRing]}
         onpointermove={pointerMove}
         onpointerleave={() => (active = null)}
         onkeydown={keyDown}
@@ -200,7 +198,7 @@
             text-anchor="end"
             dominant-baseline="middle"
             fill="var(--viz-muted)"
-            font-size="11"
+            font-size="12"
             class="tabular-nums">{formatLatency(tick)}</text
           >
         {/each}
@@ -210,7 +208,7 @@
             y={HEIGHT - 8}
             text-anchor={tick === from ? 'start' : tick === to ? 'end' : 'middle'}
             fill="var(--viz-muted)"
-            font-size="11"
+            font-size="12"
             class="tabular-nums">{formatTick(tick)}</text
           >
         {/each}
@@ -260,7 +258,7 @@
             y={label.y}
             dominant-baseline="middle"
             fill="var(--viz-ink-secondary)"
-            font-size="11"
+            font-size="12"
             class="tabular-nums">{formatLatency(label.value)}</text
           >
         {/each}
@@ -293,7 +291,7 @@
       {#if active !== null}
         {@const point = points[active]}
         <div
-          class="pointer-events-none absolute top-2 w-48 rounded-lg border border-neutral-200 bg-white px-3 py-2 shadow-sm"
+          class="pointer-events-none absolute top-2 w-48 rounded-md bg-base px-3 py-2 shadow-md ring ring-line"
           style:left="{tooltipLeft}px"
         >
           <p style:color="var(--viz-muted)">{formatBucket(active)}</p>

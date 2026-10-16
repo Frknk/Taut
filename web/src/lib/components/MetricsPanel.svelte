@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
+  import Banner from '#lib/components/Banner.svelte';
   import LatencyChart from '#lib/components/LatencyChart.svelte';
+  import LayerCard from '#lib/components/LayerCard.svelte';
+  import Tabs from '#lib/components/Tabs.svelte';
   import { describeError, request } from '#lib/api.js';
   import { formatLatency, formatPercent } from '#lib/charts.js';
   import type { Metrics, MetricsRange } from '#lib/types.js';
@@ -35,11 +38,6 @@
     }
   }
 
-  function select(next: MetricsRange) {
-    range = next;
-    void load();
-  }
-
   onMount(() => {
     void load();
     const timer = setInterval(load, 60_000);
@@ -47,57 +45,50 @@
   });
 
   const windowMs = $derived(RANGES.find((r) => r.value === range)?.ms ?? 86_400_000);
-  const tab = 'rounded-lg px-3 py-1 text-sm';
-  const tile = 'rounded-xl border border-neutral-200 bg-white px-4 py-3';
 </script>
 
 <section class="mt-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <h2 class="text-sm font-medium text-neutral-900">Latencia y disponibilidad</h2>
-    <div class="flex gap-1 rounded-lg bg-neutral-100 p-1">
-      {#each RANGES as option (option.value)}
-        <button
-          class={[tab, range === option.value ? 'bg-white shadow-xs' : 'text-neutral-500']}
-          onclick={() => select(option.value)}
-        >
-          {option.label}
-        </button>
-      {/each}
-    </div>
+    <h2 class="text-base font-semibold text-strong">Latencia y disponibilidad</h2>
+    <Tabs options={RANGES} bind:value={range} label="Rango" onchange={() => void load()} />
   </div>
 
   {#if error}
-    <p class="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+    <Banner tone="danger" class="mt-3">{error}</Banner>
   {/if}
 
   {#if metrics}
-    <div class={['mt-3 transition-opacity', loading && 'opacity-60']}>
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {#each RANGES as option (option.value)}
-          <div class={tile}>
-            <p class="text-xs text-neutral-500">Disponibilidad {option.label}</p>
-            <p class="mt-1 text-lg font-semibold text-neutral-900">
-              {formatPercent(metrics.uptime[option.value])}
-            </p>
+    <div class={['mt-3', loading && 'opacity-60']}>
+      <LayerCard flush>
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]">
+          {#each RANGES as option (option.value)}
+            <div
+              class="flex flex-col gap-1 p-4 shadow-[inset_1px_0_0_var(--hairline)] first:shadow-none"
+            >
+              <span class="text-xs text-subtle">Disponibilidad {option.label}</span>
+              <span class="text-3xl font-semibold text-strong">
+                {formatPercent(metrics.uptime[option.value])}
+              </span>
+            </div>
+          {/each}
+          <div class="flex flex-col gap-1 p-4 shadow-[inset_1px_0_0_var(--hairline)]">
+            <span class="text-xs text-subtle">Latencia p50</span>
+            <span class="text-3xl font-semibold text-strong">
+              {formatLatency(metrics.latency.p50_ms)}
+            </span>
           </div>
-        {/each}
-        <div class={tile}>
-          <p class="text-xs text-neutral-500">Latencia p50</p>
-          <p class="mt-1 text-lg font-semibold text-neutral-900">
-            {formatLatency(metrics.latency.p50_ms)}
-          </p>
+          <div class="flex flex-col gap-1 p-4 shadow-[inset_1px_0_0_var(--hairline)]">
+            <span class="text-xs text-subtle">Latencia p95</span>
+            <span class="text-3xl font-semibold text-strong">
+              {formatLatency(metrics.latency.p95_ms)}
+            </span>
+          </div>
         </div>
-        <div class={tile}>
-          <p class="text-xs text-neutral-500">Latencia p95</p>
-          <p class="mt-1 text-lg font-semibold text-neutral-900">
-            {formatLatency(metrics.latency.p95_ms)}
-          </p>
-        </div>
-      </div>
+      </LayerCard>
 
-      <div class="mt-3 rounded-xl border border-neutral-200 bg-white p-4">
+      <LayerCard class="mt-3">
         {#if metrics.series.length === 0}
-          <p class="py-10 text-center text-sm text-neutral-500">Sin chequeos en este periodo.</p>
+          <p class="py-10 text-center text-subtle">Sin chequeos en este periodo.</p>
         {:else}
           <LatencyChart
             points={metrics.series}
@@ -106,8 +97,8 @@
             to={now}
           />
         {/if}
-      </div>
-      <p class="mt-2 text-xs text-neutral-500">
+      </LayerCard>
+      <p class="mt-2 text-xs text-subtle">
         {metrics.checks} chequeos, {metrics.failures} con falla. La latencia solo cuenta los chequeos
         sanos.
       </p>
