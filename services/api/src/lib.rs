@@ -4,6 +4,7 @@
 //! opening a socket. `main.rs` only wires configuration, telemetry, the database and the
 //! server loop around it.
 
+pub mod heartbeats;
 pub mod monitors;
 pub mod tenant;
 pub mod tenants;
@@ -16,8 +17,9 @@ use axum::{Json, Router};
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::Serialize;
 use sqlx::PgPool;
+use taut_bus::Bus;
 use taut_config::Settings;
-use taut_http::{AppError, ServiceInfo, health, layers, metrics};
+use taut_http::{AppError, Probe, ServiceInfo, health, layers, metrics};
 
 /// Name reported in logs, metrics and `/health`.
 pub const SERVICE_NAME: &str = "taut-api";
@@ -29,25 +31,36 @@ pub struct AppState {
     pub settings: Arc<Settings>,
     /// PostgreSQL pool.
     pub pool: PgPool,
+    /// NATS JetStream.
+    pub bus: Bus,
 }
 
-/// Builds the complete router: health, metrics, the `/v1` API and the middleware stack.
-pub fn app(settings: Arc<Settings>, pool: PgPool, metrics_handle: PrometheusHandle) -> Router {
+/// Builds the complete router: health, metrics, the `/v1` API, heartbeat pings and the
+/// middleware stack. Readiness only probes the database: without NATS the panel keeps
+/// working and only heartbeat pings fail.
+pub fn app(
+    settings: Arc<Settings>,
+    pool: PgPool,
+    bus: Bus,
+    metrics_handle: PrometheusHandle,
+) -> Router {
     let info = ServiceInfo::new(SERVICE_NAME, env!("CARGO_PKG_VERSION"), &settings.app);
     let http_settings = settings.http.clone();
     let state = AppState {
         settings,
         pool: pool.clone(),
+        bus,
     };
 
     let v1 = Router::new()
         .route("/v1/ping", get(ping))
         .merge(tenants::router())
         .merge(monitors::router())
+        .merge(heartbeats::router())
         .with_state(state);
 
     let router = Router::new()
-        .merge(health::router(info, pool))
+        .merge(health::router(info, vec![Probe::database(pool)]))
         .merge(metrics::router(metrics_handle))
         .merge(v1)
         .fallback(not_found);

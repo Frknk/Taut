@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, tenant_id, last_ping_at AS \"last_ping_at!\", interval_s, grace_period_s\n        FROM monitors\n        WHERE id = ANY($1)\n          AND active\n          AND kind = 'heartbeat'\n          AND last_ping_at IS NOT NULL\n          AND last_ping_at < now() - make_interval(secs => interval_s + grace_period_s)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "tenant_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "last_ping_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "last_ping_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "interval_s",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "interval_s"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "grace_period_s",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "grace_period_s"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "6a840dd51a00679600744845b3f4e5755328d632afe585ef7fd1bfeecf700b0b"
+}

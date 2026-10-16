@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use taut_bus::Bus;
 use taut_config::Settings;
 
 #[tokio::main]
@@ -21,7 +22,14 @@ async fn main() -> anyhow::Result<()> {
         taut_db::migrate(&pool).await?;
     }
 
-    let app = taut_api::app(Arc::clone(&settings), pool, telemetry.metrics().clone());
+    let bus = Bus::connect(&settings.nats, taut_api::SERVICE_NAME).await?;
+
+    let app = taut_api::app(
+        Arc::clone(&settings),
+        pool,
+        bus,
+        telemetry.metrics().clone(),
+    );
     taut_http::serve(app, settings.http.addr).await?;
     Ok(())
 }

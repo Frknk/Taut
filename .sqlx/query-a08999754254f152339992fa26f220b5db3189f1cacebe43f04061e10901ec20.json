@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, tenant_id, name, kind AS \"kind: MonitorKind\", target, interval_s, timeout_s,\n               expected_status, keyword, confirmation_period_s, recovery_period_s,\n               grace_period_s, heartbeat_token, last_ping_at, active,\n               CASE WHEN active THEN 'pending' ELSE 'paused' END AS \"status!: MonitorStatus\",\n               created_at, updated_at\n        FROM monitors\n        WHERE tenant_id = $1\n        ORDER BY created_at\n        ",
+  "query": "\n        SELECT m.id, m.tenant_id, m.name, m.kind AS \"kind: MonitorKind\", m.target, m.interval_s,\n               m.timeout_s, m.expected_status, m.keyword, m.confirmation_period_s,\n               m.recovery_period_s, m.grace_period_s, m.heartbeat_token, m.last_ping_at,\n               m.active,\n               CASE WHEN m.active THEN 'pending' ELSE 'paused' END AS \"status!: MonitorStatus\",\n               last.at AS \"last_check_at?\", last.ok AS \"last_check_ok?\",\n               last.latency_ms AS \"last_latency_ms?\", m.created_at, m.updated_at\n        FROM monitors m\n        LEFT JOIN LATERAL (\n            SELECT r.at, r.ok, r.latency_ms FROM check_results r\n            WHERE r.monitor_id = m.id ORDER BY r.at DESC LIMIT 1\n        ) last ON true\n        WHERE m.tenant_id = $1\n        ORDER BY m.created_at\n        ",
   "describe": {
     "columns": [
       {
@@ -176,6 +176,39 @@
       },
       {
         "ordinal": 16,
+        "name": "last_check_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "check_results",
+            "name": "at"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "last_check_ok?",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "check_results",
+            "name": "ok"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "last_latency_ms?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "check_results",
+            "name": "latency_ms"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -186,7 +219,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 20,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -219,9 +252,12 @@
       true,
       false,
       null,
+      true,
+      true,
+      true,
       false,
       false
     ]
   },
-  "hash": "744289c035221a3e14ffa7e374a070a19ec7e009960efa1a00e3b059306c8169"
+  "hash": "a08999754254f152339992fa26f220b5db3189f1cacebe43f04061e10901ec20"
 }

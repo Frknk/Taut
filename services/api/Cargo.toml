@@ -15,6 +15,7 @@ chrono.workspace = true
 metrics-exporter-prometheus.workspace = true
 serde.workspace = true
 sqlx.workspace = true
+taut-bus.workspace = true
 taut-config.workspace = true
 taut-db.workspace = true
 taut-http.workspace = true
@@ -22,10 +23,13 @@ taut-model.workspace = true
 taut-telemetry.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+ulid.workspace = true
 url.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+async-nats.workspace = true
+futures.workspace = true
 http.workspace = true
 http-body-util.workspace = true
 serde_json.workspace = true

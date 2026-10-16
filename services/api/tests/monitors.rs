@@ -15,7 +15,7 @@ fn http_monitor(name: &str) -> Value {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn requests_without_a_valid_tenant_are_unauthorized(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     for tenant in [
         None,
         Some("not-a-uuid"),
@@ -29,7 +29,7 @@ async fn requests_without_a_valid_tenant_are_unauthorized(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn creates_an_http_monitor_with_defaults(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     let tenant = common::create_tenant(&app, "acme").await;
     let monitor = common::create_monitor(&app, &tenant, http_monitor("Sitio")).await;
 
@@ -52,7 +52,7 @@ async fn creates_an_http_monitor_with_defaults(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn rejects_invalid_monitors(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     let tenant = common::create_tenant(&app, "acme").await;
     for (body, message) in [
         (
@@ -94,7 +94,7 @@ async fn rejects_invalid_monitors(pool: PgPool) {
 async fn private_targets_are_allowed_when_configured(pool: PgPool) {
     let mut settings = Settings::default();
     settings.checks.allow_private_targets = true;
-    let app = common::app_with(Arc::new(settings), pool);
+    let app = common::app_with(Arc::new(settings), pool).await;
     let tenant = common::create_tenant(&app, "acme").await;
     let monitor = common::create_monitor(
         &app,
@@ -107,7 +107,7 @@ async fn private_targets_are_allowed_when_configured(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn heartbeat_monitors_get_a_token(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     let tenant = common::create_tenant(&app, "acme").await;
     let monitor = common::create_monitor(
         &app,
@@ -122,7 +122,7 @@ async fn heartbeat_monitors_get_a_token(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn updates_pauses_resumes_and_deletes(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     let tenant = common::create_tenant(&app, "acme").await;
     let monitor = common::create_monitor(&app, &tenant, http_monitor("Sitio")).await;
     let path = format!("/v1/monitors/{}", monitor["id"].as_str().unwrap());
@@ -198,7 +198,7 @@ async fn updates_pauses_resumes_and_deletes(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn tenants_cannot_see_each_other(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     let acme = common::create_tenant(&app, "acme").await;
     let globex = common::create_tenant(&app, "globex").await;
     let monitor = common::create_monitor(&app, &acme, http_monitor("Sitio")).await;
@@ -224,7 +224,7 @@ async fn tenants_cannot_see_each_other(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn free_plan_quotas_are_enforced_per_kind(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     let tenant = common::create_tenant(&app, "acme").await;
     for n in 0..10 {
         common::create_monitor(&app, &tenant, http_monitor(&format!("m{n}"))).await;
