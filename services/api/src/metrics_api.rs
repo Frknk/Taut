@@ -133,7 +133,7 @@ pub struct Metrics {
 
 async fn metrics(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, .. }: CurrentTenant,
     Path(id): Path<Uuid>,
     Query(query): Query<MetricsQuery>,
 ) -> Result<Json<Metrics>, AppError> {

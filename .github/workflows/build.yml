@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api, scheduler, checker, incidents, notifier, status-bff]
+        service: [api, auth, scheduler, checker, incidents, notifier, status-bff]
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/taut-${{ matrix.service }}
     steps:

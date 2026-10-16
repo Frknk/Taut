@@ -45,6 +45,8 @@ pub struct AppSettings {
     pub env: Environment,
     /// Git commit the binary was built from (`TAUT_APP__COMMIT`, set by the Dockerfile).
     pub commit: String,
+    /// Base URL of the panel, for the links in alerts and account emails.
+    pub panel_url: String,
 }
 
 /// HTTP server settings.
@@ -56,6 +58,9 @@ pub struct HttpSettings {
     pub cors_origins: String,
     /// Maximum time a handler may take before the server answers `408 Request Timeout`.
     pub request_timeout_secs: u64,
+    /// Take the client address from `X-Forwarded-For`. Only behind a proxy that sets it (the
+    /// ingress); otherwise anyone could pick their own address and dodge the login limits.
+    pub trust_proxy: bool,
 }
 
 impl HttpSettings {
@@ -144,8 +149,38 @@ pub struct NotifierSettings {
     pub smtp_url: String,
     /// Sender of alert emails.
     pub email_from: String,
-    /// Base URL of the panel, for links in alerts.
-    pub panel_url: String,
+}
+
+/// Auth service settings. The api reads `url` and `issuer`; the auth service everything.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthSettings {
+    /// Base URL of the auth service, for the api to fetch `/.well-known/jwks.json`.
+    pub url: String,
+    /// `iss` claim of the tokens; the api rejects any other issuer.
+    pub issuer: String,
+    /// Ed25519 private key in PKCS#8 PEM. Literal `\n` sequences are unescaped, so the whole
+    /// PEM fits one environment variable. Empty: see [`AuthSettings::signing_key_pem`].
+    pub signing_key: String,
+    /// Path of a file with the PEM; `signing_key` wins when both are set.
+    pub signing_key_file: String,
+    /// Seconds an access token lives.
+    pub access_ttl_secs: u64,
+    /// Seconds a refresh token (and so a session) lives without use.
+    pub refresh_ttl_secs: u64,
+}
+
+impl AuthSettings {
+    /// The signing key PEM from `signing_key` or `signing_key_file`, or `None` when neither is
+    /// set. Outside development the auth service refuses to start without one.
+    pub fn signing_key_pem(&self) -> Result<Option<String>, std::io::Error> {
+        if !self.signing_key.trim().is_empty() {
+            return Ok(Some(self.signing_key.replace("\\n", "\n")));
+        }
+        if !self.signing_key_file.trim().is_empty() {
+            return std::fs::read_to_string(self.signing_key_file.trim()).map(Some);
+        }
+        Ok(None)
+    }
 }
 
 /// Complete configuration of a service.
@@ -169,6 +204,8 @@ pub struct Settings {
     pub scheduler: SchedulerSettings,
     /// Notifier.
     pub notifier: NotifierSettings,
+    /// Auth service.
+    pub auth: AuthSettings,
 }
 
 impl Default for Settings {
@@ -179,11 +216,13 @@ impl Default for Settings {
                 name: "taut".to_owned(),
                 env: Environment::Dev,
                 commit: "unknown".to_owned(),
+                panel_url: "http://localhost:5173".to_owned(),
             },
             http: HttpSettings {
                 addr: SocketAddr::from(([0, 0, 0, 0], 8080)),
                 cors_origins: "http://localhost:5173".to_owned(),
                 request_timeout_secs: 30,
+                trust_proxy: false,
             },
             database: DatabaseSettings {
                 url: "postgres://taut:taut@localhost:5432/taut".to_owned(),
@@ -211,7 +250,14 @@ impl Default for Settings {
             notifier: NotifierSettings {
                 smtp_url: "smtp://localhost:1025".to_owned(),
                 email_from: "taut <alertas@taut.localhost>".to_owned(),
-                panel_url: "http://localhost:5173".to_owned(),
+            },
+            auth: AuthSettings {
+                url: "http://localhost:8086".to_owned(),
+                issuer: "taut-auth".to_owned(),
+                signing_key: String::new(),
+                signing_key_file: String::new(),
+                access_ttl_secs: 15 * 60,
+                refresh_ttl_secs: 7 * 24 * 3600,
             },
         }
     }
@@ -332,6 +378,50 @@ mod tests {
             assert!(extract().is_err());
             Ok(())
         });
+    }
+
+    #[test]
+    fn auth_defaults_point_at_the_local_auth_service() {
+        Jail::expect_with(|jail| {
+            jail.clear_env();
+            let settings = extract()?;
+            assert_eq!(settings.auth.url, "http://localhost:8086");
+            assert_eq!(settings.auth.issuer, "taut-auth");
+            assert_eq!(settings.auth.access_ttl_secs, 900);
+            assert_eq!(settings.auth.refresh_ttl_secs, 604_800);
+            assert_eq!(settings.app.panel_url, "http://localhost:5173");
+            assert!(!settings.http.trust_proxy);
+            assert_eq!(settings.auth.signing_key_pem().unwrap(), None);
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn signing_key_unescapes_newlines_and_prefers_the_inline_value() {
+        let auth = AuthSettings {
+            signing_key: "-----BEGIN PRIVATE KEY-----\\nAAAA\\n-----END PRIVATE KEY-----"
+                .to_owned(),
+            signing_key_file: "/nonexistent".to_owned(),
+            ..Settings::default().auth
+        };
+        assert_eq!(
+            auth.signing_key_pem().unwrap().unwrap(),
+            "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----"
+        );
+    }
+
+    #[test]
+    fn signing_key_file_is_read_when_set() {
+        let dir = std::env::temp_dir().join(format!("taut-key-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("key.pem");
+        std::fs::write(&path, "PEM\n").unwrap();
+        let auth = AuthSettings {
+            signing_key_file: path.to_string_lossy().into_owned(),
+            ..Settings::default().auth
+        };
+        assert_eq!(auth.signing_key_pem().unwrap().as_deref(), Some("PEM\n"));
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

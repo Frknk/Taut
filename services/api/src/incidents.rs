@@ -93,7 +93,7 @@ const MAX_LIMIT: i64 = 200;
 
 async fn list(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, .. }: CurrentTenant,
     Query(query): Query<ListQuery>,
 ) -> Result<Json<Vec<Incident>>, AppError> {
     let (open, resolved) = match query.status.unwrap_or(StatusFilter::All) {
@@ -129,7 +129,7 @@ async fn list(
 
 async fn show(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, .. }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<Json<IncidentDetail>, AppError> {
     let incident = sqlx::query_as!(

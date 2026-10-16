@@ -53,7 +53,8 @@ impl Senders {
         }
     }
 
-    async fn email(&self, to: &str, message: &Rendered) -> Result<(), String> {
+    /// Sends `message` as an email to `to`.
+    pub async fn email(&self, to: &str, message: &Rendered) -> Result<(), String> {
         let to: Mailbox = to
             .parse()
             .map_err(|err| format!("invalid recipient: {err}"))?;

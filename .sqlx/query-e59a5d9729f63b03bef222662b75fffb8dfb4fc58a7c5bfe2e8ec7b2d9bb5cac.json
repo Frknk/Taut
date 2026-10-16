@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_tokens SET used_at = now()\n         WHERE user_id = $1 AND kind = $2 AND used_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e59a5d9729f63b03bef222662b75fffb8dfb4fc58a7c5bfe2e8ec7b2d9bb5cac"
+}

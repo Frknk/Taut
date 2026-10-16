@@ -21,7 +21,8 @@ tanto la regla es de equipo: nada entra a `main` sin PR y sin CI en verde.
 Formato: `<tipo>(<scope opcional>): <descripción en inglés, imperativo, máx. 72 caracteres>`.
 
 - Tipos: `feat`, `fix`, `docs`, `chore`, `ci`, `build`, `refactor`, `test`, `perf`, `revert`.
-- Scopes sugeridos: `api`, `web`, `db`, `http`, `config`, `telemetry`, `infra`, `ci`, `docs`.
+- Scopes sugeridos: `api`, `auth`, `identity`, `web`, `db`, `http`, `config`, `telemetry`, `infra`,
+  `ci`, `docs`.
 - Un `!` antes de los dos puntos marca un cambio incompatible: `feat(api)!: drop v0 routes`.
 
 Válidos:

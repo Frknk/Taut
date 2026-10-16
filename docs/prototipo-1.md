@@ -192,10 +192,10 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
 - La columna se llama `monitors.kind` (igual que `alert_channels.kind`); en el JSON de la API
   sigue siendo `type`. Los enumerados son `text` con `CHECK`, no tipos `ENUM` de PostgreSQL, para
   que agregar DNS en la semana 12 sea cambiar un `CHECK` dentro de una transacción.
-- Tenant provisional: cabecera `X-Tenant-Id` con el UUID del tenant. Los handlers no la leen; usan
-  el extractor `CurrentTenant` (`services/api/src/tenant.rs`), que es lo único que cambia cuando
-  el tenant pase al JWT. Sin cabecera, con un UUID inválido o con un tenant inexistente: `401`.
-  `GET /v1/tenants` lista todos los tenants solo mientras no haya autenticación.
+- Tenant en la cabecera `X-Tenant-Id` con su UUID. Los handlers no la leen; usan el extractor
+  `CurrentTenant` (`services/api/src/tenant.rs`). Hasta la semana 13 cualquier UUID valía y
+  `GET /v1/tenants` listaba todos; desde entonces hace falta un token y ser miembro (ver «Semana
+  13–14»).
 - Un monitor de otro tenant responde `404`, nunca `403`, para no revelar que existe.
 - Cuotas del plan free: 10 monitores y 10 heartbeats, contadas por separado; superarlas es `403`.
   La fila del tenant se bloquea (`FOR UPDATE`) al crear, así dos altas simultáneas no pasan ambas.
@@ -292,3 +292,29 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   un gráfico de promedio y p95 con franja de intervalos con fallas, cruz de lectura con tooltip y
   vista de tabla. Paleta validada con el script de la guía de visualización.
 
+
+**Semana 13–14 (identidad y cuentas, PR 1 de 4; [ADR 0008](adr/0008-auth-service-eddsa-memberships.md))**
+
+- Servicio `taut-auth` (puerto 8086) con registro, verificación de correo, login, refresh,
+  logout, cambio y recuperación de contraseña y `GET /.well-known/jwks.json`. Crate
+  `taut-identity` con lo que comparten auth (firma) y la api (verificación).
+- El registro solo crea el usuario y siempre responde `202`; si el correo ya tiene cuenta, el
+  dueño recibe un aviso en vez de revelarlo en la respuesta. No se puede entrar hasta confirmar
+  el correo (`403 email_unverified`); el enlace vale 24 h y solo el último emitido funciona.
+- Access token EdDSA de 15 min en memoria del panel; refresh opaco en cookie `HttpOnly`
+  (`Path=/v1/auth`, 7 días), rotado en cada uso; reutilizar uno rotado mata la sesión. Cambiar o
+  restablecer la contraseña cierra todas las sesiones (`users.token_version`).
+- Límites en Redis: 5 contraseñas erróneas por cuenta y 20 por IP cada 15 min (`429` con
+  `Retry-After`), 3 correos por dirección y 10 registros o recuperaciones por IP cada hora.
+  Contraseñas de 8 a 128 caracteres, sin reglas de composición, hash Argon2id.
+- `users` ↔ `tenants` muchos a muchos en `memberships` con roles `owner` y `member`. Crear un
+  tenant te hace owner; `GET /v1/tenants` devuelve solo los tuyos con tu rol; `GET /v1/members`
+  lista los del tenant. `X-Tenant-Id` sin membresía: `403 not_a_member`, exista o no el tenant.
+  Member gestiona monitores; owner además canales (y en los PRs siguientes miembros, API keys y
+  el tenant). Las API keys en `Authorization` se rechazan con `401` hasta su PR.
+- Correos de cuenta como eventos `AccountEmail` en el stream `ACCOUNTS` (`users.>`,
+  `tenants.>`) que envía el notifier; el productor construye el enlace con `TAUT_APP__PANEL_URL`.
+- Panel: `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`; la raíz
+  es el selector de organizaciones (crear una o esperar invitación); `/settings/profile` (cambio
+  de contraseña) y `/settings/members`. Al cargar, el panel pide un refresh con la cookie; un
+  `401` de la api provoca un refresh y un reintento, y si falla vuelve a `/login`.

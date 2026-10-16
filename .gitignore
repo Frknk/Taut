@@ -6,6 +6,9 @@ node_modules/
 web/.svelte-kit/
 web/build/
 
+# Claves privadas (la de firma de auth en desarrollo)
+*.pem
+
 # Variables de entorno (nunca se versionan; .env.example sí)
 .env
 .env.*

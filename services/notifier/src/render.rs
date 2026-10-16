@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
-use taut_model::events::IncidentChanged;
+use taut_model::events::{AccountEmail, IncidentChanged};
 
 /// An alert rendered for every channel kind.
 #[derive(Debug, Clone, PartialEq)]
@@ -79,6 +79,88 @@ pub fn test_message(channel_name: &str) -> Rendered {
         discord: json!({ "content": format!("🔔 {text}") }),
         slack: json!({ "text": format!("🔔 {text}") }),
         webhook: json!({ "event": "test", "channel": channel_name, "message": text }),
+    }
+}
+
+/// Renders an account email (verification, password reset, invitation). Email only: the
+/// webhook fields are empty, these never go to a channel.
+pub fn account_email(email: &AccountEmail) -> Rendered {
+    let (subject, text) = match email {
+        AccountEmail::VerificationRequested {
+            name,
+            link,
+            expires_at,
+            ..
+        } => (
+            "[taut] Confirma tu correo".to_owned(),
+            format!(
+                "Hola, {name}.\n\n\
+                 Confirma tu dirección de correo para entrar a taut:\n\n{link}\n\n\
+                 El enlace vale hasta el {}. Si no creaste una cuenta, ignora este mensaje.\n",
+                format_time(*expires_at)
+            ),
+        ),
+        AccountEmail::PasswordResetRequested {
+            name,
+            link,
+            expires_at,
+            ..
+        } => (
+            "[taut] Restablece tu contraseña".to_owned(),
+            format!(
+                "Hola, {name}.\n\n\
+                 Alguien pidió restablecer la contraseña de tu cuenta de taut. Si fuiste tú, \
+                 elige una nueva aquí:\n\n{link}\n\n\
+                 El enlace vale hasta el {}. Si no lo pediste, tu contraseña sigue igual.\n",
+                format_time(*expires_at)
+            ),
+        ),
+        AccountEmail::AlreadyRegistered {
+            name,
+            login_link,
+            reset_link,
+            ..
+        } => (
+            "[taut] Ya tienes una cuenta".to_owned(),
+            format!(
+                "Hola, {name}.\n\n\
+                 Alguien intentó registrarse en taut con tu dirección, pero ya tienes una cuenta.\n\n\
+                 Entra aquí: {login_link}\n\
+                 ¿Olvidaste la contraseña? {reset_link}\n\n\
+                 Si no fuiste tú, no hace falta que hagas nada.\n"
+            ),
+        ),
+        AccountEmail::MemberInvited {
+            tenant_name,
+            invited_by,
+            role,
+            link,
+            expires_at,
+            ..
+        } => (
+            format!("[taut] Te invitaron a {tenant_name}"),
+            format!(
+                "{invited_by} te invitó a «{tenant_name}» en taut como {}.\n\n\
+                 Acepta la invitación aquí:\n\n{link}\n\n\
+                 La invitación vale hasta el {}.\n",
+                role_label(role),
+                format_time(*expires_at)
+            ),
+        ),
+    };
+    Rendered {
+        subject,
+        text,
+        discord: Value::Null,
+        slack: Value::Null,
+        webhook: Value::Null,
+    }
+}
+
+fn role_label(role: &str) -> &str {
+    match role {
+        "owner" => "propietario",
+        _ => "miembro",
     }
 }
 
@@ -180,6 +262,59 @@ mod tests {
         );
         assert_eq!(rendered.webhook["event"], "incident.resolved");
         assert_eq!(rendered.webhook["incident"]["duration_s"], 200);
+    }
+
+    #[test]
+    fn account_emails_carry_the_link_and_the_deadline() {
+        let expires_at = DateTime::from_timestamp(1_792_210_680, 0).unwrap();
+        let verification = account_email(&AccountEmail::VerificationRequested {
+            trace_id: "trace".to_owned(),
+            to: "ana@example.com".to_owned(),
+            name: "Ana".to_owned(),
+            link: "http://panel.test/verify-email?token=abc".to_owned(),
+            expires_at,
+        });
+        assert_eq!(verification.subject, "[taut] Confirma tu correo");
+        assert!(verification.text.contains("Hola, Ana."));
+        assert!(
+            verification
+                .text
+                .contains("http://panel.test/verify-email?token=abc")
+        );
+        assert!(verification.text.contains("17/10/2026 04:18 UTC"));
+
+        let reset = account_email(&AccountEmail::PasswordResetRequested {
+            trace_id: "trace".to_owned(),
+            to: "ana@example.com".to_owned(),
+            name: "Ana".to_owned(),
+            link: "http://panel.test/reset-password?token=xyz".to_owned(),
+            expires_at,
+        });
+        assert_eq!(reset.subject, "[taut] Restablece tu contraseña");
+        assert!(reset.text.contains("token=xyz"));
+
+        let notice = account_email(&AccountEmail::AlreadyRegistered {
+            trace_id: "trace".to_owned(),
+            to: "ana@example.com".to_owned(),
+            name: "Ana".to_owned(),
+            login_link: "http://panel.test/login".to_owned(),
+            reset_link: "http://panel.test/forgot-password".to_owned(),
+        });
+        assert_eq!(notice.subject, "[taut] Ya tienes una cuenta");
+        assert!(notice.text.contains("http://panel.test/forgot-password"));
+
+        let invite = account_email(&AccountEmail::MemberInvited {
+            trace_id: "trace".to_owned(),
+            to: "bea@example.com".to_owned(),
+            tenant_id: Uuid::nil(),
+            tenant_name: "Acme".to_owned(),
+            invited_by: "Ana".to_owned(),
+            role: "owner".to_owned(),
+            link: "http://panel.test/invite/abc".to_owned(),
+            expires_at,
+        });
+        assert_eq!(invite.subject, "[taut] Te invitaron a Acme");
+        assert!(invite.text.contains("como propietario"));
     }
 
     #[test]

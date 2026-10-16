@@ -27,3 +27,4 @@ después, y no se edita para cambiarla: una decisión nueva reemplaza a la anter
 | 0005 | [Frontend SvelteKit como SPA estática](0005-frontend-sveltekit-spa-estatica.md)              | Aceptado | 2026-10-15 |
 | 0006 | [Licencia MIT para el repositorio](0006-licencia-mit.md)                                     | Aceptado | 2026-10-15 |
 | 0007 | [Design system «taut UI» basado en Kumo](0007-design-system-taut-ui.md)                      | Aceptado | 2026-10-16 |
+| 0008 | [Servicio auth separado, tokens EdDSA y membresías usuario–tenant](0008-auth-service-eddsa-memberships.md) | Aceptado | 2026-10-16 |

@@ -58,6 +58,15 @@
       "port": 8084
     },
     {
+      "name": "auth",
+      "runtimeExecutable": "just",
+      "runtimeArgs": [
+        "run",
+        "auth"
+      ],
+      "port": 8086
+    },
+    {
       "name": "status-bff",
       "runtimeExecutable": "just",
       "runtimeArgs": [

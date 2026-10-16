@@ -20,7 +20,7 @@ use taut_model::events::{TestNotification, subjects};
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::tenant::CurrentTenant;
+use crate::tenant::{CurrentTenant, Permission};
 use crate::validate::{self, ChannelInput};
 
 /// Channels a tenant may have; generous, it only stops runaway scripts.
@@ -84,7 +84,7 @@ async fn find(pool: &PgPool, tenant_id: Uuid, id: Uuid) -> Result<Option<AlertCh
 
 async fn list(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, .. }: CurrentTenant,
 ) -> Result<Json<Vec<AlertChannel>>, AppError> {
     let channels = sqlx::query_as!(
         AlertChannel,
@@ -104,7 +104,7 @@ async fn list(
 
 async fn show(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, .. }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<Json<AlertChannel>, AppError> {
     find(&state.pool, tenant.id, id)
@@ -115,9 +115,10 @@ async fn show(
 
 async fn create(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Json(input): Json<ChannelInput>,
 ) -> Result<(StatusCode, Json<AlertChannel>), AppError> {
+    actor.require(Permission::Channels)?;
     let spec = validate::channel(&input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
     let mut tx = state.pool.begin().await?;
@@ -158,10 +159,11 @@ async fn create(
 
 async fn update(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Path(id): Path<Uuid>,
     Json(input): Json<ChannelInput>,
 ) -> Result<Json<AlertChannel>, AppError> {
+    actor.require(Permission::Channels)?;
     let spec = validate::channel(&input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
     let updated = sqlx::query!(
@@ -188,9 +190,10 @@ async fn update(
 
 async fn remove(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
+    actor.require(Permission::Channels)?;
     let deleted = sqlx::query!(
         "DELETE FROM alert_channels WHERE tenant_id = $1 AND id = $2",
         tenant.id,
@@ -212,9 +215,10 @@ struct TestQueued {
 
 async fn test(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<TestQueued>), AppError> {
+    actor.require(Permission::Channels)?;
     if find(&state.pool, tenant.id, id).await?.is_none() {
         return Err(not_found());
     }

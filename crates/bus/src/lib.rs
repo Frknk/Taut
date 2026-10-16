@@ -1,8 +1,9 @@
 //! NATS JetStream for taut services.
 //!
-//! [`Bus::connect`] opens the connection and makes sure the three streams exist: `CHECKS`
-//! (`checks.>`), `INCIDENTS` (`incidents.>` and `notifications.>`) and `MONITORS`
-//! (`monitors.>`). Events are JSON;
+//! [`Bus::connect`] opens the connection and makes sure the four streams exist: `CHECKS`
+//! (`checks.>`), `INCIDENTS` (`incidents.>` and `notifications.>`), `MONITORS`
+//! (`monitors.>`) and `ACCOUNTS` (`users.>` and `tenants.>`, the account emails). Events are
+//! JSON;
 //! [`Bus::publish`] waits for the stream's acknowledgement and copies the event's trace id into
 //! the `x-request-id` header. [`consume`] runs a durable pull consumer: it decodes each message,
 //! opens a span with the trace id, calls the handler with bounded concurrency and acks, naks or
@@ -36,10 +37,12 @@ pub const CHECKS_STREAM: &str = "CHECKS";
 pub const INCIDENTS_STREAM: &str = "INCIDENTS";
 /// Stream of monitor changes.
 pub const MONITORS_STREAM: &str = "MONITORS";
+/// Stream of account events: emails the auth service and the api ask the notifier to send.
+pub const ACCOUNTS_STREAM: &str = "ACCOUNTS";
 
 /// Name, subjects and retention of every stream. Messages are kept for a while even after
 /// they are consumed, so a projection can be rebuilt by replaying them (week 10, CQRS).
-const STREAMS: [(&str, &[&str], Duration); 3] = [
+const STREAMS: [(&str, &[&str], Duration); 4] = [
     (CHECKS_STREAM, &["checks.>"], Duration::from_hours(24)),
     (
         INCIDENTS_STREAM,
@@ -47,6 +50,11 @@ const STREAMS: [(&str, &[&str], Duration); 3] = [
         Duration::from_hours(7 * 24),
     ),
     (MONITORS_STREAM, &["monitors.>"], Duration::from_hours(24)),
+    (
+        ACCOUNTS_STREAM,
+        &["users.>", "tenants.>"],
+        Duration::from_hours(24),
+    ),
 ];
 
 /// Bus failure.

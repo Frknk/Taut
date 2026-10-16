@@ -6,7 +6,8 @@
 
 use axum::Json;
 use axum::extract::rejection::{JsonRejection, PathRejection, QueryRejection};
-use axum::http::StatusCode;
+use axum::http::header::RETRY_AFTER;
+use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use taut_db::DbError;
@@ -28,6 +29,21 @@ pub enum AppError {
     /// The caller is authenticated but not allowed to do this.
     #[error("{0}")]
     Forbidden(String),
+    /// Like [`AppError::Forbidden`], with a stable code the panel reacts to
+    /// (`email_unverified`, `not_a_member`, `reauth_required`).
+    #[error("{message}")]
+    Denied {
+        /// Machine-readable reason, in `snake_case`.
+        code: &'static str,
+        /// Human-readable detail.
+        message: String,
+    },
+    /// Too many attempts; `Retry-After` says how long to wait.
+    #[error("too many attempts, retry in {retry_after_secs} s")]
+    TooManyRequests {
+        /// Seconds until the limit resets.
+        retry_after_secs: u64,
+    },
     /// The request conflicts with existing data, for example a duplicate unique value.
     #[error("{0}")]
     Conflict(String),
@@ -46,7 +62,8 @@ impl AppError {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
-            Self::Forbidden(_) => StatusCode::FORBIDDEN,
+            Self::Forbidden(_) | Self::Denied { .. } => StatusCode::FORBIDDEN,
+            Self::TooManyRequests { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::Conflict(_) => StatusCode::CONFLICT,
             Self::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -60,6 +77,8 @@ impl AppError {
             Self::BadRequest(_) => "bad_request",
             Self::Unauthorized(_) => "unauthorized",
             Self::Forbidden(_) => "forbidden",
+            Self::Denied { code, .. } => code,
+            Self::TooManyRequests { .. } => "too_many_requests",
             Self::Conflict(_) => "conflict",
             Self::Unavailable(_) => "unavailable",
             Self::Internal(_) => "internal",
@@ -128,6 +147,12 @@ impl IntoResponse for AppError {
                 trace_id: current_trace_id(),
             },
         };
-        (status, Json(body)).into_response()
+        let mut response = (status, Json(body)).into_response();
+        if let Self::TooManyRequests { retry_after_secs } = self {
+            response
+                .headers_mut()
+                .insert(RETRY_AFTER, HeaderValue::from(retry_after_secs));
+        }
+        response
     }
 }

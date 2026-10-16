@@ -32,6 +32,18 @@ pub mod subjects {
     pub const INCIDENTS_ALL: &str = "incidents.>";
     /// A user asked to test an alert channel ([`super::TestNotification`]).
     pub const NOTIFICATIONS_TEST: &str = "notifications.test";
+    /// Someone registered or asked to verify their email ([`super::AccountEmail`]).
+    pub const USERS_VERIFICATION_REQUESTED: &str = "users.verification_requested";
+    /// Someone asked to reset their password ([`super::AccountEmail`]).
+    pub const USERS_PASSWORD_RESET_REQUESTED: &str = "users.password_reset_requested";
+    /// Someone registered with an email that already has an account ([`super::AccountEmail`]).
+    pub const USERS_ALREADY_REGISTERED: &str = "users.already_registered";
+    /// Wildcard for every user event.
+    pub const USERS_ALL: &str = "users.>";
+    /// An owner invited someone to a tenant ([`super::AccountEmail`]).
+    pub const TENANTS_MEMBER_INVITED: &str = "tenants.member_invited";
+    /// Wildcard for every tenant event.
+    pub const TENANTS_ALL: &str = "tenants.>";
 }
 
 /// One check to run. Carries everything the checker needs, so checkers never read the
@@ -126,4 +138,103 @@ pub struct TestNotification {
     pub tenant_id: Uuid,
     /// Channel to test.
     pub channel_id: Uuid,
+}
+
+/// An email about an account that the notifier renders and sends. The producer builds the
+/// link, so the panel route lives next to the endpoint that consumes the token; the notifier
+/// only writes the text. The payload carries a secret: never log it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AccountEmail {
+    /// Confirm the address after registering ([`subjects::USERS_VERIFICATION_REQUESTED`]).
+    VerificationRequested {
+        /// Trace id of the request.
+        trace_id: String,
+        /// Recipient.
+        to: String,
+        /// Display name of the recipient.
+        name: String,
+        /// Panel URL that completes the verification.
+        link: String,
+        /// When the link stops working.
+        expires_at: DateTime<Utc>,
+    },
+    /// Choose a new password ([`subjects::USERS_PASSWORD_RESET_REQUESTED`]).
+    PasswordResetRequested {
+        /// Trace id of the request.
+        trace_id: String,
+        /// Recipient.
+        to: String,
+        /// Display name of the recipient.
+        name: String,
+        /// Panel URL that opens the reset form.
+        link: String,
+        /// When the link stops working.
+        expires_at: DateTime<Utc>,
+    },
+    /// Someone tried to register an email that already has an account
+    /// ([`subjects::USERS_ALREADY_REGISTERED`]). Sent instead of revealing it in the response.
+    AlreadyRegistered {
+        /// Trace id of the request.
+        trace_id: String,
+        /// Recipient.
+        to: String,
+        /// Display name of the existing account.
+        name: String,
+        /// Panel URL of the login page.
+        login_link: String,
+        /// Panel URL of the "forgot password" page.
+        reset_link: String,
+    },
+    /// An invitation to join a tenant ([`subjects::TENANTS_MEMBER_INVITED`]).
+    MemberInvited {
+        /// Trace id of the request.
+        trace_id: String,
+        /// Recipient.
+        to: String,
+        /// Tenant that invites.
+        tenant_id: Uuid,
+        /// Display name of the tenant.
+        tenant_name: String,
+        /// Display name of the owner who invited.
+        invited_by: String,
+        /// Role offered, `owner` or `member`.
+        role: String,
+        /// Panel URL that accepts the invitation.
+        link: String,
+        /// When the invitation stops working.
+        expires_at: DateTime<Utc>,
+    },
+}
+
+impl AccountEmail {
+    /// Subject this email travels on.
+    pub const fn subject(&self) -> &'static str {
+        match self {
+            Self::VerificationRequested { .. } => subjects::USERS_VERIFICATION_REQUESTED,
+            Self::PasswordResetRequested { .. } => subjects::USERS_PASSWORD_RESET_REQUESTED,
+            Self::AlreadyRegistered { .. } => subjects::USERS_ALREADY_REGISTERED,
+            Self::MemberInvited { .. } => subjects::TENANTS_MEMBER_INVITED,
+        }
+    }
+
+    /// Recipient address.
+    pub fn to(&self) -> &str {
+        match self {
+            Self::VerificationRequested { to, .. }
+            | Self::PasswordResetRequested { to, .. }
+            | Self::AlreadyRegistered { to, .. }
+            | Self::MemberInvited { to, .. } => to,
+        }
+    }
+
+    /// Trace id of the request that produced it.
+    pub fn trace_id(&self) -> &str {
+        match self {
+            Self::VerificationRequested { trace_id, .. }
+            | Self::PasswordResetRequested { trace_id, .. }
+            | Self::AlreadyRegistered { trace_id, .. }
+            | Self::MemberInvited { trace_id, .. } => trace_id,
+        }
+    }
 }
