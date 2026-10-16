@@ -101,7 +101,13 @@ lto = "thin"
 codegen-units = 1
 strip = true
 
+# Solo tablas de líneas: los backtraces siguen mostrando archivo y línea, pero sin la
+# información completa de depuración, que en macOS deja gigas de `.o` en target/.
+[profile.dev]
+debug = "line-tables-only"
+
 # Las dependencias se compilan con algo de optimización también en dev para que los
-# tests de integración y el servidor local no sean lentos.
+# tests de integración y el servidor local no sean lentos; sin información de depuración.
 [profile.dev.package."*"]
 opt-level = 1
+debug = false

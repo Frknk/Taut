@@ -11,6 +11,10 @@ prepare_db := "postgres://taut:taut@localhost:5432/taut_prepare"
 default:
     @just --list --unsorted
 
+# Borra target/ (artefactos de compilación viejos que se acumulan con el tiempo)
+clean:
+    cargo clean
+
 # Instala herramientas (brew bundle, cargo), hooks de git, dependencias de web/ y crea .env
 setup:
     brew bundle --no-upgrade
