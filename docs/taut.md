@@ -21,6 +21,9 @@ sirve de hilo conductor para las 4 unidades del sílabo IS04E104.
   por correo, Telegram o Discord.
 - Cada tenant publica una página de estado pública con sus monitores e incidentes.
 
+*El alcance del primer prototipo, feature por feature y con semana prevista, está en
+[prototipo-1.md](prototipo-1.md) (decidido el 15-10-2026 a partir del backlog de features).*
+
 **Lo que agrega después (semanas 9 a 16)**
 
 - CQRS y eventos para separar escrituras (resultados de chequeos) de lecturas (dashboards y páginas
