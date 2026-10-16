@@ -5,6 +5,7 @@
 //! generic message, so nothing about the implementation leaks to clients.
 
 use axum::Json;
+use axum::extract::rejection::{JsonRejection, PathRejection, QueryRejection};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
@@ -27,6 +28,9 @@ pub enum AppError {
     /// The caller is authenticated but not allowed to do this.
     #[error("{0}")]
     Forbidden(String),
+    /// The request conflicts with existing data, for example a duplicate unique value.
+    #[error("{0}")]
+    Conflict(String),
     /// A dependency (database, bus, cache) is unavailable.
     #[error("{0}")]
     Unavailable(String),
@@ -43,6 +47,7 @@ impl AppError {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             Self::Forbidden(_) => StatusCode::FORBIDDEN,
+            Self::Conflict(_) => StatusCode::CONFLICT,
             Self::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -55,6 +60,7 @@ impl AppError {
             Self::BadRequest(_) => "bad_request",
             Self::Unauthorized(_) => "unauthorized",
             Self::Forbidden(_) => "forbidden",
+            Self::Conflict(_) => "conflict",
             Self::Unavailable(_) => "unavailable",
             Self::Internal(_) => "internal",
         }
@@ -64,6 +70,24 @@ impl AppError {
 impl From<sqlx::Error> for AppError {
     fn from(err: sqlx::Error) -> Self {
         Self::Internal(err.into())
+    }
+}
+
+impl From<JsonRejection> for AppError {
+    fn from(rejection: JsonRejection) -> Self {
+        Self::BadRequest(rejection.body_text())
+    }
+}
+
+impl From<PathRejection> for AppError {
+    fn from(rejection: PathRejection) -> Self {
+        Self::BadRequest(rejection.body_text())
+    }
+}
+
+impl From<QueryRejection> for AppError {
+    fn from(rejection: QueryRejection) -> Self {
+        Self::BadRequest(rejection.body_text())
     }
 }
 

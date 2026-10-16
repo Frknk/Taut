@@ -4,6 +4,11 @@
 //! opening a socket. `main.rs` only wires configuration, telemetry, the database and the
 //! server loop around it.
 
+pub mod monitors;
+pub mod tenant;
+pub mod tenants;
+pub mod validate;
+
 use std::sync::Arc;
 
 use axum::routing::get;
@@ -35,7 +40,11 @@ pub fn app(settings: Arc<Settings>, pool: PgPool, metrics_handle: PrometheusHand
         pool: pool.clone(),
     };
 
-    let v1 = Router::new().route("/v1/ping", get(ping)).with_state(state);
+    let v1 = Router::new()
+        .route("/v1/ping", get(ping))
+        .merge(tenants::router())
+        .merge(monitors::router())
+        .with_state(state);
 
     let router = Router::new()
         .merge(health::router(info, pool))

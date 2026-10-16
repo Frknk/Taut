@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use axum::Router;
 use axum::body::Body;
 use axum::extract::{MatchedPath, Request};
-use axum::http::{HeaderValue, Method, StatusCode, header};
+use axum::http::{HeaderName, HeaderValue, Method, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use taut_config::HttpSettings;
@@ -30,6 +30,10 @@ use crate::error::AppError;
 
 /// Header that carries the trace id. Incoming values are preserved so a gateway can set it.
 pub const TRACE_ID_HEADER: &str = "x-request-id";
+
+/// Header that selects the tenant of a request. Provisional: the tenant moves into the JWT
+/// when authentication arrives (weeks 13–14), and this header goes away.
+pub const TENANT_ID_HEADER: &str = "x-tenant-id";
 
 tokio::task_local! {
     static TRACE_ID: String;
@@ -92,11 +96,13 @@ async fn trace_id_scope(req: Request, next: Next) -> Response {
 }
 
 fn make_span(req: &http::Request<Body>) -> Span {
+    // `tenant_id` starts empty; the service records it once it knows the tenant.
     tracing::info_span!(
         "request",
         trace_id = %trace_id_from(req),
         method = %req.method(),
         path = %req.uri().path(),
+        tenant_id = tracing::field::Empty,
     )
 }
 
@@ -120,7 +126,11 @@ fn cors(settings: &HttpSettings) -> CorsLayer {
             Method::PATCH,
             Method::DELETE,
         ])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::AUTHORIZATION,
+            HeaderName::from_static(TENANT_ID_HEADER),
+        ])
         .max_age(Duration::from_secs(600))
 }
 

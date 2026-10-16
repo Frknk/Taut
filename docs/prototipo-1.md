@@ -177,3 +177,28 @@ El avance se registra en la hoja, columna Estado (Pendiente · En progreso · He
 al fusionar el PR que cierra una feature, se pasa a Hecho y la pestaña Resumen recalcula el
 porcentaje por tier. Los PRs mencionan el ID de la hoja en la descripción (por ejemplo "Cierra
 F-01 y F-27") para poder rastrearlos.
+
+## Decisiones de implementación
+
+Lo que el código fijó al implementar cada hito y que no estaba decidido arriba.
+
+**Semana 3–4 (CRUD de tenants y monitores)**
+
+- La columna se llama `monitors.kind` (igual que `alert_channels.kind`); en el JSON de la API
+  sigue siendo `type`. Los enumerados son `text` con `CHECK`, no tipos `ENUM` de PostgreSQL, para
+  que agregar DNS en la semana 12 sea cambiar un `CHECK` dentro de una transacción.
+- Tenant provisional: cabecera `X-Tenant-Id` con el UUID del tenant. Los handlers no la leen; usan
+  el extractor `CurrentTenant` (`services/api/src/tenant.rs`), que es lo único que cambia cuando
+  el tenant pase al JWT. Sin cabecera, con un UUID inválido o con un tenant inexistente: `401`.
+  `GET /v1/tenants` lista todos los tenants solo mientras no haya autenticación.
+- Un monitor de otro tenant responde `404`, nunca `403`, para no revelar que existe.
+- Cuotas del plan free: 10 monitores y 10 heartbeats, contadas por separado; superarlas es `403`.
+  La fila del tenant se bloquea (`FOR UPDATE`) al crear, así dos altas simultáneas no pasan ambas.
+- Timeout entre 1 y 60 s y siempre menor que el intervalo; periodos de confirmación, recuperación
+  y gracia entre 0 y 3 600 s. El tipo de un monitor no cambia después de creado.
+- Destinos internos: la API rechaza `localhost` y las IP de redes privadas, loopback y link-local
+  salvo con `TAUT_CHECKS__ALLOW_PRIVATE_TARGETS=true` (activo en `.env.example` para desarrollo).
+  El checker repetirá la regla sobre cada IP resuelta (semana 5).
+- Los campos que no aplican al tipo (`keyword` fuera de keyword, `expected_status` fuera de
+  HTTP, `target` en heartbeat) son error, no se ignoran. Los campos desconocidos también.
+

@@ -12,7 +12,8 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `crates/config`      | `taut-config`: `Settings` desde variables `TAUT_*` (`__` anida) y `.env` fuera de prod  |
 | `crates/telemetry`   | `taut-telemetry`: `init()` instala logs JSON con `trace_id` y el recorder de Prometheus |
 | `crates/db`          | `taut-db`: `connect`, `migrate` (migraciones embebidas de `migrations/`), `ping`        |
-| `crates/http`        | `taut-http`: `AppError`, routers de `/health`, `/ready`, `/metrics`, `layers::apply`, `serve` |
+| `crates/http`        | `taut-http`: `AppError`, extractores `Json`/`Path`/`Query`, routers de `/health`, `/ready`, `/metrics`, `layers::apply`, `serve` |
+| `crates/model`       | `taut-model`: tipos de dominio compartidos (`MonitorKind`, `MonitorStatus`, reglas de red) sin I/O |
 | `services/api`       | `taut-api`: `lib.rs` construye el `Router` (`app()`), `main.rs` lo arranca; tests en `tests/` |
 | `web/`               | SvelteKit 3 + Tailwind 4, bun, oxlint, oxfmt, vitest                                     |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
@@ -37,7 +38,11 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
 - **Commits** en formato Conventional Commits (`feat(api): ...`); el hook los valida. Tipos y
   scopes en [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Errores**: los handlers devuelven `Result<_, taut_http::AppError>`. Nunca `unwrap`/`expect`
-  en código de producción fuera del arranque; nada de códigos de estado a mano.
+  en código de producción fuera del arranque; nada de códigos de estado a mano. Usa los
+  extractores `taut_http::{Json, Path, Query}` (no los de axum) para que la entrada inválida
+  también responda con el JSON de error.
+- **Tenant**: los handlers de negocio reciben `CurrentTenant` y filtran toda query por
+  `tenant_id`; nunca aceptan el tenant como parámetro del cuerpo o de la ruta.
 - **Configuración**: solo a través de `taut_config::Settings`. No leer `std::env::var` en los
   servicios; agregar el campo a `Settings`, al `Default` y a `.env.example`.
 - **Logs**: `tracing` (`info!`, `warn!`, `error!` con campos estructurados). Nunca `println!`

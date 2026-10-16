@@ -112,6 +112,15 @@ pub struct TelemetrySettings {
     pub log_format: LogFormat,
 }
 
+/// Settings for the checks that monitors run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChecksSettings {
+    /// Allow monitors that target loopback, private or link-local addresses. Off by default
+    /// so a tenant cannot use taut to probe the cluster's internal network; `.env.example`
+    /// turns it on so local development can monitor services on the same machine.
+    pub allow_private_targets: bool,
+}
+
 /// Complete configuration of a service.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -127,6 +136,8 @@ pub struct Settings {
     pub nats: NatsSettings,
     /// Logging and metrics.
     pub telemetry: TelemetrySettings,
+    /// Monitor checks.
+    pub checks: ChecksSettings,
 }
 
 impl Default for Settings {
@@ -156,6 +167,9 @@ impl Default for Settings {
             },
             telemetry: TelemetrySettings {
                 log_format: LogFormat::Pretty,
+            },
+            checks: ChecksSettings {
+                allow_private_targets: false,
             },
         }
     }
@@ -219,6 +233,7 @@ mod tests {
             assert_eq!(settings.http.addr.port(), 8080);
             assert!(settings.database.migrate_on_start);
             assert_eq!(settings.telemetry.log_format, LogFormat::Pretty);
+            assert!(!settings.checks.allow_private_targets);
             Ok(())
         });
     }

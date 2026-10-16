@@ -10,9 +10,10 @@ Backend 100 % Rust (Axum, tokio, sqlx) en un Cargo workspace; frontend SvelteKit
 estática; PostgreSQL 17 con TimescaleDB, Redis y NATS JetStream. El diseño completo está en
 [docs/taut.md](docs/taut.md) y cada decisión importante en un [ADR](docs/adr/README.md).
 
-**Estado:** semana 1–2. Existe `taut-api` con `GET /health`, `GET /ready`, `GET /metrics` y
-`GET /v1/ping`, la base de datos local con la extensión TimescaleDB, el frontend que muestra el
-estado de la API, CI en GitHub Actions y la imagen Docker. Pendiente: el despliegue a un PaaS.
+**Estado:** prototipo 1 en construcción ([docs/prototipo-1.md](docs/prototipo-1.md)). Hecho el
+hito de la semana 3–4: tenants, CRUD de monitores (HTTP, palabra clave, TCP y heartbeat) con
+pausa, cuotas del plan free y el panel en `web/`. Pendiente: chequeos, incidentes, alertas,
+página de estado y el despliegue a un PaaS.
 
 ## Requisitos
 
@@ -37,6 +38,27 @@ Comprobar:
 curl -s localhost:8080/health   # {"status":"ok","service":"taut-api",...}
 curl -s localhost:8080/ready    # {"status":"ready","checks":{"database":"ok"}}
 curl -s localhost:8080/metrics  # formato Prometheus
+```
+
+## API
+
+Las rutas de `/v1` que actúan sobre un tenant llevan la cabecera `X-Tenant-Id` con su UUID
+(provisional hasta que exista autenticación, semana 13–14). Los errores son siempre
+`{"error": {"code", "message", "trace_id"}}`.
+
+| Método y ruta                         | Qué hace                                                    |
+| ------------------------------------- | ----------------------------------------------------------- |
+| `POST /v1/tenants`                    | Crea un tenant (`name`, `slug`)                             |
+| `GET /v1/tenants` · `/v1/tenants/{id}` | Lista (provisional) o lee tenants                          |
+| `GET /v1/monitors` · `POST`           | Lista o crea monitores del tenant                           |
+| `GET/PUT/DELETE /v1/monitors/{id}`    | Lee, reemplaza la configuración o elimina un monitor        |
+| `POST /v1/monitors/{id}/pause` · `/resume` | Pausa o reanuda                                        |
+
+```bash
+tenant=$(curl -s localhost:8080/v1/tenants -H 'content-type: application/json' \
+  -d '{"name":"Acme","slug":"acme"}' | jq -r .id)
+curl -s localhost:8080/v1/monitors -H "x-tenant-id: $tenant" -H 'content-type: application/json' \
+  -d '{"name":"Sitio","type":"http","target":"https://example.com"}'
 ```
 
 Antes de abrir un PR: `just check` (formato, clippy, oxlint, svelte-check, tests, cargo-deny,
@@ -72,9 +94,10 @@ taut/
 │   ├── config/      taut-config: Settings desde TAUT_* (figment) y .env
 │   ├── telemetry/   taut-telemetry: logs JSON con trace_id, métricas Prometheus
 │   ├── db/          taut-db: PgPool, migraciones embebidas, ping
-│   └── http/        taut-http: AppError, /health, /ready, /metrics, middleware, serve()
+│   ├── http/        taut-http: AppError, extractores, /health, /ready, /metrics, middleware, serve()
+│   └── model/       taut-model: tipos de dominio compartidos (tipo y estado de monitor, red)
 ├── services/
-│   └── api/         taut-api: binario Axum, tests de integración, Dockerfile
+│   └── api/         taut-api: tenants y monitores (/v1), tests de integración, Dockerfile
 ├── web/             SvelteKit 3 + Tailwind 4, SPA estática (bun, oxlint, oxfmt)
 ├── migrations/      migraciones sqlx compartidas (una base de datos en el MVP)
 ├── .sqlx/           caché offline de sqlx

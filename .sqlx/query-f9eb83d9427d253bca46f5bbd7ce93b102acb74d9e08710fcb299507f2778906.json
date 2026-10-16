@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE monitors\n        SET name = $3, target = $4, interval_s = $5, timeout_s = $6, expected_status = $7,\n            keyword = $8, confirmation_period_s = $9, recovery_period_s = $10,\n            grace_period_s = $11, updated_at = now()\n        WHERE tenant_id = $1 AND id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int2",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9eb83d9427d253bca46f5bbd7ce93b102acb74d9e08710fcb299507f2778906"
+}

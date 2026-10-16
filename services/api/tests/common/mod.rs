@@ -7,11 +7,13 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::body::Body;
-use http::{Request, Response};
+use http::{Method, Request, Response, StatusCode};
 use http_body_util::BodyExt;
+use serde_json::{Value, json};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use taut_config::Settings;
+use tower::ServiceExt;
 
 /// Router whose pool points at a closed port: `/ready` fails fast, everything else works.
 pub fn app_without_database() -> Router {
@@ -28,6 +30,68 @@ pub fn app_with(settings: Arc<Settings>, pool: PgPool) -> Router {
     let telemetry = taut_telemetry::init(taut_api::SERVICE_NAME, &settings.telemetry)
         .expect("telemetry installs once per process");
     taut_api::app(settings, pool, telemetry.metrics().clone())
+}
+
+/// Router backed by `pool` with the default settings.
+pub fn app(pool: PgPool) -> Router {
+    app_with(Arc::new(Settings::default()), pool)
+}
+
+/// Sends a request with an optional JSON body and tenant header; returns status and JSON body
+/// (`Value::Null` when the body is empty).
+pub async fn send(
+    app: &Router,
+    method: Method,
+    path: &str,
+    tenant: Option<&str>,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
+    let mut request = Request::builder().method(method).uri(path);
+    if let Some(tenant) = tenant {
+        request = request.header("x-tenant-id", tenant);
+    }
+    let request = match body {
+        Some(body) => request
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string())),
+        None => request.body(Body::empty()),
+    }
+    .expect("valid request");
+    let response = app.clone().oneshot(request).await.expect("router answers");
+    let status = response.status();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body is readable")
+        .to_bytes();
+    let body = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).expect("body is JSON")
+    };
+    (status, body)
+}
+
+/// Creates a tenant and returns its id.
+pub async fn create_tenant(app: &Router, slug: &str) -> String {
+    let (status, body) = send(
+        app,
+        Method::POST,
+        "/v1/tenants",
+        None,
+        Some(json!({ "name": format!("Tenant {slug}"), "slug": slug })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    body["id"].as_str().expect("tenant id").to_owned()
+}
+
+/// Creates a monitor for `tenant` and returns the response body.
+pub async fn create_monitor(app: &Router, tenant: &str, body: Value) -> Value {
+    let (status, body) = send(app, Method::POST, "/v1/monitors", Some(tenant), Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    body
 }
 
 /// Builds a `GET` request with an empty body.
