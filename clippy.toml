@@ -1,2 +1,3 @@
 # Los lints se activan en Cargo.toml ([workspace.lints]); aquí solo van umbrales.
 too-many-arguments-threshold = 8
+doc-valid-idents = ["PostgreSQL", "TimescaleDB", "JetStream", "NATS", "OpenTelemetry", "ULID", ".."]

@@ -1,0 +1,21 @@
+[package]
+name = "taut-telemetry"
+description = "Structured logging and Prometheus metrics for taut services"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+serde_json.workspace = true
+taut-config.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true
