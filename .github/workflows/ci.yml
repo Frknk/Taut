@@ -49,7 +49,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest,cargo-deny
-      - uses: cargo-bins/cargo-binstall@v1
+      - uses: cargo-bins/cargo-binstall@v1.25.3
       - name: Instalar sqlx-cli
         run: cargo binstall -y --locked sqlx-cli
       - name: Formato
