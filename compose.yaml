@@ -96,7 +96,8 @@ services:
     depends_on: *taut-deps
 
   # Identidad: usuarios, sesiones y la clave que firma los tokens. Sin TAUT_AUTH__SIGNING_KEY
-  # genera una clave efímera (solo dev). La api aplica las migraciones, así que aquí no.
+  # genera una clave efímera y sin TAUT_AUTH__TOTP_KEY (cifra los secretos del segundo factor)
+  # usa una clave fija de desarrollo (solo dev). La api aplica las migraciones, así que aquí no.
   auth:
     profiles: ["app"]
     build:

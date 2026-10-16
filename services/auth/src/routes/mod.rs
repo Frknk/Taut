@@ -5,6 +5,7 @@
 
 pub mod jwks;
 pub mod login;
+pub mod mfa;
 pub mod register;
 pub mod reset;
 pub mod session;
@@ -24,6 +25,9 @@ use crate::redis_error;
 use crate::sessions::Session;
 use crate::users::{PublicUser, User};
 
+/// Seconds an MFA token (between the password and the second factor) lives.
+pub const MFA_TOKEN_TTL_SECS: u64 = crate::mfa::MFA_TOKEN_TTL_SECS;
+
 /// All the routes of the service.
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -34,6 +38,12 @@ pub fn router() -> Router<AppState> {
             post(register::resend_verification),
         )
         .route("/v1/auth/login", post(login::login))
+        .route("/v1/auth/mfa", get(mfa::status).post(mfa::complete))
+        .route("/v1/auth/mfa/enroll", post(mfa::enroll))
+        .route("/v1/auth/mfa/confirm", post(mfa::confirm))
+        .route("/v1/auth/mfa/disable", post(mfa::disable))
+        .route("/v1/auth/mfa/backup-codes", post(mfa::backup_codes))
+        .route("/v1/auth/reauth", post(mfa::reauth))
         .route("/v1/auth/refresh", post(session::refresh))
         .route("/v1/auth/logout", post(session::logout))
         .route("/v1/auth/me", get(session::me))
@@ -83,18 +93,41 @@ pub fn access_token(state: &AppState, session: &Session) -> Result<(String, u64)
     Ok((token, ttl))
 }
 
+/// Signs the token that bridges a correct password and the second factor. It names the user
+/// and nothing else: no session exists until the code is right.
+pub fn mfa_token(state: &AppState, user: &User) -> Result<String, AppError> {
+    let now = Utc::now().timestamp();
+    let claims = Claims {
+        iss: state.settings.auth.issuer.clone(),
+        sub: user.id,
+        jti: Ulid::generate().to_string(),
+        sid: Uuid::nil(),
+        iat: now,
+        exp: now + i64::try_from(MFA_TOKEN_TTL_SECS).unwrap_or(i64::MAX),
+        auth_time: now,
+        mfa: false,
+        ver: user.token_version,
+        kind: TokenKind::Mfa,
+    };
+    state
+        .keys
+        .sign(&claims)
+        .map_err(|err| AppError::Internal(err.into()))
+}
+
 /// Starts a session for `user` (a fresh login): stores it, signs the access token and sets
-/// the refresh cookie.
+/// the refresh cookie. `mfa` says whether the login passed the second factor.
 pub async fn start_session(
     state: &AppState,
     jar: CookieJar,
     user: &User,
+    mfa: bool,
 ) -> Result<(CookieJar, Json<SessionResponse>), AppError> {
     let session = Session {
         sid: Uuid::now_v7(),
         user_id: user.id,
         token_version: user.token_version,
-        mfa: false,
+        mfa,
         auth_time: Utc::now().timestamp(),
     };
     let refresh = state

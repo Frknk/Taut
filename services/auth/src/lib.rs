@@ -1,13 +1,15 @@
 //! taut auth service: who the user is.
 //!
-//! Registration, email verification, login, sessions (an access JWT plus a refresh cookie),
-//! password recovery and the JWKS the other services verify tokens with. It owns the
-//! `users` and `user_tokens` tables and the `session:*` and `rl:*` keys in Redis; tenants and
-//! memberships belong to the api. Emails leave as events on the bus and the notifier sends
-//! them.
+//! Registration, email verification, login (with an optional second factor: TOTP and backup
+//! codes), sessions (an access JWT plus a refresh cookie), re-authentication for the
+//! sensitive actions, password recovery and the JWKS the other services verify tokens with.
+//! It owns the `users`, `user_tokens` and `mfa_backup_codes` tables and the `session:*`,
+//! `rl:*`, `mfa:*` and `totp:*` keys in Redis; tenants and memberships belong to the api.
+//! Emails leave as events on the bus and the notifier sends them.
 
 pub mod current_user;
 pub mod mail;
+pub mod mfa;
 pub mod password;
 pub mod ratelimit;
 pub mod routes;
@@ -42,6 +44,10 @@ pub struct AppState {
     pub sessions: sessions::SessionStore,
     /// Login and email limits.
     pub limiter: ratelimit::Limiter,
+    /// Pending enrollments and replay marks of the second factor.
+    pub mfa: mfa::MfaStore,
+    /// Encrypts the TOTP secrets at rest.
+    pub totp: mfa::TotpCipher,
     /// The key that signs tokens.
     pub keys: Arc<KeyPair>,
     /// Verifies the tokens this service signed, for the routes that need a session.
@@ -51,12 +57,14 @@ pub struct AppState {
 }
 
 /// Builds the complete router: health, metrics, `/v1/auth/*`, the JWKS and the middleware.
+/// `totp` encrypts the second-factor secrets (see [`totp_cipher`]).
 pub fn app(
     settings: Arc<Settings>,
     pool: PgPool,
     bus: Bus,
     redis: ConnectionManager,
     keys: KeyPair,
+    totp: mfa::TotpCipher,
     metrics_handle: PrometheusHandle,
 ) -> Router {
     let info = ServiceInfo::new(SERVICE_NAME, env!("CARGO_PKG_VERSION"), &settings.app);
@@ -87,7 +95,9 @@ pub fn app(
     ];
     let state = AppState {
         sessions: sessions::SessionStore::new(redis.clone(), settings.auth.refresh_ttl_secs),
+        mfa: mfa::MfaStore::new(redis.clone()),
         limiter: ratelimit::Limiter::new(redis),
+        totp,
         settings,
         pool,
         bus,
@@ -102,6 +112,23 @@ pub fn app(
         .merge(routes::router().with_state(state))
         .fallback(not_found);
     layers::apply(router, &http_settings)
+}
+
+/// The cipher for the TOTP secrets from `TAUT_AUTH__TOTP_KEY`; in development and tests a
+/// fixed key when none is configured, elsewhere an error.
+pub fn totp_cipher(settings: &Settings) -> anyhow::Result<mfa::TotpCipher> {
+    if let Some(key) = settings.auth.totp_key()? {
+        return Ok(mfa::TotpCipher::new(&key));
+    }
+    match settings.app.env {
+        Environment::Dev | Environment::Test => {
+            tracing::warn!("no TAUT_AUTH__TOTP_KEY configured: using the development key");
+            Ok(mfa::TotpCipher::dev())
+        }
+        Environment::Staging | Environment::Prod => {
+            anyhow::bail!("TAUT_AUTH__TOTP_KEY is required outside development")
+        }
+    }
 }
 
 #[allow(clippy::unused_async)] // axum handlers must be async

@@ -61,15 +61,21 @@ Toda ruta de `/v1` lleva `Authorization: Bearer <access token>`; el token lo emi
 (`POST /v1/auth/login`, 15 min) y se renueva con la cookie de sesión (`POST /v1/auth/refresh`).
 Las rutas que actúan sobre un tenant llevan además la cabecera `X-Tenant-Id` con su UUID: la api
 comprueba que el usuario es miembro y de ahí sale su rol (`owner` todo; `member` lee todo y
-gestiona monitores). Los errores son siempre `{"error": {"code", "message", "trace_id"}}`.
+gestiona monitores). Las acciones delicadas (canales de alerta; después borrar el tenant y crear
+API keys) exigen además que el usuario haya confirmado su contraseña hace menos de 5 min:
+si no, `403 reauth_required` y el panel pide la contraseña (`POST /v1/auth/reauth`) y reintenta.
+Los errores son siempre `{"error": {"code", "message", "trace_id"}}`.
 
 | Método y ruta                         | Qué hace                                                    |
 | ------------------------------------- | ----------------------------------------------------------- |
 | `POST /v1/auth/register` (auth, :8086) | Crea la cuenta (`name`, `email`, `password`) y envía el correo de confirmación; siempre `202` |
 | `POST /v1/auth/verify-email` · `/resend-verification` | Confirma el correo con el `token` del enlace, o pide otro enlace |
 | `POST /v1/auth/login` · `/refresh` · `/logout` | Entra (`email`, `password`), renueva o cierra la sesión; el refresh viaja en la cookie `taut_refresh` |
-| `GET /v1/auth/me` · `PUT /v1/auth/password` | Quién soy; cambia la contraseña (cierra las otras sesiones) |
+| `GET /v1/auth/me` · `PUT /v1/auth/password` | Quién soy; cambia la contraseña (cierra las otras sesiones; pide reautenticación reciente) |
 | `POST /v1/auth/forgot-password` · `/reset-password` | Recuperación por correo; siempre `202` |
+| `POST /v1/auth/mfa/enroll` · `/confirm` · `/disable` · `/backup-codes` · `GET /v1/auth/mfa` | Verificación en dos pasos (TOTP): activar con el `code` de la app (devuelve 8 códigos de respaldo una sola vez), desactivar (`password` + `code`), regenerar códigos, estado |
+| `POST /v1/auth/mfa`                   | Segundo paso del login: `mfa_token` (del `login` que respondió `mfa_required`) y `code` o `backup_code` |
+| `POST /v1/auth/reauth`                | Reautenticación (`password` y `code` si hay 2FA): token con `auth_time` nuevo para las acciones delicadas |
 | `GET /.well-known/jwks.json` (auth)   | Clave pública con la que la api verifica los tokens          |
 | `POST /v1/tenants`                    | Crea un tenant (`name`, `slug`); quien lo crea es owner      |
 | `GET /v1/tenants` · `/v1/tenants/{id}` | Mis tenants con mi rol, o uno de ellos                     |
@@ -143,7 +149,7 @@ taut/
 │   └── identity/    taut-identity: firma y verificación de tokens (Ed25519, JWKS), API keys
 ├── services/
 │   ├── api/         taut-api: tenants, miembros, monitores (/v1) y pings de heartbeat (/h)
-│   ├── auth/        taut-auth: registro, login, sesiones, recuperación de contraseña, JWKS
+│   ├── auth/        taut-auth: registro, login (con 2FA TOTP), sesiones, reautenticación, JWKS
 │   ├── scheduler/   taut-scheduler: planifica los chequeos (líder por lock en Redis)
 │   ├── checker/     taut-checker: ejecuta HTTP, palabra clave y TCP
 │   ├── incidents/   taut-incidents: guarda resultados, abre y cierra incidentes

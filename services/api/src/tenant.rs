@@ -3,7 +3,8 @@
 //! The bearer token (signed by the auth service) says who the user is; the `X-Tenant-Id`
 //! header says which of their tenants the request acts on; the `memberships` table joins
 //! the two and gives the role. Handlers take a [`CurrentTenant`] and ask its [`Actor`] for the
-//! [`Permission`] they need before writing anything.
+//! [`Permission`] they need before writing anything; the sensitive ones also ask for a recent
+//! authentication ([`Actor::require_recent_auth`]).
 
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
@@ -170,6 +171,22 @@ impl Actor {
         }
     }
 
+    /// Fails with `403 reauth_required` unless the user confirmed their password within the
+    /// last five minutes (`POST /v1/auth/reauth` on the auth service). For the actions a
+    /// stolen session must not be enough for: alert channels, API keys, deleting the tenant.
+    pub fn require_recent_auth(&self) -> Result<(), AppError> {
+        let Self::User { auth_time, .. } = self;
+        let age = Utc::now().signed_duration_since(*auth_time).num_seconds();
+        if age <= taut_identity::claims::RECENT_AUTH_SECS {
+            Ok(())
+        } else {
+            Err(AppError::Denied {
+                code: "reauth_required",
+                message: "confirm your password to continue".to_owned(),
+            })
+        }
+    }
+
     /// The user behind the request.
     pub fn user_id(&self) -> Uuid {
         let Self::User { user_id, .. } = self;
@@ -273,6 +290,19 @@ mod tests {
             mfa: false,
             auth_time: Utc::now(),
         }
+    }
+
+    #[test]
+    fn recent_auth_expires_after_five_minutes() {
+        assert!(actor(Role::Owner).require_recent_auth().is_ok());
+        let stale = Actor::User {
+            user_id: Uuid::nil(),
+            role: Role::Owner,
+            mfa: true,
+            auth_time: Utc::now() - chrono::Duration::seconds(301),
+        };
+        let err = stale.require_recent_auth().unwrap_err();
+        assert_eq!(err.code(), "reauth_required");
     }
 
     #[test]

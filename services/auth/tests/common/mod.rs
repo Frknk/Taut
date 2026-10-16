@@ -56,12 +56,14 @@ pub async fn client(pool: PgPool) -> Client {
     let telemetry = taut_telemetry::init(taut_auth::SERVICE_NAME, &settings.telemetry)
         .expect("telemetry installs once per process");
     let keys = KeyPair::generate();
+    let totp = taut_auth::totp_cipher(&settings).expect("dev totp key");
     let router = taut_auth::app(
         Arc::new(settings),
         pool,
         bus.clone(),
         redis,
         keys.clone(),
+        totp,
         telemetry.metrics().clone(),
     );
     // nextest runs every test in its own process, so a counter would repeat: random it is.

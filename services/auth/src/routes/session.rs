@@ -101,13 +101,15 @@ pub(crate) struct PasswordChange {
 }
 
 /// `PUT /v1/auth/password`: every other session ends; this one restarts, so the caller stays
-/// signed in and gets a fresh cookie.
+/// signed in and gets a fresh cookie. A sensitive action: needs a recent authentication
+/// besides the current password.
 pub(crate) async fn change_password(
     State(state): State<AppState>,
     current: CurrentUser,
     jar: CookieJar,
     Json(input): Json<PasswordChange>,
 ) -> Result<(CookieJar, Json<SessionResponse>), AppError> {
+    current.require_recent_auth()?;
     let user = current.user;
     let key = format!("rl:login:acct:{}", user.email);
     state.limiter.check(&key, LOGIN_PER_ACCOUNT).await?;
@@ -131,5 +133,5 @@ pub(crate) async fn change_password(
         token_version,
         ..user
     };
-    start_session(&state, jar, &user).await
+    start_session(&state, jar, &user, current.claims.mfa).await
 }

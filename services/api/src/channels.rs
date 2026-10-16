@@ -2,6 +2,9 @@
 //!
 //! The API only stores channels; the notifier sends. The test button publishes
 //! `notifications.test` and the notifier records the outcome in `last_delivery_*`.
+//!
+//! Channels decide where alerts (and their monitor names and causes) go, so every change
+//! is a sensitive action: owners only, with a recent authentication (step-up).
 
 // Axum handlers receive their state by value even when they only borrow it.
 #![allow(clippy::needless_pass_by_value)]
@@ -119,6 +122,7 @@ async fn create(
     Json(input): Json<ChannelInput>,
 ) -> Result<(StatusCode, Json<AlertChannel>), AppError> {
     actor.require(Permission::Channels)?;
+    actor.require_recent_auth()?;
     let spec = validate::channel(&input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
     let mut tx = state.pool.begin().await?;
@@ -164,6 +168,7 @@ async fn update(
     Json(input): Json<ChannelInput>,
 ) -> Result<Json<AlertChannel>, AppError> {
     actor.require(Permission::Channels)?;
+    actor.require_recent_auth()?;
     let spec = validate::channel(&input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
     let updated = sqlx::query!(
@@ -194,6 +199,7 @@ async fn remove(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
     actor.require(Permission::Channels)?;
+    actor.require_recent_auth()?;
     let deleted = sqlx::query!(
         "DELETE FROM alert_channels WHERE tenant_id = $1 AND id = $2",
         tenant.id,
@@ -219,6 +225,7 @@ async fn test(
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<TestQueued>), AppError> {
     actor.require(Permission::Channels)?;
+    actor.require_recent_auth()?;
     if find(&state.pool, tenant.id, id).await?.is_none() {
         return Err(not_found());
     }

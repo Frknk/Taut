@@ -19,6 +19,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let keys = load_keys(&settings)?;
+    let totp = taut_auth::totp_cipher(&settings)?;
     let pool = taut_db::connect(&settings.database).await?;
     if settings.database.migrate_on_start {
         taut_db::migrate(&pool).await?;
@@ -34,6 +35,7 @@ async fn main() -> anyhow::Result<()> {
         bus,
         redis,
         keys,
+        totp,
         telemetry.metrics().clone(),
     );
     taut_http::serve(app, settings.http.addr).await?;

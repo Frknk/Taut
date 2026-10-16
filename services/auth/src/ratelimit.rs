@@ -2,7 +2,7 @@
 //!
 //! A key counts failures (or emails sent) and expires with its window; the first hit sets the
 //! expiration, later hits only increment. Keys: `rl:login:acct:{email}`, `rl:login:ip:{ip}`,
-//! `rl:email:{email}`, `rl:register:ip:{ip}`, `rl:reset:ip:{ip}`.
+//! `rl:email:{email}`, `rl:register:ip:{ip}`, `rl:reset:ip:{ip}`, `rl:mfa:{user_id}`.
 
 use std::net::IpAddr;
 use std::time::Duration;
@@ -30,6 +30,12 @@ pub const LOGIN_PER_ACCOUNT: Limit = Limit {
 /// not lock everyone out after five typos.
 pub const LOGIN_PER_IP: Limit = Limit {
     max: 20,
+    window: Duration::from_mins(15),
+};
+/// Wrong second-factor codes per user: five in fifteen minutes. A six-digit code has a
+/// million values; without this, guessing one within its 90 s window would be feasible.
+pub const MFA_PER_ACCOUNT: Limit = Limit {
+    max: 5,
     window: Duration::from_mins(15),
 };
 /// Emails sent to one address per hour.
@@ -142,6 +148,7 @@ mod tests {
     fn key_families_drop_the_identifier() {
         assert_eq!(key_family("rl:login:acct:ana@x.co"), "login:acct");
         assert_eq!(key_family("rl:register:ip:10.0.0.1"), "register:ip");
+        assert_eq!(key_family("rl:mfa:0192b4a8"), "mfa:0192b4a8");
     }
 
     #[test]

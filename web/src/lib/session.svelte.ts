@@ -6,11 +6,16 @@ import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 
 import { ApiError, authRequest, configureAuth } from './api.js';
+import { mfaBody } from './mfa-form.js';
+import { reauthPrompt } from './reauth.svelte.js';
 import { expiresAtMs, refreshDelayMs } from './session-timing.js';
 import { selectedTenant } from './tenant.svelte.js';
-import type { SessionResponse, User } from './types.js';
+import type { LoginResponse, SessionResponse, User } from './types.js';
 
 export type SessionStatus = 'booting' | 'anonymous' | 'authenticated';
+
+/** How a login ended: signed in, or waiting for the second factor. */
+export type LoginOutcome = { status: 'ok' } | { status: 'mfa_required'; mfaToken: string };
 
 class Session {
   user = $state<User | null>(null);
@@ -56,9 +61,31 @@ class Session {
     return this.refreshing;
   }
 
-  async login(email: string, password: string): Promise<void> {
+  /** First step: the password. With 2FA on, the session only starts after `completeMfa`. */
+  async login(email: string, password: string): Promise<LoginOutcome> {
+    const response = await authRequest<LoginResponse>('POST', '/v1/auth/login', {
+      body: { email, password },
+    });
+    if ('status' in response) return { status: 'mfa_required', mfaToken: response.mfa_token };
+    this.apply(response);
+    return { status: 'ok' };
+  }
+
+  /** Second step: a code from the app or a backup code, with the token of the first step. */
+  async completeMfa(mfaToken: string, code: string): Promise<void> {
     this.apply(
-      await authRequest<SessionResponse>('POST', '/v1/auth/login', { body: { email, password } }),
+      await authRequest<SessionResponse>('POST', '/v1/auth/mfa', {
+        body: { mfa_token: mfaToken, ...mfaBody(code) },
+      }),
+    );
+  }
+
+  /** Confirms the password (and code, with 2FA on) again: the sensitive actions need it. */
+  async reauth(password: string, code = ''): Promise<void> {
+    this.apply(
+      await authRequest<SessionResponse>('POST', '/v1/auth/reauth', {
+        body: { password, ...(code ? mfaBody(code) : {}) },
+      }),
     );
   }
 
@@ -103,4 +130,5 @@ configureAuth({
     selectedTenant.clear();
     void goto(resolve('/'));
   },
+  reauth: () => reauthPrompt.request(),
 });

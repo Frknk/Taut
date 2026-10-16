@@ -7,6 +7,7 @@ describe('describeError', () => {
     expect(describeError(new ApiError(401, 'unauthorized', 'x'))).toContain('sesión');
     expect(describeError(new ApiError(403, 'not_a_member', 'x'))).toContain('organización');
     expect(describeError(new ApiError(403, 'email_unverified', 'x'))).toContain('Confirma');
+    expect(describeError(new ApiError(403, 'reauth_required', 'x'))).toContain('contraseña');
     expect(describeError(new ApiError(403, 'forbidden', 'owner role required'))).toContain(
       'owner role required',
     );

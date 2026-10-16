@@ -8,11 +8,20 @@
     description?: string;
     /** `alertdialog` for irreversible confirmations. */
     alert?: boolean;
+    /** Body between the description and the buttons: a short form, a list. */
+    children?: Snippet;
     /** The buttons: the safe one first, the main one last (on the right). */
     actions: Snippet;
   }
 
-  let { open = $bindable(), title, description, alert = false, actions }: Props = $props();
+  let {
+    open = $bindable(),
+    title,
+    description,
+    alert = false,
+    children,
+    actions,
+  }: Props = $props();
 
   const id = $props.id();
   let dialog = $state<HTMLDialogElement>();
@@ -34,5 +43,6 @@
 >
   <h2 id="{id}-title" class="text-xl font-semibold text-strong">{title}</h2>
   {#if description}<p id="{id}-text" class="mt-2 text-subtle">{description}</p>{/if}
+  {#if children}<div class="mt-4">{@render children()}</div>{/if}
   <div class="mt-6 flex flex-wrap justify-end gap-2">{@render actions()}</div>
 </dialog>
