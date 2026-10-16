@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            time_bucket(make_interval(secs => $3), at) AS \"t!\",\n            count(*) AS \"checks!\",\n            count(*) FILTER (WHERE NOT ok) AS \"failures!\",\n            (avg(latency_ms) FILTER (WHERE ok))::float8 AS avg_ms,\n            percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms) FILTER (WHERE ok) AS p95_ms\n        FROM check_results\n        WHERE monitor_id = $1 AND tenant_id = $2 AND at > now() - make_interval(secs => $4)\n        GROUP BY 1\n        ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "t!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "checks!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "failures!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg_ms",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "p95_ms",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "67bf6bd4d1258b09223ae5d09cae90dd3abb778181be345e9126dfe8dadff358"
+}
