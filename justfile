@@ -4,6 +4,8 @@ set dotenv-load := true
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 web_dir := "web"
+# Base de datos desechable para `sqlx-prepare`: recién migrada, igual que la de CI.
+prepare_db := "postgres://taut:taut@localhost:5432/taut_prepare"
 
 # Lista las recetas disponibles
 default:
@@ -113,9 +115,11 @@ db-reset:
     sqlx database create
     sqlx migrate run
 
-# Regenera la caché offline de sqlx (.sqlx/)
+# Regenera la caché offline de sqlx (.sqlx/) contra una base vacía recién migrada: la inferencia
+# de nulabilidad de sqlx usa EXPLAIN y cambia si la base de desarrollo tiene datos.
 sqlx-prepare:
-    cargo sqlx prepare --workspace
+    DATABASE_URL={{prepare_db}} sqlx database reset -y
+    DATABASE_URL={{prepare_db}} cargo sqlx prepare --workspace
 
 # Construye la imagen de un servicio con el commit actual: just image checker
 image svc="api":
