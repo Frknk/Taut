@@ -12,7 +12,7 @@
 > 29 puntos. Ping, DNS y multi-región quedan para el prototipo 2.
 >
 > **Avance (16-10-2026):** las 17 features están implementadas, en cuatro PRs apilados (uno por
-> hito: Frknk/taut#7, #8, #9 y el de la semana 7). Falta lo que no es código de la aplicación:
+> hito: Frknk/taut#7, #8, #9 y #10). Falta lo que no es código de la aplicación:
 > despliegue en PaaS, Terraform, manifiestos de Kubernetes y el reporte de k6. Al fusionar cada
 > PR, la columna Estado de la hoja pasa a Hecho para sus features.
 
