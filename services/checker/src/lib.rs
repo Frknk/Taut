@@ -6,7 +6,6 @@
 //! `checks.completed`.
 
 pub mod checks;
-pub mod resolver;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,12 +29,6 @@ pub const SERVICE_NAME: &str = "taut-checker";
 const CONSUMER: &str = "checker";
 /// Longer than the longest timeout (60 s) so a slow check is not redelivered mid-flight.
 const ACK_WAIT: Duration = Duration::from_secs(90);
-
-/// Installs `ring` as the process-wide TLS provider (the one sqlx also uses). Idempotent.
-pub fn install_crypto_provider() {
-    // Fails only when a provider is already installed, which is fine.
-    let _ = rustls::crypto::ring::default_provider().install_default();
-}
 
 /// Router with `/health`, `/ready` (NATS connected) and `/metrics`.
 pub fn app(settings: &Settings, bus: &Bus, metrics_handle: PrometheusHandle) -> Router {

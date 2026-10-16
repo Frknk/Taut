@@ -4,17 +4,19 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
 
+  import IncidentList from '#lib/components/IncidentList.svelte';
   import StatusBadge from '#lib/components/StatusBadge.svelte';
   import { API_URL, describeError, request } from '#lib/api.js';
   import { KIND_LABELS, formatDateTime, formatSeconds, timeAgo } from '#lib/format.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
-  import type { CheckResult, Monitor } from '#lib/types.js';
+  import type { CheckResult, Incident, Monitor } from '#lib/types.js';
 
   const id = $derived(page.params.id ?? '');
   const tenantId = $derived(selectedTenant.current?.id ?? '');
 
   let monitor = $state<Monitor | null>(null);
   let checks = $state<CheckResult[]>([]);
+  let incidents = $state<Incident[]>([]);
   let error = $state('');
   let copied = $state(false);
 
@@ -24,9 +26,10 @@
 
   async function load() {
     try {
-      [monitor, checks] = await Promise.all([
+      [monitor, checks, incidents] = await Promise.all([
         request<Monitor>('GET', `/v1/monitors/${id}`, { tenant: tenantId }),
         request<CheckResult[]>('GET', `/v1/monitors/${id}/checks?limit=20`, { tenant: tenantId }),
+        request<Incident[]>('GET', `/v1/incidents?monitor_id=${id}&limit=10`, { tenant: tenantId }),
       ]);
       error = '';
     } catch (err) {
@@ -169,6 +172,15 @@
       </div>
       <pre
         class="mt-3 overflow-x-auto rounded-lg bg-neutral-900 px-3 py-2 text-xs text-neutral-100">0 3 * * * /usr/local/bin/backup.sh && curl -fsS {pingUrl} || curl -fsS {pingUrl}/fail</pre>
+    </section>
+  {/if}
+
+  {#if incidents.length > 0}
+    <section class="mt-6">
+      <h2 class="text-sm font-medium text-neutral-900">Incidentes</h2>
+      <div class="mt-2">
+        <IncidentList {incidents} {tenantId} showMonitor={false} />
+      </div>
     </section>
   {/if}
 

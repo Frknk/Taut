@@ -1,7 +1,8 @@
 //! NATS JetStream for taut services.
 //!
 //! [`Bus::connect`] opens the connection and makes sure the three streams exist: `CHECKS`
-//! (`checks.>`), `INCIDENTS` (`incidents.>`) and `MONITORS` (`monitors.>`). Events are JSON;
+//! (`checks.>`), `INCIDENTS` (`incidents.>` and `notifications.>`) and `MONITORS`
+//! (`monitors.>`). Events are JSON;
 //! [`Bus::publish`] waits for the stream's acknowledgement and copies the event's trace id into
 //! the `x-request-id` header. [`consume`] runs a durable pull consumer: it decodes each message,
 //! opens a span with the trace id, calls the handler with bounded concurrency and acks, naks or
@@ -38,14 +39,14 @@ pub const MONITORS_STREAM: &str = "MONITORS";
 
 /// Name, subjects and retention of every stream. Messages are kept for a while even after
 /// they are consumed, so a projection can be rebuilt by replaying them (week 10, CQRS).
-const STREAMS: [(&str, &str, Duration); 3] = [
-    (CHECKS_STREAM, "checks.>", Duration::from_hours(24)),
+const STREAMS: [(&str, &[&str], Duration); 3] = [
+    (CHECKS_STREAM, &["checks.>"], Duration::from_hours(24)),
     (
         INCIDENTS_STREAM,
-        "incidents.>",
+        &["incidents.>", "notifications.>"],
         Duration::from_hours(7 * 24),
     ),
-    (MONITORS_STREAM, "monitors.>", Duration::from_hours(24)),
+    (MONITORS_STREAM, &["monitors.>"], Duration::from_hours(24)),
 ];
 
 /// Bus failure.
@@ -103,12 +104,16 @@ impl Bus {
         Self { client, jetstream }
     }
 
+    /// Creates the streams, or updates their subjects and retention when they changed.
     async fn ensure_streams(&self) -> Result<(), BusError> {
         for (name, subjects, max_age) in STREAMS {
             self.jetstream
-                .get_or_create_stream(StreamConfig {
+                .create_or_update_stream(StreamConfig {
                     name: name.to_owned(),
-                    subjects: vec![subjects.to_owned()],
+                    subjects: subjects
+                        .iter()
+                        .map(|subject| (*subject).to_owned())
+                        .collect(),
                     retention: RetentionPolicy::Limits,
                     storage: StorageType::File,
                     max_age,

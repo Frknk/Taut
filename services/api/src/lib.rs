@@ -4,7 +4,9 @@
 //! opening a socket. `main.rs` only wires configuration, telemetry, the database and the
 //! server loop around it.
 
+pub mod channels;
 pub mod heartbeats;
+pub mod incidents;
 pub mod monitors;
 pub mod tenant;
 pub mod tenants;
@@ -56,6 +58,8 @@ pub fn app(
         .route("/v1/ping", get(ping))
         .merge(tenants::router())
         .merge(monitors::router())
+        .merge(incidents::router())
+        .merge(channels::router())
         .merge(heartbeats::router())
         .with_state(state);
 

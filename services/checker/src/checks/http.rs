@@ -5,21 +5,17 @@
 //! for keyword monitors, a body that contains the keyword within the first megabyte.
 
 use std::error::Error as StdError;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use reqwest::redirect::{Attempt, Policy};
 use taut_model::events::CheckRequested;
 use taut_model::net::is_internal_host;
+use taut_net::{DnsFailure, InternalAddress};
 use url::Url;
 
 use super::{Check, INTERNAL_ADDRESS, Outcome};
-use crate::resolver::{DnsFailure, GuardedResolver, InternalAddress};
 
 /// Largest body read when looking for a keyword.
 const MAX_BODY_BYTES: usize = 1024 * 1024;
-/// Redirects followed before the check fails.
-const MAX_REDIRECTS: usize = 5;
 
 /// HTTP and keyword check.
 pub struct HttpCheck {
@@ -30,13 +26,8 @@ pub struct HttpCheck {
 impl HttpCheck {
     /// Builds the HTTP client. `allow_internal` permits loopback and private targets.
     pub fn new(allow_internal: bool) -> Result<Self, reqwest::Error> {
-        crate::install_crypto_provider();
-        let client = reqwest::Client::builder()
+        let client = taut_net::guarded_client(allow_internal)
             .user_agent(concat!("taut-checker/", env!("CARGO_PKG_VERSION")))
-            .dns_resolver(Arc::new(GuardedResolver::new(allow_internal)))
-            .redirect(Policy::custom(move |attempt| {
-                follow_redirect(attempt, allow_internal)
-            }))
             .pool_max_idle_per_host(0)
             .build()?;
         Ok(Self {
@@ -108,19 +99,6 @@ impl Check for HttpCheck {
             }
         }
     }
-}
-
-fn follow_redirect(attempt: Attempt<'_>, allow_internal: bool) -> reqwest::redirect::Action {
-    if attempt.previous().len() >= MAX_REDIRECTS {
-        let error = format!("more than {MAX_REDIRECTS} redirects");
-        return attempt.error(error);
-    }
-    let internal = attempt.url().host_str().is_some_and(is_internal_host);
-    if internal && !allow_internal {
-        let host = attempt.url().host_str().unwrap_or_default().to_owned();
-        return attempt.error(InternalAddress(host));
-    }
-    attempt.follow()
 }
 
 /// Most specific readable cause in the error chain of a failed request.

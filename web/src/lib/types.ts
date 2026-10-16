@@ -58,3 +58,50 @@ export interface MonitorInput {
   recovery_period_s: number;
   grace_period_s: number;
 }
+
+export type ChannelKind = 'email' | 'webhook' | 'discord' | 'slack';
+
+export interface AlertChannel {
+  id: string;
+  tenant_id: string;
+  name: string;
+  type: ChannelKind;
+  config: { to?: string; url?: string };
+  active: boolean;
+  last_delivery_at: string | null;
+  last_delivery_error: string | null;
+  created_at: string;
+}
+
+/** Body of `POST /v1/alert-channels` and `PUT /v1/alert-channels/{id}`. */
+export interface ChannelInput {
+  name: string;
+  type: ChannelKind;
+  config: { to: string } | { url: string };
+  active: boolean;
+}
+
+export interface Incident {
+  id: string;
+  monitor_id: string;
+  monitor_name: string;
+  started_at: string;
+  resolved_at: string | null;
+  cause: string;
+  duration_s: number;
+}
+
+export interface Delivery {
+  channel_id: string;
+  channel_name: string;
+  channel_type: ChannelKind;
+  event: 'opened' | 'resolved';
+  status: 'sent' | 'failed';
+  attempts: number;
+  last_error: string | null;
+  updated_at: string;
+}
+
+export interface IncidentDetail extends Incident {
+  deliveries: Delivery[];
+}

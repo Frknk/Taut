@@ -47,6 +47,15 @@
         "incidents"
       ],
       "port": 8083
+    },
+    {
+      "name": "notifier",
+      "runtimeExecutable": "just",
+      "runtimeArgs": [
+        "run",
+        "notifier"
+      ],
+      "port": 8084
     }
   ]
 }

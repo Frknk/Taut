@@ -24,6 +24,14 @@ pub mod subjects {
     pub const MONITORS_DELETED: &str = "monitors.deleted";
     /// Wildcard for every monitor event.
     pub const MONITORS_ALL: &str = "monitors.>";
+    /// An incident opened ([`super::IncidentChanged`]).
+    pub const INCIDENTS_OPENED: &str = "incidents.opened";
+    /// An incident was resolved ([`super::IncidentChanged`]).
+    pub const INCIDENTS_RESOLVED: &str = "incidents.resolved";
+    /// Wildcard for every incident event.
+    pub const INCIDENTS_ALL: &str = "incidents.>";
+    /// A user asked to test an alert channel ([`super::TestNotification`]).
+    pub const NOTIFICATIONS_TEST: &str = "notifications.test";
 }
 
 /// One check to run. Carries everything the checker needs, so checkers never read the
@@ -85,4 +93,37 @@ pub struct MonitorChanged {
     pub monitor_id: Uuid,
     /// Owner of the monitor.
     pub tenant_id: Uuid,
+}
+
+/// An incident opened or was resolved; the subject says which. Carries what an alert shows,
+/// so the notifier does not need to read the monitor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IncidentChanged {
+    /// Trace id of the check that caused the transition.
+    pub trace_id: String,
+    /// Incident id.
+    pub incident_id: Uuid,
+    /// Owner of the monitor.
+    pub tenant_id: Uuid,
+    /// Monitor that failed.
+    pub monitor_id: Uuid,
+    /// Display name of the monitor.
+    pub monitor_name: String,
+    /// First failure of the streak that opened the incident.
+    pub started_at: DateTime<Utc>,
+    /// When it was resolved; `None` on `incidents.opened`.
+    pub resolved_at: Option<DateTime<Utc>>,
+    /// Cause of the first failure.
+    pub cause: String,
+}
+
+/// Request to send a test message through one alert channel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TestNotification {
+    /// Trace id of the API request.
+    pub trace_id: String,
+    /// Owner of the channel.
+    pub tenant_id: Uuid,
+    /// Channel to test.
+    pub channel_id: Uuid,
 }

@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT status, consecutive_failures, consecutive_successes, failing_since,\n               failure_cause, last_checked_at\n        FROM monitor_status\n        WHERE monitor_id = $1\n        FOR UPDATE\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitor_status",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "consecutive_failures",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitor_status",
+            "name": "consecutive_failures"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "consecutive_successes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitor_status",
+            "name": "consecutive_successes"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "failing_since",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "monitor_status",
+            "name": "failing_since"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "failure_cause",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitor_status",
+            "name": "failure_cause"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "last_checked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "monitor_status",
+            "name": "last_checked_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "def55bab0b95dab1fff28fefe0b4776f90c2b48ab4004ebcd5660fc116daf45b"
+}

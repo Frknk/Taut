@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO incidents (id, tenant_id, monitor_id, started_at, cause)\n        VALUES ($1, $2, $3, $4, $5)\n        ON CONFLICT (monitor_id) WHERE resolved_at IS NULL DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4f51bdcb1858bfdcc21ead63189a4dc4dc02f315c414882bdde927bf7a8a0d97"
+}

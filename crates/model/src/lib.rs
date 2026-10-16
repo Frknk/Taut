@@ -86,6 +86,39 @@ impl fmt::Display for MonitorStatus {
     }
 }
 
+/// Where an alert goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[serde(rename_all = "lowercase")]
+#[sqlx(type_name = "text", rename_all = "lowercase")]
+pub enum ChannelKind {
+    /// Email through SMTP; config `{"to": "ops@example.com"}`.
+    Email,
+    /// Generic webhook with the full JSON event; config `{"url": "https://..."}`.
+    Webhook,
+    /// Discord incoming webhook (`{"content": ...}`); config `{"url": "https://..."}`.
+    Discord,
+    /// Slack incoming webhook (`{"text": ...}`); config `{"url": "https://..."}`.
+    Slack,
+}
+
+impl ChannelKind {
+    /// Lowercase name, as stored and serialized.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Email => "email",
+            Self::Webhook => "webhook",
+            Self::Discord => "discord",
+            Self::Slack => "slack",
+        }
+    }
+}
+
+impl fmt::Display for ChannelKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

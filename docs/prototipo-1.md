@@ -233,3 +233,35 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
 - Un solo `Dockerfile` en la raíz para todos los servicios (`--build-arg SERVICE=checker`); la
   capa de dependencias de cargo-chef es la misma para todos.
 
+**Semana 6 (incidentes y alertas)**
+
+- La máquina de estados vive en `services/incidents/src/state.rs` (pura, con tests) y su estado
+  en la tabla `monitor_status` (no en Redis como decía el mapa de F-32): así el resultado, la
+  transición y el incidente se guardan en una sola transacción. La fila se bloquea con
+  `FOR UPDATE` mientras se aplica un resultado y un índice único parcial garantiza un solo
+  incidente abierto por monitor aunque haya varias réplicas; un test con ocho fallos simultáneos
+  lo comprueba. Redis llega en la semana 13 para la caché.
+- Abre tras `k + 1` fallos seguidos (`k = ⌈T_conf / f⌉`) y cierra tras `max(⌈T_rec / f⌉, 1)`
+  éxitos seguidos. Los heartbeats abren al primer "no ping" y cierran al primer ping, porque el
+  periodo de gracia ya es su confirmación. El incidente empieza en el primer fallo de la racha y
+  conserva su causa. Un resultado más viejo que el último aplicado se guarda pero no mueve el
+  estado; un monitor pausado guarda resultados sin abrir incidentes.
+- El estado `down` de un monitor equivale a "tiene un incidente abierto"; la API lo lee de
+  `monitor_status` (`pending` si todavía no hay resultados, `paused` si está pausado).
+- El evento `incidents.*` se publica después del commit con tres intentos y `Nats-Msg-Id` para no
+  duplicarlo. Si NATS no responde en ninguno, la alerta se pierde y queda un error en el log y la
+  métrica `incident_events_lost_total`; el patrón outbox que lo resuelve encaja en la semana
+  10–11 (CQRS y eventos).
+- F-41 entra en este hito junto con F-40: el notifier es uno solo y los webhooks son pocas
+  líneas. Discord recibe `{"content"}`, Slack `{"text"}` y el webhook genérico el JSON completo
+  del incidente. La firma HMAC sigue para la semana 13–14.
+- `notification_deliveries` guarda cada envío (canal, apertura o cierre, estado, intentos,
+  error): un evento reentregado no reenvía a los canales que ya lo recibieron y solo reintenta
+  los que fallaron. El panel muestra ese historial por incidente y el resultado del último envío
+  de cada canal. Los webhooks usan el mismo cliente protegido que el checker (`taut-net`).
+- En local el correo va a Mailpit (`compose.yaml`, bandeja en http://localhost:8025); en la nube
+  `TAUT_NOTIFIER__SMTP_URL` apunta al proveedor que se elija. Los textos de las alertas están en
+  español; los enlaces apuntan a `TAUT_NOTIFIER__PANEL_URL`.
+- La columna de configuración de `alert_channels` se llama `config` (jsonb) en vez de
+  `config_json`; en la API los canales usan `type`, como los monitores.
+

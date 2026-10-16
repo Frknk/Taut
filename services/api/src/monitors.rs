@@ -70,7 +70,7 @@ pub struct Monitor {
     pub last_ping_at: Option<DateTime<Utc>>,
     /// `false` while paused.
     pub active: bool,
-    /// Health as shown to users.
+    /// Health as shown to users: `down` while an incident is open.
     pub status: MonitorStatus,
     /// When the last result was recorded.
     pub last_check_at: Option<DateTime<Utc>>,
@@ -97,10 +97,12 @@ pub async fn find(pool: &PgPool, tenant_id: Uuid, id: Uuid) -> Result<Option<Mon
                m.timeout_s, m.expected_status, m.keyword, m.confirmation_period_s,
                m.recovery_period_s, m.grace_period_s, m.heartbeat_token, m.last_ping_at,
                m.active,
-               CASE WHEN m.active THEN 'pending' ELSE 'paused' END AS "status!: MonitorStatus",
+               CASE WHEN NOT m.active THEN 'paused' ELSE coalesce(s.status, 'pending') END
+                   AS "status!: MonitorStatus",
                last.at AS "last_check_at?", last.ok AS "last_check_ok?",
                last.latency_ms AS "last_latency_ms?", m.created_at, m.updated_at
         FROM monitors m
+        LEFT JOIN monitor_status s ON s.monitor_id = m.id
         LEFT JOIN LATERAL (
             SELECT r.at, r.ok, r.latency_ms FROM check_results r
             WHERE r.monitor_id = m.id ORDER BY r.at DESC LIMIT 1
@@ -126,10 +128,12 @@ async fn list(
                m.timeout_s, m.expected_status, m.keyword, m.confirmation_period_s,
                m.recovery_period_s, m.grace_period_s, m.heartbeat_token, m.last_ping_at,
                m.active,
-               CASE WHEN m.active THEN 'pending' ELSE 'paused' END AS "status!: MonitorStatus",
+               CASE WHEN NOT m.active THEN 'paused' ELSE coalesce(s.status, 'pending') END
+                   AS "status!: MonitorStatus",
                last.at AS "last_check_at?", last.ok AS "last_check_ok?",
                last.latency_ms AS "last_latency_ms?", m.created_at, m.updated_at
         FROM monitors m
+        LEFT JOIN monitor_status s ON s.monitor_id = m.id
         LEFT JOIN LATERAL (
             SELECT r.at, r.ok, r.latency_ms FROM check_results r
             WHERE r.monitor_id = m.id ORDER BY r.at DESC LIMIT 1

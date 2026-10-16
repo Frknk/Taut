@@ -13,7 +13,11 @@
     if (!selectedTenant.current) void goto(resolve('/'));
   });
 
-  const links = [{ href: resolve('/(app)/monitors'), label: 'Monitores' }];
+  const links = [
+    { href: resolve('/(app)/monitors'), label: 'Monitores' },
+    { href: resolve('/(app)/incidents'), label: 'Incidentes' },
+    { href: resolve('/(app)/channels'), label: 'Canales' },
+  ];
 
   function switchTenant() {
     selectedTenant.clear();

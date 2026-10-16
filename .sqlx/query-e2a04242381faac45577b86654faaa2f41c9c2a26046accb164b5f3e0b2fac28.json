@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO notification_deliveries (incident_id, channel_id, event, tenant_id, status,\n                                             last_error)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        ON CONFLICT (incident_id, channel_id, event) DO UPDATE\n        SET status = EXCLUDED.status, last_error = EXCLUDED.last_error,\n            attempts = notification_deliveries.attempts + 1, updated_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e2a04242381faac45577b86654faaa2f41c9c2a26046accb164b5f3e0b2fac28"
+}
