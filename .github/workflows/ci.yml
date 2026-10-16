@@ -1,0 +1,102 @@
+# CI de taut: corre en cada pull request y en cada push a main.
+# Lo mismo que `just check` en local, repartido en tres jobs independientes.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  rust:
+    name: rust (fmt, clippy, deny, tests)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb:2.26.1-pg17
+        env:
+          POSTGRES_USER: taut
+          POSTGRES_PASSWORD: taut
+          POSTGRES_DB: taut
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taut -d taut"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://taut:taut@localhost:5432/taut
+      # Compila contra la caché .sqlx; solo el paso de tests habla con la base de datos.
+      SQLX_OFFLINE: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-deny
+      - uses: cargo-bins/cargo-binstall@v1
+      - name: Instalar sqlx-cli
+        run: cargo binstall -y --locked sqlx-cli
+      - name: Formato
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Dependencias (avisos, licencias, duplicados)
+        run: cargo deny check
+      - name: Tests
+        env:
+          SQLX_OFFLINE: "false"
+        run: cargo nextest run --workspace
+      - name: Caché offline de sqlx al día
+        run: cargo sqlx prepare --check --workspace
+
+  web:
+    name: web (lint, fmt, check, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run fmt:check
+      - run: bun run check
+      - run: bun run test
+      - run: bun run build
+
+  docker:
+    name: docker (build de la imagen de la api)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: services/api/Dockerfile
+          push: false
+          build-args: GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
