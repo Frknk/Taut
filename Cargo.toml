@@ -19,6 +19,7 @@ taut-http = { path = "crates/http" }
 taut-model = { path = "crates/model" }
 taut-bus = { path = "crates/bus" }
 taut-net = { path = "crates/net" }
+taut-identity = { path = "crates/identity" }
 
 # Runtime y HTTP
 tokio = { version = "1.53", features = ["full"] }
@@ -61,6 +62,18 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.18", default-features = false }
+
+# Identidad: JWT EdDSA, Argon2id, cookies. jsonwebtoken con el backend de RustCrypto (puro Rust,
+# usa ed25519-dalek), nunca el de aws-lc.
+jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto", "use_pem"] }
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "zeroize", "pem"] }
+argon2 = "0.6"
+sha2 = "0.11"
+base64 = "0.23"
+getrandom = "0.4"
+subtle = "2"
+axum-extra = { version = "0.12", default-features = false, features = ["cookie"] }
+time = "0.3"
 
 # Errores y utilidades
 thiserror = "2"

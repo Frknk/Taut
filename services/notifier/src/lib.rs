@@ -4,7 +4,9 @@
 //! channel of the tenant (F-40 email, F-41 webhooks for Discord, Slack or any endpoint).
 //! Every delivery is recorded in `notification_deliveries`: a redelivered event skips the
 //! channels that already got it and retries only the ones that failed. It also consumes
-//! `notifications.test`, the "send test" button of the panel.
+//! `notifications.test`, the "send test" button of the panel, and the account emails of the
+//! `ACCOUNTS` stream (`users.>`, `tenants.>`): verification links, password resets,
+//! invitations.
 
 pub mod channels;
 pub mod render;
@@ -16,10 +18,10 @@ use std::time::Duration;
 use axum::Router;
 use metrics_exporter_prometheus::PrometheusHandle;
 use sqlx::PgPool;
-use taut_bus::{Bus, Delivery, Handled, INCIDENTS_STREAM};
+use taut_bus::{ACCOUNTS_STREAM, Bus, Delivery, Handled, INCIDENTS_STREAM};
 use taut_config::Settings;
 use taut_http::{Probe, ServiceInfo, health, layers, metrics};
-use taut_model::events::{IncidentChanged, TestNotification, subjects};
+use taut_model::events::{AccountEmail, IncidentChanged, TestNotification, subjects};
 use tokio::sync::watch;
 
 use crate::channels::Channel;
@@ -145,6 +147,25 @@ impl Notifier {
         Handled::Done
     }
 
+    /// Sends an account email. SMTP failures are retried: the user is waiting for the link.
+    pub async fn account_email(&self, email: &AccountEmail) -> Handled {
+        let rendered = render::account_email(email);
+        let result = self.senders.email(email.to(), &rendered).await;
+        let outcome = if result.is_ok() { "sent" } else { "failed" };
+        ::metrics::counter!("account_emails_total", "subject" => email.subject(), "result" => outcome)
+            .increment(1);
+        match result {
+            Ok(()) => {
+                tracing::info!(subject = email.subject(), "account email sent");
+                Handled::Done
+            }
+            Err(error) => {
+                tracing::warn!(subject = email.subject(), error = %error, "account email failed");
+                Handled::Retry(error)
+            }
+        }
+    }
+
     async fn deliver(&self, channel: &Channel, message: &Rendered) -> Result<(), String> {
         let result = self.senders.send(channel, message).await;
         let outcome = if result.is_ok() { "sent" } else { "failed" };
@@ -191,7 +212,23 @@ pub async fn run(
             ACK_WAIT,
         )
         .await?;
-    tracing::info!("notifier consuming incidents and test requests");
+    let users = bus
+        .durable_consumer(
+            ACCOUNTS_STREAM,
+            "notifier-users",
+            subjects::USERS_ALL,
+            ACK_WAIT,
+        )
+        .await?;
+    let tenants = bus
+        .durable_consumer(
+            ACCOUNTS_STREAM,
+            "notifier-tenants",
+            subjects::TENANTS_ALL,
+            ACK_WAIT,
+        )
+        .await?;
+    tracing::info!("notifier consuming incidents, test requests and account emails");
     let alerts = taut_bus::consume(
         incidents,
         CONCURRENCY,
@@ -204,12 +241,30 @@ pub async fn run(
     let tests = taut_bus::consume(
         tests,
         CONCURRENCY,
-        stop,
+        stop.clone(),
         |delivery: Delivery<TestNotification>| {
             let notifier = Arc::clone(&notifier);
             async move { notifier.test(&delivery.event).await }
         },
     );
-    tokio::try_join!(alerts, tests)?;
+    let users = taut_bus::consume(
+        users,
+        CONCURRENCY,
+        stop.clone(),
+        |delivery: Delivery<AccountEmail>| {
+            let notifier = Arc::clone(&notifier);
+            async move { notifier.account_email(&delivery.event).await }
+        },
+    );
+    let tenants = taut_bus::consume(
+        tenants,
+        CONCURRENCY,
+        stop,
+        |delivery: Delivery<AccountEmail>| {
+            let notifier = Arc::clone(&notifier);
+            async move { notifier.account_email(&delivery.event).await }
+        },
+    );
+    tokio::try_join!(alerts, tests, users, tenants)?;
     Ok(())
 }

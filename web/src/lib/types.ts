@@ -11,6 +11,40 @@ export interface Tenant {
   created_at: string;
 }
 
+export type Role = 'owner' | 'member';
+
+/** A tenant as `GET /v1/tenants` returns it: with the caller's role. */
+export interface TenantWithRole extends Tenant {
+  role: Role;
+}
+
+/** The signed-in user (`GET /v1/auth/me`, `user` of a login). */
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  email_verified_at: string | null;
+  mfa_enabled: boolean;
+  created_at: string;
+}
+
+/** Body of a login, refresh or password change. The refresh token travels in a cookie. */
+export interface SessionResponse {
+  access_token: string;
+  token_type: 'Bearer';
+  expires_in: number;
+  user: User;
+}
+
+/** One row of `GET /v1/members`. */
+export interface Member {
+  user_id: string;
+  name: string;
+  email: string;
+  role: Role;
+  joined_at: string;
+}
+
 export interface Monitor {
   id: string;
   tenant_id: string;

@@ -149,7 +149,8 @@ veces (caché y locks). Esto cubre la Unidad 1 (SQL y NoSQL) y la Unidad 4 (Redi
 | Tabla          | Campos clave                                                                       | Notas                                           |
 | -------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------- |
 | tenants        | id, slug, plan, created_at                                                         | slug es la URL de la página de estado           |
-| users          | id, tenant_id, email, password_hash, totp_secret, role                             | Un usuario pertenece a un tenant                |
+| users          | id, email, password_hash, email_verified_at, totp_secret, token_version            | Tabla de identidad, sin tenant_id               |
+| memberships    | user_id, tenant_id, role                                                           | Un usuario en varios tenants; role ∈ owner, member |
 | monitors       | id, tenant_id, type, target, interval_s, timeout_s, expected_status, keyword, active | type ∈ http, tcp, ping, dns, keyword            |
 | incidents      | id, tenant_id, monitor_id, started_at, resolved_at, cause                          | Abierto = resolved_at IS NULL                   |
 | alert_channels | id, tenant_id, kind, config_json, secret                                           | kind ∈ email, telegram, discord, webhook        |
@@ -183,7 +184,8 @@ retención de 90 días y agregados continuos para `uptime_daily`.*
 | monitor:{id}:last   | Últimos 50 resultados               | 5 min            |
 | lock:scheduler      | Lock de líder del scheduler         | 10 s, renovado   |
 | rl:{tenant}:{min}   | Contador de rate limit              | 60 s             |
-| session:{jti}       | Refresh tokens revocables           | 7 d              |
+| session:{hash}      | Sesión del refresh token (su SHA-256); sid:{sid} y rotated:{hash} la acompañan | 7 d |
+| rl:login:acct:{email}, rl:login:ip:{ip} | Intentos de login fallidos      | 15 min           |
 
 ## Patrones aplicados
 
@@ -192,8 +194,9 @@ está la decisión de cada uno y por qué.
 
 **Multi-tenant (sem. 9).** Modelo *shared database, shared schema*: una sola BD, columna tenant_id
 en cada tabla, aislamiento por Row-Level Security en PostgreSQL (también en la hypertable de
-resultados). El tenant_id viaja dentro del JWT y se inyecta en cada consulta por middleware; ningún
-handler lo recibe como parámetro del cliente. Es el modelo más barato de operar y el que mejor se
+resultados). El tenant viaja en la cabecera X-Tenant-Id, el middleware comprueba que el usuario
+del JWT es miembro y lo inyecta en cada consulta; ningún handler lo recibe como parámetro del
+cliente ([ADR 0008](adr/0008-auth-service-eddsa-memberships.md)). Es el modelo más barato de operar y el que mejor se
 demuestra en una demo con dos tenants.
 
 **CQRS (sem. 10).** El lado de escritura recibe comandos (CrearMonitor, RegistrarResultado,
@@ -315,19 +318,21 @@ sesiones 27 y 28 del sílabo.
 
 | Quién                      | Mecanismo                                                              | Vida            | Dónde se valida                                                                           |
 | -------------------------- | ---------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------- |
-| Usuario en el panel        | Access JWT RS256 con sub, tenant_id, role, jti                         | 15 min          | Cada servicio verifica firma con la clave pública del auth service (JWKS); sin llamada de red |
-| Usuario, sesión larga      | Refresh token opaco guardado en Redis (session:{jti}), rotación en cada uso | 7 días      | Solo el auth service; revocable                                                           |
+| Usuario en el panel        | Access JWT EdDSA (Ed25519) con sub, sid, jti, auth_time, mfa, ver; el tenant va en X-Tenant-Id y la api comprueba la membresía ([ADR 0008](adr/0008-auth-service-eddsa-memberships.md)) | 15 min | Cada servicio verifica firma con la clave pública del auth service (JWKS); sin llamada de red |
+| Usuario, sesión larga      | Refresh token opaco en cookie HttpOnly, su SHA-256 en Redis (session:{hash}), rotación en cada uso; reutilizarlo revoca la sesión | 7 días | Solo el auth service; revocable                                                   |
 | Segundo factor             | TOTP RFC 6238, secreto cifrado en users.totp_secret, 8 códigos de respaldo | —           | Auth service en el login y al cambiar canales de alerta                                   |
-| Integración (CI del cliente) | API key up_live_…, hash en BD, scope de solo lectura o escritura     | Hasta revocar   | Gateway, cabecera Authorization: Bearer                                                   |
+| Integración (CI del cliente) | API key taut_live_…, hash en BD, scope de solo lectura o escritura   | Hasta revocar   | La api, cabecera Authorization: Bearer                                                    |
 | Webhook saliente           | Cabecera X-Taut-Signature: t=<ts>,v1=<HMAC-SHA256(secret, ts.body)>    | Ventana de 5 min | El cliente la verifica; evita replay                                                     |
 
-**Autorización.** Dos roles por tenant: owner (gestiona usuarios, canales y facturación futura) y
-member (gestiona monitores). La página de estado pública no requiere sesión; se sirve desde el BFF
+**Autorización.** Dos roles por tenant, en `memberships` (un usuario puede estar en varios
+tenants): owner (gestiona usuarios, canales, API keys, el tenant y facturación futura) y member
+(gestiona monitores y lee todo lo demás). La página de estado pública no requiere sesión; se sirve desde el BFF
 con el slug del tenant y nunca expone targets internos ni IPs.
 
 **Controles transversales**
 
-- Contraseñas con Argon2id; límite de 5 intentos por 15 min por cuenta e IP (Redis).
+- Contraseñas con Argon2id; límite de 5 intentos fallidos por 15 min por cuenta y 20 por IP
+  (Redis). Registro y recuperación nunca revelan si un correo tiene cuenta.
 - Rate limit por tenant en el gateway: 60 req/min en el plan gratuito.
 - Validación de targets: los monitores no pueden apuntar a rangos privados (10/8, 172.16/12,
   192.168/16, 169.254/16) ni a localhost; evita usar el sistema para escanear la red interna del

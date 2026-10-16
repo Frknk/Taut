@@ -7,7 +7,12 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
-ignore = []
+ignore = [
+  # Ataque Marvin (canal lateral de tiempo) en `rsa`, sin corrección publicada. Lo arrastra el
+  # backend RustCrypto de jsonwebtoken; taut solo firma y verifica con EdDSA (Ed25519) y nunca
+  # construye una clave RSA, así que el código vulnerable no se ejecuta.
+  { id = "RUSTSEC-2023-0071", reason = "rsa via jsonwebtoken rust_crypto; taut only uses EdDSA" },
+]
 
 [licenses]
 version = 2

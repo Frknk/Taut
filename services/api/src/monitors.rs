@@ -23,7 +23,7 @@ use tracing::Instrument;
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::tenant::CurrentTenant;
+use crate::tenant::{CurrentTenant, Permission};
 use crate::validate::{self, MonitorInput};
 
 /// Routes under `/v1/monitors`.
@@ -119,7 +119,7 @@ pub async fn find(pool: &PgPool, tenant_id: Uuid, id: Uuid) -> Result<Option<Mon
 
 async fn list(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, .. }: CurrentTenant,
 ) -> Result<Json<Vec<Monitor>>, AppError> {
     let monitors = sqlx::query_as!(
         Monitor,
@@ -150,7 +150,7 @@ async fn list(
 
 async fn show(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, .. }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Monitor>, AppError> {
     find(&state.pool, tenant.id, id)
@@ -161,9 +161,10 @@ async fn show(
 
 async fn create(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Json(input): Json<MonitorInput>,
 ) -> Result<(StatusCode, Json<Monitor>), AppError> {
+    actor.require(Permission::Monitors)?;
     let spec = validate::monitor(input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
     let heartbeat = spec.kind == MonitorKind::Heartbeat;
@@ -231,10 +232,11 @@ async fn create(
 
 async fn update(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Path(id): Path<Uuid>,
     Json(input): Json<MonitorInput>,
 ) -> Result<Json<Monitor>, AppError> {
+    actor.require(Permission::Monitors)?;
     let spec = validate::monitor(input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
     let current = find(&state.pool, tenant.id, id)
@@ -282,9 +284,10 @@ async fn update(
 
 async fn remove(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
+    actor.require(Permission::Monitors)?;
     let mut tx = state.pool.begin().await?;
     let deleted = sqlx::query!(
         "DELETE FROM monitors WHERE tenant_id = $1 AND id = $2",
@@ -308,17 +311,19 @@ async fn remove(
 
 async fn pause(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Monitor>, AppError> {
+    actor.require(Permission::Monitors)?;
     set_active(&state, tenant.id, id, false).await
 }
 
 async fn resume(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, actor }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Monitor>, AppError> {
+    actor.require(Permission::Monitors)?;
     set_active(&state, tenant.id, id, true).await
 }
 
@@ -393,7 +398,7 @@ const MAX_CHECKS: i64 = 500;
 
 async fn checks(
     State(state): State<AppState>,
-    CurrentTenant(tenant): CurrentTenant,
+    CurrentTenant { tenant, .. }: CurrentTenant,
     Path(id): Path<Uuid>,
     Query(query): Query<ChecksQuery>,
 ) -> Result<Json<Vec<CheckResult>>, AppError> {

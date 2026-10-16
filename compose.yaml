@@ -10,7 +10,9 @@ x-taut-env: &taut-env
   TAUT_HTTP__ADDR: 0.0.0.0:8080
   TAUT_TELEMETRY__LOG_FORMAT: json
   TAUT_CHECKS__ALLOW_PRIVATE_TARGETS: "true"
+  TAUT_APP__PANEL_URL: http://localhost:5173
   TAUT_NOTIFIER__SMTP_URL: smtp://mailpit:1025
+  TAUT_AUTH__URL: http://auth:8080
   DATABASE_URL: postgres://taut:taut@postgres:5432/taut
   REDIS_URL: redis://redis:6379
   NATS_URL: nats://nats:4222
@@ -92,6 +94,24 @@ services:
     ports:
       - "8080:8080"
     depends_on: *taut-deps
+
+  # Identidad: usuarios, sesiones y la clave que firma los tokens. Sin TAUT_AUTH__SIGNING_KEY
+  # genera una clave efímera (solo dev). La api aplica las migraciones, así que aquí no.
+  auth:
+    profiles: ["app"]
+    build:
+      context: .
+      args: { SERVICE: auth, GIT_SHA: "${GIT_SHA:-dev}" }
+    environment:
+      <<: *taut-env
+      TAUT_HTTP__CORS_ORIGINS: http://localhost:5173
+      TAUT_DATABASE__MIGRATE_ON_START: "false"
+    ports:
+      - "8086:8080"
+    depends_on:
+      <<: *taut-deps
+      api:
+        condition: service_started
 
   scheduler:
     profiles: ["app"]

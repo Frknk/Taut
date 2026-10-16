@@ -1,7 +1,7 @@
-//! `/v1/tenants`: create, list and read tenants.
+//! `/v1/tenants`: the caller's tenants.
 //!
-//! Listing every tenant is provisional: without authentication the panel needs it to pick a
-//! tenant. When JWTs arrive (weeks 13–14) the list goes away and a user sees only their own.
+//! Creating a tenant makes the caller its owner; listing shows only the tenants the caller
+//! belongs to, with their role. Everything inside a tenant hangs off `X-Tenant-Id` instead.
 
 // Axum handlers receive their state by value even when they only borrow it.
 #![allow(clippy::needless_pass_by_value)]
@@ -15,7 +15,7 @@ use taut_http::{AppError, Json, Path};
 use uuid::Uuid;
 
 use crate::AppState;
-use crate::tenant::{self, Plan, Tenant};
+use crate::tenant::{self, CurrentUser, Plan, Role, Tenant, TenantWithRole};
 
 const MAX_NAME_CHARS: usize = 100;
 
@@ -35,8 +35,9 @@ struct NewTenant {
 
 async fn create(
     State(state): State<AppState>,
+    user: CurrentUser,
     Json(input): Json<NewTenant>,
-) -> Result<(StatusCode, Json<Tenant>), AppError> {
+) -> Result<(StatusCode, Json<TenantWithRole>), AppError> {
     let name = input.name.trim();
     if name.is_empty() || name.chars().count() > MAX_NAME_CHARS {
         return Err(AppError::BadRequest(format!(
@@ -50,6 +51,7 @@ async fn create(
         ));
     }
 
+    let mut tx = state.pool.begin().await?;
     let tenant = sqlx::query_as!(
         Tenant,
         r#"
@@ -60,7 +62,7 @@ async fn create(
         slug,
         name,
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&mut *tx)
     .await
     .map_err(|err| {
         if err
@@ -72,25 +74,63 @@ async fn create(
             err.into()
         }
     })?;
-    tracing::info!(tenant_id = %tenant.id, slug = %tenant.slug, "tenant created");
-    Ok((StatusCode::CREATED, Json(tenant)))
+    sqlx::query!(
+        "INSERT INTO memberships (user_id, tenant_id, role) VALUES ($1, $2, $3)",
+        user.user_id,
+        tenant.id,
+        Role::Owner.as_str(),
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    tracing::info!(tenant_id = %tenant.id, slug = %tenant.slug, user_id = %user.user_id, "tenant created");
+    Ok((
+        StatusCode::CREATED,
+        Json(TenantWithRole {
+            tenant,
+            role: Role::Owner,
+        }),
+    ))
 }
 
-async fn list(State(state): State<AppState>) -> Result<Json<Vec<Tenant>>, AppError> {
-    let tenants = sqlx::query_as!(
-        Tenant,
-        r#"SELECT id, slug, name, plan AS "plan: Plan", created_at FROM tenants ORDER BY created_at"#
+async fn list(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> Result<Json<Vec<TenantWithRole>>, AppError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT t.id, t.slug, t.name, t.plan AS "plan: Plan", t.created_at, m.role AS "role: Role"
+        FROM memberships m
+        JOIN tenants t ON t.id = m.tenant_id
+        WHERE m.user_id = $1
+        ORDER BY lower(t.name), t.created_at
+        "#,
+        user.user_id,
     )
     .fetch_all(&state.pool)
     .await?;
-    Ok(Json(tenants))
+    Ok(Json(
+        rows.into_iter()
+            .map(|row| TenantWithRole {
+                tenant: Tenant {
+                    id: row.id,
+                    slug: row.slug,
+                    name: row.name,
+                    plan: row.plan,
+                    created_at: row.created_at,
+                },
+                role: row.role,
+            })
+            .collect(),
+    ))
 }
 
 async fn show(
     State(state): State<AppState>,
+    user: CurrentUser,
     Path(id): Path<Uuid>,
-) -> Result<Json<Tenant>, AppError> {
-    tenant::find(&state.pool, id)
+) -> Result<Json<TenantWithRole>, AppError> {
+    tenant::find_for_member(&state.pool, id, user.user_id)
         .await?
         .map(Json)
         .ok_or_else(|| AppError::NotFound("tenant not found".to_owned()))

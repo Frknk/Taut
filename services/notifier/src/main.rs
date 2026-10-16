@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
     let notifier = Arc::new(Notifier::new(
         pool.clone(),
         senders,
-        &settings.notifier.panel_url,
+        &settings.app.panel_url,
     ));
 
     let app = taut_notifier::app(&settings, pool, &bus, telemetry.metrics().clone());

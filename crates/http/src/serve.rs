@@ -39,9 +39,13 @@ pub async fn serve(router: Router, addr: SocketAddr) -> Result<(), ServeError> {
         .await
         .map_err(|source| ServeError::Bind { addr, source })?;
     tracing::info!(%addr, "listening");
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    // The peer address feeds `ClientIp` (login rate limits by address).
+    axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
     tracing::info!("server stopped");
     Ok(())
 }

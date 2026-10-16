@@ -7,6 +7,7 @@
 pub mod channels;
 pub mod heartbeats;
 pub mod incidents;
+pub mod members;
 pub mod metrics_api;
 pub mod monitors;
 pub mod tenant;
@@ -23,6 +24,7 @@ use sqlx::PgPool;
 use taut_bus::Bus;
 use taut_config::Settings;
 use taut_http::{AppError, Probe, ServiceInfo, health, layers, metrics};
+use taut_identity::Verifier;
 
 /// Name reported in logs, metrics and `/health`.
 pub const SERVICE_NAME: &str = "taut-api";
@@ -36,28 +38,46 @@ pub struct AppState {
     pub pool: PgPool,
     /// NATS JetStream.
     pub bus: Bus,
+    /// Verifies the access tokens the auth service signs.
+    pub verifier: Arc<Verifier>,
 }
 
 /// Builds the complete router: health, metrics, the `/v1` API, heartbeat pings and the
-/// middleware stack. Readiness only probes the database: without NATS the panel keeps
-/// working and only heartbeat pings fail.
+/// middleware stack. Readiness probes the database and that at least one signing key is
+/// known (fetching the JWKS again if none is): without NATS the panel keeps working and only
+/// heartbeat pings fail.
 pub fn app(
     settings: Arc<Settings>,
     pool: PgPool,
     bus: Bus,
+    verifier: Arc<Verifier>,
     metrics_handle: PrometheusHandle,
 ) -> Router {
     let info = ServiceInfo::new(SERVICE_NAME, env!("CARGO_PKG_VERSION"), &settings.app);
     let http_settings = settings.http.clone();
+    let jwks_probe = Probe::new("jwks", {
+        let verifier = Arc::clone(&verifier);
+        move || {
+            let verifier = Arc::clone(&verifier);
+            async move {
+                if verifier.key_count() == 0 {
+                    let _ = verifier.refresh().await;
+                }
+                verifier.key_count() > 0
+            }
+        }
+    });
     let state = AppState {
         settings,
         pool: pool.clone(),
         bus,
+        verifier,
     };
 
     let v1 = Router::new()
         .route("/v1/ping", get(ping))
         .merge(tenants::router())
+        .merge(members::router())
         .merge(monitors::router())
         .merge(metrics_api::router())
         .merge(incidents::router())
@@ -66,7 +86,10 @@ pub fn app(
         .with_state(state);
 
     let router = Router::new()
-        .merge(health::router(info, vec![Probe::database(pool)]))
+        .merge(health::router(
+            info,
+            vec![Probe::database(pool), jwks_probe],
+        ))
         .merge(metrics::router(metrics_handle))
         .merge(v1)
         .fallback(not_found);

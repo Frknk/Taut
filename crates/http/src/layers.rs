@@ -1,15 +1,18 @@
 //! Middleware stack shared by every HTTP service.
 //!
 //! From the outside in: request id (ULID, kept when a gateway already set one), a task-local
-//! trace id, a tracing span per request, request-id propagation to the response, CORS,
-//! HTTP metrics, panic capture and a request timeout.
+//! trace id, a tracing span per request, request-id propagation to the response, CORS, the
+//! client address, HTTP metrics, panic capture and a request timeout.
 
 use std::any::Any;
+use std::convert::Infallible;
+use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
 use axum::Router;
 use axum::body::Body;
-use axum::extract::{MatchedPath, Request};
+use axum::extract::{ConnectInfo, FromRequestParts, MatchedPath, Request};
+use axum::http::request::Parts;
 use axum::http::{HeaderName, HeaderValue, Method, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
@@ -31,9 +34,12 @@ use crate::error::AppError;
 /// Header that carries the trace id. Incoming values are preserved so a gateway can set it.
 pub const TRACE_ID_HEADER: &str = "x-request-id";
 
-/// Header that selects the tenant of a request. Provisional: the tenant moves into the JWT
-/// when authentication arrives (weeks 13–14), and this header goes away.
+/// Header that selects the tenant a request acts on. The bearer token says who the caller is;
+/// this header says which of their tenants they mean, and the api checks the membership.
 pub const TENANT_ID_HEADER: &str = "x-tenant-id";
+
+/// Header a trusted proxy fills with the client address.
+const FORWARDED_FOR: &str = "x-forwarded-for";
 
 tokio::task_local! {
     static TRACE_ID: String;
@@ -44,9 +50,32 @@ pub fn current_trace_id() -> Option<String> {
     TRACE_ID.try_with(Clone::clone).ok()
 }
 
+/// Address of the client, as an extractor: from `X-Forwarded-For` behind a trusted proxy,
+/// else the peer address of the connection. `None` only in tests that drive the router
+/// in-process without a connection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClientIp(pub Option<IpAddr>);
+
+impl<S: Send + Sync> FromRequestParts<S> for ClientIp {
+    type Rejection = Infallible;
+
+    #[allow(clippy::unused_async_trait_impl)] // the trait's method is async
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Infallible> {
+        Ok(parts
+            .extensions
+            .get::<ClientIp>()
+            .copied()
+            .unwrap_or(ClientIp(None)))
+    }
+}
+
 /// Wraps `router` with the shared middleware stack.
 pub fn apply(router: Router, settings: &HttpSettings) -> Router {
     let timeout = Duration::from_secs(settings.request_timeout_secs);
+    let trust_proxy = settings.trust_proxy;
+    if settings.cors_origins().iter().any(|origin| origin == "*") {
+        tracing::warn!("cors allows any origin, so browsers will not send credentials");
+    }
     router.layer(
         ServiceBuilder::new()
             .layer(SetRequestIdLayer::x_request_id(MakeRequestUlid))
@@ -62,6 +91,9 @@ pub fn apply(router: Router, settings: &HttpSettings) -> Router {
             )
             .layer(PropagateRequestIdLayer::x_request_id())
             .layer(cors(settings))
+            .layer(middleware::from_fn(move |req, next| {
+                client_ip(trust_proxy, req, next)
+            }))
             .layer(middleware::from_fn(record_http_metrics))
             .layer(CatchPanicLayer::custom(panic_response))
             .layer(TimeoutLayer::with_status_code(
@@ -96,29 +128,52 @@ async fn trace_id_scope(req: Request, next: Next) -> Response {
 }
 
 fn make_span(req: &http::Request<Body>) -> Span {
-    // `tenant_id` starts empty; the service records it once it knows the tenant.
+    // `tenant_id` and `user_id` start empty; the service records them once it knows them.
     tracing::info_span!(
         "request",
         trace_id = %trace_id_from(req),
         method = %req.method(),
         path = %req.uri().path(),
         tenant_id = tracing::field::Empty,
+        user_id = tracing::field::Empty,
     )
+}
+
+async fn client_ip(trust_proxy: bool, mut req: Request, next: Next) -> Response {
+    let forwarded = trust_proxy
+        .then(|| req.headers().get(FORWARDED_FOR))
+        .flatten()
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(',').next())
+        .and_then(|first| first.trim().parse::<IpAddr>().ok());
+    let ip = forwarded.or_else(|| {
+        req.extensions()
+            .get::<ConnectInfo<SocketAddr>>()
+            .map(|info| info.0.ip())
+    });
+    req.extensions_mut().insert(ClientIp(ip));
+    next.run(req).await
 }
 
 fn cors(settings: &HttpSettings) -> CorsLayer {
     let origins = settings.cors_origins();
-    let allow_origin = if origins.iter().any(|origin| origin == "*") {
-        AllowOrigin::any()
+    // Browsers only send cookies to an explicit origin; tower-http refuses `*` with
+    // credentials, so the wildcard stays a credential-less CORS.
+    let (allow_origin, credentials) = if origins.iter().any(|origin| origin == "*") {
+        (AllowOrigin::any(), false)
     } else {
-        AllowOrigin::list(
-            origins
-                .iter()
-                .filter_map(|origin| HeaderValue::from_str(origin).ok()),
+        (
+            AllowOrigin::list(
+                origins
+                    .iter()
+                    .filter_map(|origin| HeaderValue::from_str(origin).ok()),
+            ),
+            true,
         )
     };
     CorsLayer::new()
         .allow_origin(allow_origin)
+        .allow_credentials(credentials)
         .allow_methods([
             Method::GET,
             Method::POST,

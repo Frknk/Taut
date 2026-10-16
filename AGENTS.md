@@ -16,7 +16,9 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `crates/model`       | `taut-model`: tipos de dominio compartidos (`MonitorKind`, `MonitorStatus`, eventos del bus, reglas de red) sin I/O |
 | `crates/bus`         | `taut-bus`: NATS JetStream; `Bus::connect`, `publish` con `trace_id` en cabecera, `consume` para consumidores durables |
 | `crates/net`         | `taut-net`: `guarded_client()`, cliente reqwest que rechaza direcciones internas (checks y webhooks) |
+| `crates/identity`    | `taut-identity`: `KeyPair` (firma Ed25519, JWKS), `Verifier`, `Claims`, tokens opacos y API keys; sin I/O |
 | `services/api`       | `taut-api`: `lib.rs` construye el `Router` (`app()`), `main.rs` lo arranca; tests en `tests/` |
+| `services/auth`      | `taut-auth`: registro, verificación, login, sesiones (Redis), recuperación y `/.well-known/jwks.json`; publica `users.*` |
 | `services/scheduler` | `taut-scheduler`: líder por lock en Redis; publica `checks.requested` y evalúa heartbeats |
 | `services/checker`   | `taut-checker`: consume `checks.requested`, un módulo por tipo en `src/checks/`, publica `checks.completed` |
 | `services/incidents` | `taut-incidents`: guarda `checks.completed`, máquina de estados (`state.rs`), publica `incidents.*` |
@@ -52,8 +54,15 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   en código de producción fuera del arranque; nada de códigos de estado a mano. Usa los
   extractores `taut_http::{Json, Path, Query}` (no los de axum) para que la entrada inválida
   también responda con el JSON de error.
-- **Tenant**: los handlers de negocio reciben `CurrentTenant` y filtran toda query por
-  `tenant_id`; nunca aceptan el tenant como parámetro del cuerpo o de la ruta.
+- **Tenant y permisos**: los handlers de negocio reciben `CurrentTenant { tenant, actor }` y
+  filtran toda query por `tenant_id`; nunca aceptan el tenant como parámetro del cuerpo o de la
+  ruta (viaja en `X-Tenant-Id` y la api comprueba la membresía). Todo handler que escribe empieza
+  con `actor.require(Permission::…)?` (`Monitors` para members, `Channels` y `Tenant` solo owners).
+  Las rutas que no son de un tenant (`/v1/tenants`) reciben `CurrentUser`.
+- **Identidad** ([ADR 0008](docs/adr/0008-auth-service-eddsa-memberships.md)): contraseñas solo con
+  `taut_auth::password` (Argon2id en `spawn_blocking`); secretos de un solo uso con
+  `taut_identity::random` y guardados como SHA-256; nunca registrar tokens, cookies ni correos
+  completos en los logs. Los correos de cuenta son eventos `AccountEmail` que envía el notifier.
 - **HTTP saliente**: toda petición hecha en nombre de un tenant (chequeos, webhooks) usa
   `taut_net::guarded_client`; nunca un `reqwest::Client` sin protección. Los errores de webhooks
   se registran con `without_url()`: la URL de Discord o Slack es un secreto.
@@ -64,8 +73,10 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
 - **Métricas**: con el crate `metrics` (`counter!`, `histogram!`); nombres `snake_case` con
   unidad al final (`_seconds`, `_total`).
 - **Base de datos**: migraciones solo con `just migrate-add`, siempre compatibles hacia atrás.
-  Toda tabla de negocio lleva `tenant_id`. Tests de integración con
-  `#[sqlx::test(migrator = "taut_db::MIGRATOR")]`.
+  Toda tabla de negocio lleva `tenant_id`; las únicas excepciones son las de identidad (`users`,
+  `user_tokens`), que pertenecen a una persona y no a un tenant. Tests de integración con
+  `#[sqlx::test(migrator = "taut_db::MIGRATOR")]`; los de la api firman tokens con un `KeyPair`
+  de prueba (`services/api/tests/common`), nunca hablan con auth.
 - **Lints**: el workspace activa `clippy::pedantic` y `missing_docs`; documenta todo lo público y
   no silencies lints sin un comentario que diga por qué.
 - **Estilos** en `web/` ([ADR 0007](docs/adr/0007-design-system-taut-ui.md)): solo clases de rol

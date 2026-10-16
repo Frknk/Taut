@@ -21,5 +21,5 @@ pub mod serve;
 pub use error::AppError;
 pub use extract::{Json, Path, Query};
 pub use health::{Probe, ServiceInfo};
-pub use layers::current_trace_id;
+pub use layers::{ClientIp, current_trace_id};
 pub use serve::{ServeError, serve, serve_with_worker};

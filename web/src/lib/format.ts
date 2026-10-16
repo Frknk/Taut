@@ -1,6 +1,6 @@
 // Spanish labels and formatting shared by the panel and the status page.
 
-import type { ChannelKind, MonitorKind, MonitorStatus } from './types.js';
+import type { ChannelKind, MonitorKind, MonitorStatus, Role } from './types.js';
 import type { Tone } from './ui.js';
 
 export const KIND_LABELS: Record<MonitorKind, string> = {
@@ -69,3 +69,8 @@ export function timeAgo(iso: string, now: Date = new Date()): string {
   if (seconds < 86_400) return `hace ${Math.floor(seconds / 3600)} h`;
   return `hace ${Math.floor(seconds / 86_400)} d`;
 }
+
+export const ROLE_LABELS: Record<Role, string> = {
+  owner: 'Propietario',
+  member: 'Miembro',
+};

@@ -14,17 +14,27 @@ fn http_monitor(name: &str) -> Value {
 }
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
-async fn requests_without_a_valid_tenant_are_unauthorized(pool: PgPool) {
+async fn requests_need_a_token_and_one_of_my_tenants(pool: PgPool) {
     let app = common::app(pool).await;
-    for tenant in [
-        None,
-        Some("not-a-uuid"),
-        Some("0192b4a8-0000-7000-8000-000000000000"),
-    ] {
+    let (status, body) =
+        common::send_raw(&app, Method::GET, "/v1/monitors", None, None, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(body["error"]["code"], "unauthorized");
+    for tenant in [None, Some("not-a-uuid")] {
         let (status, body) = common::send(&app, Method::GET, "/v1/monitors", tenant, None).await;
-        assert_eq!(status, StatusCode::UNAUTHORIZED, "{tenant:?}");
-        assert_eq!(body["error"]["code"], "unauthorized");
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{tenant:?}");
+        assert_eq!(body["error"]["code"], "bad_request");
     }
+    let (status, body) = common::send(
+        &app,
+        Method::GET,
+        "/v1/monitors",
+        Some("0192b4a8-0000-7000-8000-000000000000"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error"]["code"], "not_a_member");
 }
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]

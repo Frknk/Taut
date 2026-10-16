@@ -28,7 +28,7 @@ async fn next_result_for(
     .expect("result published")
 }
 
-async fn heartbeat(app: &axum::Router) -> (String, Value) {
+async fn heartbeat(app: &common::TestApp) -> (String, Value) {
     let tenant = common::create_tenant(app, "acme").await;
     let monitor = common::create_monitor(
         app,

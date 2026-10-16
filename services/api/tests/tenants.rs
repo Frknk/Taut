@@ -21,6 +21,7 @@ async fn creates_reads_and_lists_tenants(pool: PgPool) {
     assert_eq!(created["name"], "Acme");
     assert_eq!(created["slug"], "acme-corp");
     assert_eq!(created["plan"], "free");
+    assert_eq!(created["role"], "owner", "the creator owns the tenant");
 
     let id = created["id"].as_str().unwrap();
     let (status, shown) =
@@ -65,6 +66,22 @@ async fn invalid_input_is_a_json_bad_request(pool: PgPool) {
             response["error"]["code"], "bad_request",
             "{body} → {response}"
         );
+    }
+}
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn tenants_need_a_signed_in_user(pool: PgPool) {
+    let app = common::app(pool).await;
+    for (method, body) in [
+        (Method::GET, None),
+        (
+            Method::POST,
+            Some(json!({ "name": "Acme", "slug": "acme" })),
+        ),
+    ] {
+        let (status, response) =
+            common::send_raw(&app, method, "/v1/tenants", None, None, body).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{response}");
     }
 }
 

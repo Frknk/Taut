@@ -15,7 +15,9 @@ features previstas para la compuerta de Medio Ciclo. Tenants y monitores HTTP, p
 heartbeat con pausa y cuotas; chequeos programados sobre NATS y guardados en TimescaleDB;
 incidentes con periodos de confirmación y recuperación; alertas por correo, Discord, Slack y
 webhook; página de estado pública con 90 días de historia; gráficos de latencia y uptime.
-Pendiente: el despliegue (PaaS, Terraform y Kubernetes, semanas 5–8) y las pruebas de carga.
+Semana 13–14 en curso: cuentas de usuario con verificación de correo, sesiones y organizaciones
+con roles (este PR); después 2FA, invitaciones y API keys. Pendiente: el despliegue (PaaS,
+Terraform y Kubernetes, semanas 5–8) y las pruebas de carga.
 
 ## Requisitos
 
@@ -31,15 +33,19 @@ Pendiente: el despliegue (PaaS, Terraform y Kubernetes, semanas 5–8) y las pru
 just setup   # brew bundle, sqlx-cli, cargo-watch, hooks de git, bun install, .env
 just up      # postgres (TimescaleDB), redis y nats, con healthchecks
 just dev     # taut-api en http://localhost:8080 (recompila al guardar)
-just workers # scheduler, checker, incidents, notifier y status-bff (en otra terminal)
+just workers # auth, scheduler, checker, incidents, notifier y status-bff (en otra terminal)
 just web     # panel en http://localhost:5173 (en otra terminal)
 ```
 
 Cada servicio expone `/health`, `/ready` y `/metrics` en su puerto: api 8080, scheduler 8081,
-checker 8082, incidents 8083, notifier 8084, status-bff 8085 (los mismos que publica
+checker 8082, incidents 8083, notifier 8084, status-bff 8085, auth 8086 (los mismos que publica
 `just up-all`). La página de estado pública de un tenant está en
-http://localhost:5173/status/{slug}. Los correos de
-alerta no salen de la máquina: Mailpit los guarda y los muestra en http://localhost:8025.
+http://localhost:5173/status/{slug}. Ningún correo sale de la máquina: Mailpit guarda las alertas
+y los correos de cuenta (confirmación, recuperación) y los muestra en http://localhost:8025; ahí
+está el enlace para confirmar el correo después de registrarse.
+
+Si vienes de una versión anterior a la semana 13, los tenants existentes no tienen dueño:
+`just db-reset` y vuelve a crearlos desde el panel.
 
 Comprobar:
 
@@ -51,14 +57,23 @@ curl -s localhost:8080/metrics  # formato Prometheus
 
 ## API
 
-Las rutas de `/v1` que actúan sobre un tenant llevan la cabecera `X-Tenant-Id` con su UUID
-(provisional hasta que exista autenticación, semana 13–14). Los errores son siempre
-`{"error": {"code", "message", "trace_id"}}`.
+Toda ruta de `/v1` lleva `Authorization: Bearer <access token>`; el token lo emite auth
+(`POST /v1/auth/login`, 15 min) y se renueva con la cookie de sesión (`POST /v1/auth/refresh`).
+Las rutas que actúan sobre un tenant llevan además la cabecera `X-Tenant-Id` con su UUID: la api
+comprueba que el usuario es miembro y de ahí sale su rol (`owner` todo; `member` lee todo y
+gestiona monitores). Los errores son siempre `{"error": {"code", "message", "trace_id"}}`.
 
 | Método y ruta                         | Qué hace                                                    |
 | ------------------------------------- | ----------------------------------------------------------- |
-| `POST /v1/tenants`                    | Crea un tenant (`name`, `slug`)                             |
-| `GET /v1/tenants` · `/v1/tenants/{id}` | Lista (provisional) o lee tenants                          |
+| `POST /v1/auth/register` (auth, :8086) | Crea la cuenta (`name`, `email`, `password`) y envía el correo de confirmación; siempre `202` |
+| `POST /v1/auth/verify-email` · `/resend-verification` | Confirma el correo con el `token` del enlace, o pide otro enlace |
+| `POST /v1/auth/login` · `/refresh` · `/logout` | Entra (`email`, `password`), renueva o cierra la sesión; el refresh viaja en la cookie `taut_refresh` |
+| `GET /v1/auth/me` · `PUT /v1/auth/password` | Quién soy; cambia la contraseña (cierra las otras sesiones) |
+| `POST /v1/auth/forgot-password` · `/reset-password` | Recuperación por correo; siempre `202` |
+| `GET /.well-known/jwks.json` (auth)   | Clave pública con la que la api verifica los tokens          |
+| `POST /v1/tenants`                    | Crea un tenant (`name`, `slug`); quien lo crea es owner      |
+| `GET /v1/tenants` · `/v1/tenants/{id}` | Mis tenants con mi rol, o uno de ellos                     |
+| `GET /v1/members`                     | Miembros del tenant con su rol                              |
 | `GET /v1/monitors` · `POST`           | Lista o crea monitores del tenant                           |
 | `GET/PUT/DELETE /v1/monitors/{id}`    | Lee, reemplaza la configuración o elimina un monitor        |
 | `POST /v1/monitors/{id}/pause` · `/resume` | Pausa o reanuda                                        |
@@ -72,10 +87,18 @@ Las rutas de `/v1` que actúan sobre un tenant llevan la cabecera `X-Tenant-Id` 
 | `GET /s/{slug}` (status-bff, :8085)   | JSON público de la página de estado; sin sesión            |
 
 ```bash
-tenant=$(curl -s localhost:8080/v1/tenants -H 'content-type: application/json' \
-  -d '{"name":"Acme","slug":"acme"}' | jq -r .id)
-curl -s localhost:8080/v1/monitors -H "x-tenant-id: $tenant" -H 'content-type: application/json' \
+curl -s localhost:8086/v1/auth/register -H 'content-type: application/json' \
+  -d '{"name":"Ana","email":"ana@taut.localhost","password":"correct horse battery"}'
+# abre http://localhost:8025 y pulsa «Confirma tu correo» (o copia el token del enlace):
+curl -s localhost:8086/v1/auth/verify-email -H 'content-type: application/json' -d '{"token":"…"}'
+token=$(curl -s -c jar localhost:8086/v1/auth/login -H 'content-type: application/json' \
+  -d '{"email":"ana@taut.localhost","password":"correct horse battery"}' | jq -r .access_token)
+tenant=$(curl -s localhost:8080/v1/tenants -H "authorization: Bearer $token" \
+  -H 'content-type: application/json' -d '{"name":"Acme","slug":"acme"}' | jq -r .id)
+curl -s localhost:8080/v1/monitors -H "authorization: Bearer $token" -H "x-tenant-id: $tenant" \
+  -H 'content-type: application/json' \
   -d '{"name":"Sitio","type":"http","target":"https://example.com"}'
+curl -s -b jar -c jar -X POST localhost:8086/v1/auth/refresh   # nuevo access token y cookie rotada
 ```
 
 Antes de abrir un PR: `just check` (formato, clippy, oxlint, svelte-check, tests, cargo-deny,
@@ -116,13 +139,15 @@ taut/
 │   ├── http/        taut-http: AppError, extractores, /health, /ready, /metrics, middleware, serve()
 │   ├── model/       taut-model: tipos de dominio y eventos del bus compartidos
 │   ├── bus/         taut-bus: NATS JetStream (streams, publicación con trace_id, consumidores)
-│   └── net/         taut-net: cliente HTTP saliente que rechaza direcciones internas
+│   ├── net/         taut-net: cliente HTTP saliente que rechaza direcciones internas
+│   └── identity/    taut-identity: firma y verificación de tokens (Ed25519, JWKS), API keys
 ├── services/
-│   ├── api/         taut-api: tenants, monitores (/v1) y pings de heartbeat (/h)
+│   ├── api/         taut-api: tenants, miembros, monitores (/v1) y pings de heartbeat (/h)
+│   ├── auth/        taut-auth: registro, login, sesiones, recuperación de contraseña, JWKS
 │   ├── scheduler/   taut-scheduler: planifica los chequeos (líder por lock en Redis)
 │   ├── checker/     taut-checker: ejecuta HTTP, palabra clave y TCP
 │   ├── incidents/   taut-incidents: guarda resultados, abre y cierra incidentes
-│   ├── notifier/    taut-notifier: alertas por correo, Discord, Slack y webhook
+│   ├── notifier/    taut-notifier: alertas por correo, Discord, Slack y webhook; correos de cuenta
 │   └── status-bff/  taut-status-bff: JSON público de las páginas de estado
 ├── web/             SvelteKit 3 + Tailwind 4, SPA estática (bun, oxlint, oxfmt)
 ├── migrations/      migraciones sqlx compartidas (una base de datos en el MVP)
