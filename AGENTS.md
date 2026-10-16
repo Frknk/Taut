@@ -13,8 +13,13 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `crates/telemetry`   | `taut-telemetry`: `init()` instala logs JSON con `trace_id` y el recorder de Prometheus |
 | `crates/db`          | `taut-db`: `connect`, `migrate` (migraciones embebidas de `migrations/`), `ping`        |
 | `crates/http`        | `taut-http`: `AppError`, extractores `Json`/`Path`/`Query`, routers de `/health`, `/ready`, `/metrics`, `layers::apply`, `serve` |
-| `crates/model`       | `taut-model`: tipos de dominio compartidos (`MonitorKind`, `MonitorStatus`, reglas de red) sin I/O |
+| `crates/model`       | `taut-model`: tipos de dominio compartidos (`MonitorKind`, `MonitorStatus`, eventos del bus, reglas de red) sin I/O |
+| `crates/bus`         | `taut-bus`: NATS JetStream; `Bus::connect`, `publish` con `trace_id` en cabecera, `consume` para consumidores durables |
 | `services/api`       | `taut-api`: `lib.rs` construye el `Router` (`app()`), `main.rs` lo arranca; tests en `tests/` |
+| `services/scheduler` | `taut-scheduler`: líder por lock en Redis; publica `checks.requested` y evalúa heartbeats |
+| `services/checker`   | `taut-checker`: consume `checks.requested`, un módulo por tipo en `src/checks/`, publica `checks.completed` |
+| `services/incidents` | `taut-incidents`: consume `checks.completed` y lo guarda en `check_results` |
+| `Dockerfile`         | Imagen de cualquier servicio: `--build-arg SERVICE=<nombre>`                            |
 | `web/`               | SvelteKit 3 + Tailwind 4, bun, oxlint, oxfmt, vitest                                     |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
 | `compose.yaml`       | postgres (TimescaleDB), redis, nats; la api bajo el perfil `app`                         |
@@ -27,7 +32,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
 - `just up` levanta la infraestructura local; los tests de integración la necesitan.
 - `just check` es lo que corre CI: formato, clippy, oxlint, svelte-check, tests, cargo-deny,
   build del frontend. Tiene que estar en verde antes de dar algo por terminado.
-- `just dev` y `just web` corren la api y el frontend; `just migrate-add <name>` crea migraciones.
+- `just dev` y `just web` corren la api y el frontend; `just workers` corre scheduler, checker e
+  incidents juntos y `just run <servicio>` uno solo en su puerto; `just migrate-add <name>` crea
+  migraciones.
 - Si el entorno no tiene Docker, di explícitamente qué tests no corriste.
 
 ## Convenciones obligatorias
@@ -64,21 +71,34 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
 1. `services/<name>/` con `Cargo.toml` (hereda `version`, `edition`, `lints` del workspace) y
    `src/main.rs` + `src/lib.rs` siguiendo `services/api`.
 2. Arranque: `Settings::load()` → `taut_telemetry::init("taut-<name>", ...)` →
-   `taut_db::connect` si usa la base de datos → `Router` con `taut_http::health::router`,
+   `taut_db::connect` si usa la base de datos, `taut_bus::Bus::connect` si usa el bus →
+   `Router` con `taut_http::health::router` (con un `Probe` por dependencia),
    `taut_http::metrics::router` y las rutas propias → `taut_http::layers::apply` →
-   `taut_http::serve`.
-3. Copia `services/api/Dockerfile` cambiando `taut-api` por el binario nuevo. Agrega el servicio a
-   `compose.yaml` (perfil `app`) y, si publica imagen, un job en `.github/workflows/build.yml`.
+   `taut_http::serve`, o `taut_http::serve_with_worker` si además consume del bus (ver
+   `services/checker/src/main.rs`).
+3. El `Dockerfile` de la raíz sirve para todos: agrega el servicio a `compose.yaml` (perfil
+   `app`, con `SERVICE` en `build.args`), a la matriz de `.github/workflows/build.yml`, a la
+   receta `port` del `justfile` y a `.claude/launch.json`.
 4. Tests de integración en `services/<name>/tests/` usando `app()` con `tower::ServiceExt::oneshot`.
 5. Actualiza el mapa de este archivo y el árbol del README.
 
 ## Cómo agregar un tipo de monitor
 
-Pendiente hasta que exista el servicio `checker` (semana 7–8). Cuando exista, el lugar previsto
-es un módulo por tipo en `services/checker/src/checks/` que implemente un trait común, más el
-valor nuevo en el enum de tipos del `monitor service`, su validación de `target`, una migración si
-cambia el esquema y tests que usen un servidor de eco local. Esta sección se completa en ese
-momento; es la tarea de la semana 12 (agregar el tipo DNS con un agente, vía PR).
+Es la tarea de la semana 12 (el tipo DNS, con un agente, vía PR). Pasos, en orden:
+
+1. `crates/model/src/lib.rs`: la variante nueva en `MonitorKind` (también en `ALL` y
+   `as_str`).
+2. Migración con `just migrate-add <tipo>_monitors` que reemplaza el `CHECK` `monitors_kind_check`
+   por uno que incluya el valor nuevo (los tipos son `text`, no `ENUM`), compatible hacia atrás.
+3. API: la validación de `target` del tipo en `services/api/src/validate.rs`, con tests unitarios
+   de casos válidos e inválidos, y los campos que no apliquen rechazados como en los demás tipos.
+4. Checker: un módulo `services/checker/src/checks/<tipo>.rs` que implemente el trait `Check`
+   (nunca falla: todo problema es un `Outcome::down` con causa legible), su brazo en
+   `Checker::run` y tests en `services/checker/tests/` contra un servidor local, sin depender de
+   internet. Respeta `allow_internal` como hacen `http.rs` y `tcp.rs`.
+5. Web: la etiqueta en `KIND_LABELS` (`web/src/lib/format.ts`) y la validación en
+   `web/src/lib/monitor-form.ts`, con su test.
+6. Docs: README y `docs/prototipo-1.md`.
 
 ## Antes de abrir un PR
 
