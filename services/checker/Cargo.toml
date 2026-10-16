@@ -1,0 +1,34 @@
+[package]
+name = "taut-checker"
+description = "taut checker workers: run HTTP, keyword and TCP checks requested on the bus"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+reqwest.workspace = true
+rustls.workspace = true
+taut-bus.workspace = true
+taut-config.workspace = true
+taut-http.workspace = true
+taut-model.workspace = true
+taut-telemetry.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true
+
+[lints]
+workspace = true
