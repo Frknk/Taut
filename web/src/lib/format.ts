@@ -1,12 +1,19 @@
 // Spanish labels and formatting shared by the panel and the status page.
 
-import type { MonitorKind, MonitorStatus } from './types.js';
+import type { ChannelKind, MonitorKind, MonitorStatus } from './types.js';
 
 export const KIND_LABELS: Record<MonitorKind, string> = {
   http: 'HTTP',
   keyword: 'Palabra clave',
   tcp: 'Puerto TCP',
   heartbeat: 'Heartbeat',
+};
+
+export const CHANNEL_LABELS: Record<ChannelKind, string> = {
+  email: 'Correo',
+  discord: 'Discord',
+  slack: 'Slack',
+  webhook: 'Webhook',
 };
 
 export const STATUS_LABELS: Record<MonitorStatus, string> = {
