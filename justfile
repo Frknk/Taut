@@ -57,9 +57,10 @@ run svc:
 # status-bff); Ctrl-C los detiene
 workers:
     cargo build -p taut-auth -p taut-scheduler -p taut-checker -p taut-incidents -p taut-notifier -p taut-status-bff
+    target_dir=$(cargo metadata --format-version 1 --no-deps | jq -r .target_directory); \
     trap 'kill 0' EXIT; \
     for svc in auth scheduler checker incidents notifier status-bff; do \
-      TAUT_HTTP__ADDR=0.0.0.0:$(just port $svc) ./target/debug/taut-$svc & \
+      TAUT_HTTP__ADDR=0.0.0.0:$(just port $svc) "$target_dir/debug/taut-$svc" & \
     done; \
     wait
 
