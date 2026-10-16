@@ -147,6 +147,20 @@ services:
       api:
         condition: service_started
 
+  status-bff:
+    profiles: ["app"]
+    build:
+      context: .
+      args: { SERVICE: status-bff, GIT_SHA: "${GIT_SHA:-dev}" }
+    environment: *taut-env
+    ports:
+      - "8085:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+
 volumes:
   postgres-data:
   nats-data:
