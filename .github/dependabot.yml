@@ -33,6 +33,10 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    ignore:
+      # La referencia @1.98.1 es la versión de Rust, no de la acción; se cambia a mano
+      # junto con rust-toolchain.toml.
+      - dependency-name: dtolnay/rust-toolchain
 
   - package-ecosystem: docker
     directory: /services/api
