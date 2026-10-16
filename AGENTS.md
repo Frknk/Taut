@@ -15,14 +15,16 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `crates/http`        | `taut-http`: `AppError`, extractores `Json`/`Path`/`Query`, routers de `/health`, `/ready`, `/metrics`, `layers::apply`, `serve` |
 | `crates/model`       | `taut-model`: tipos de dominio compartidos (`MonitorKind`, `MonitorStatus`, eventos del bus, reglas de red) sin I/O |
 | `crates/bus`         | `taut-bus`: NATS JetStream; `Bus::connect`, `publish` con `trace_id` en cabecera, `consume` para consumidores durables |
+| `crates/net`         | `taut-net`: `guarded_client()`, cliente reqwest que rechaza direcciones internas (checks y webhooks) |
 | `services/api`       | `taut-api`: `lib.rs` construye el `Router` (`app()`), `main.rs` lo arranca; tests en `tests/` |
 | `services/scheduler` | `taut-scheduler`: líder por lock en Redis; publica `checks.requested` y evalúa heartbeats |
 | `services/checker`   | `taut-checker`: consume `checks.requested`, un módulo por tipo en `src/checks/`, publica `checks.completed` |
-| `services/incidents` | `taut-incidents`: consume `checks.completed` y lo guarda en `check_results` |
+| `services/incidents` | `taut-incidents`: guarda `checks.completed`, máquina de estados (`state.rs`), publica `incidents.*` |
+| `services/notifier`  | `taut-notifier`: consume `incidents.*` y `notifications.test`; correo (lettre) y webhooks |
 | `Dockerfile`         | Imagen de cualquier servicio: `--build-arg SERVICE=<nombre>`                            |
 | `web/`               | SvelteKit 3 + Tailwind 4, bun, oxlint, oxfmt, vitest                                     |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
-| `compose.yaml`       | postgres (TimescaleDB), redis, nats; la api bajo el perfil `app`                         |
+| `compose.yaml`       | postgres (TimescaleDB), redis, nats, mailpit; los servicios bajo el perfil `app`         |
 | `.github/workflows`  | `ci.yml` (PR y main) y `build.yml` (imagen a GHCR)                                       |
 
 ## Comandos
@@ -32,9 +34,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
 - `just up` levanta la infraestructura local; los tests de integración la necesitan.
 - `just check` es lo que corre CI: formato, clippy, oxlint, svelte-check, tests, cargo-deny,
   build del frontend. Tiene que estar en verde antes de dar algo por terminado.
-- `just dev` y `just web` corren la api y el frontend; `just workers` corre scheduler, checker e
-  incidents juntos y `just run <servicio>` uno solo en su puerto; `just migrate-add <name>` crea
-  migraciones.
+- `just dev` y `just web` corren la api y el frontend; `just workers` corre scheduler, checker,
+  incidents y notifier juntos y `just run <servicio>` uno solo en su puerto; `just migrate-add
+  <name>` crea migraciones.
 - Si el entorno no tiene Docker, di explícitamente qué tests no corriste.
 
 ## Convenciones obligatorias
@@ -50,6 +52,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   también responda con el JSON de error.
 - **Tenant**: los handlers de negocio reciben `CurrentTenant` y filtran toda query por
   `tenant_id`; nunca aceptan el tenant como parámetro del cuerpo o de la ruta.
+- **HTTP saliente**: toda petición hecha en nombre de un tenant (chequeos, webhooks) usa
+  `taut_net::guarded_client`; nunca un `reqwest::Client` sin protección. Los errores de webhooks
+  se registran con `without_url()`: la URL de Discord o Slack es un secreto.
 - **Configuración**: solo a través de `taut_config::Settings`. No leer `std::env::var` en los
   servicios; agregar el campo a `Settings`, al `Default` y a `.env.example`.
 - **Logs**: `tracing` (`info!`, `warn!`, `error!` con campos estructurados). Nunca `println!`
