@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
+chrono.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 sqlx.workspace = true
@@ -22,10 +23,12 @@ taut-model.workspace = true
 taut-telemetry.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
-chrono.workspace = true
-uuid.workspace = true
+async-nats.workspace = true
+futures.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

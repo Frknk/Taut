@@ -1,11 +1,20 @@
 //! Writes to the `check_results` hypertable.
 
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use taut_model::events::CheckCompleted;
 
 /// Stores `result`. Returns `false` when it was already stored (redelivery) or its monitor no
 /// longer exists.
 pub async fn record(pool: &PgPool, result: &CheckCompleted) -> Result<bool, sqlx::Error> {
+    let mut connection = pool.acquire().await?;
+    insert(&mut connection, result).await
+}
+
+/// Like [`record`], inside the caller's transaction.
+pub async fn insert(
+    connection: &mut PgConnection,
+    result: &CheckCompleted,
+) -> Result<bool, sqlx::Error> {
     let status = result.status.and_then(|status| i16::try_from(status).ok());
     let latency_ms = result
         .latency_ms
@@ -29,7 +38,7 @@ pub async fn record(pool: &PgPool, result: &CheckCompleted) -> Result<bool, sqlx
         result.error,
         result.trace_id,
     )
-    .execute(pool)
+    .execute(connection)
     .await?;
     Ok(inserted.rows_affected() == 1)
 }
