@@ -325,7 +325,7 @@ pub fn channel(input: &ChannelInput, allow_internal: bool) -> Result<ChannelSpec
 
 /// One `@`, something on each side, a dot in the domain and no whitespace. The SMTP server
 /// is the real judge; this only catches typos.
-fn is_email(value: &str) -> bool {
+pub fn is_email(value: &str) -> bool {
     value.len() <= MAX_EMAIL_CHARS
         && !value.chars().any(char::is_whitespace)
         && value.split_once('@').is_some_and(|(local, domain)| {

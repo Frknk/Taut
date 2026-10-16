@@ -7,6 +7,7 @@
 pub mod channels;
 pub mod heartbeats;
 pub mod incidents;
+pub mod invitations;
 pub mod members;
 pub mod metrics_api;
 pub mod monitors;
@@ -78,6 +79,7 @@ pub fn app(
         .route("/v1/ping", get(ping))
         .merge(tenants::router())
         .merge(members::router())
+        .merge(invitations::router())
         .merge(monitors::router())
         .merge(metrics_api::router())
         .merge(incidents::router())

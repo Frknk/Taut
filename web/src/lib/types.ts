@@ -75,6 +75,25 @@ export interface Member {
   joined_at: string;
 }
 
+/** One pending invitation (`GET /v1/invitations`, owners only). */
+export interface Invitation {
+  id: string;
+  email: string;
+  role: Role;
+  /** Name of the owner who invited; `null` if their account was deleted. */
+  invited_by: string | null;
+  expires_at: string;
+  created_at: string;
+}
+
+/** What an invitation link shows (`GET /v1/invitations/{token}`, no session needed). */
+export interface InvitationPreview {
+  tenant_name: string;
+  email: string;
+  role: Role;
+  expires_at: string;
+}
+
 export interface Monitor {
   id: string;
   tenant_id: string;

@@ -151,6 +151,7 @@ veces (caché y locks). Esto cubre la Unidad 1 (SQL y NoSQL) y la Unidad 4 (Redi
 | tenants        | id, slug, plan, created_at                                                         | slug es la URL de la página de estado           |
 | users          | id, email, password_hash, email_verified_at, totp_secret, token_version            | Tabla de identidad, sin tenant_id               |
 | memberships    | user_id, tenant_id, role                                                           | Un usuario en varios tenants; role ∈ owner, member |
+| invitations    | id, tenant_id, email, role, token_hash, expires_at, accepted_at                    | Enlace de 7 días; una pendiente por correo y tenant |
 | monitors       | id, tenant_id, type, target, interval_s, timeout_s, expected_status, keyword, active | type ∈ http, tcp, ping, dns, keyword            |
 | incidents      | id, tenant_id, monitor_id, started_at, resolved_at, cause                          | Abierto = resolved_at IS NULL                   |
 | alert_channels | id, tenant_id, kind, config_json, secret                                           | kind ∈ email, telegram, discord, webhook        |
