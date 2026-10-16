@@ -5,23 +5,42 @@
   import { page } from '$app/state';
 
   import StatusBadge from '#lib/components/StatusBadge.svelte';
-  import { describeError, request } from '#lib/api.js';
-  import { KIND_LABELS, formatDateTime, formatSeconds } from '#lib/format.js';
+  import { API_URL, describeError, request } from '#lib/api.js';
+  import { KIND_LABELS, formatDateTime, formatSeconds, timeAgo } from '#lib/format.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
-  import type { Monitor } from '#lib/types.js';
+  import type { CheckResult, Monitor } from '#lib/types.js';
 
   const id = $derived(page.params.id ?? '');
   const tenantId = $derived(selectedTenant.current?.id ?? '');
 
   let monitor = $state<Monitor | null>(null);
+  let checks = $state<CheckResult[]>([]);
   let error = $state('');
+  let copied = $state(false);
+
+  const pingUrl = $derived(
+    monitor?.heartbeat_token ? `${API_URL}/h/${monitor.heartbeat_token}` : '',
+  );
 
   async function load() {
     try {
-      monitor = await request<Monitor>('GET', `/v1/monitors/${id}`, { tenant: tenantId });
+      [monitor, checks] = await Promise.all([
+        request<Monitor>('GET', `/v1/monitors/${id}`, { tenant: tenantId }),
+        request<CheckResult[]>('GET', `/v1/monitors/${id}/checks?limit=20`, { tenant: tenantId }),
+      ]);
       error = '';
     } catch (err) {
       error = describeError(err);
+    }
+  }
+
+  async function copyPingUrl() {
+    try {
+      await navigator.clipboard.writeText(pingUrl);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    } catch {
+      copied = false;
     }
   }
 
@@ -48,7 +67,11 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    const timer = setInterval(load, 10_000);
+    return () => clearInterval(timer);
+  });
 
   const button =
     'rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50';
@@ -130,4 +153,67 @@
       <dd class="font-medium text-neutral-900">{formatDateTime(monitor.created_at)}</dd>
     </div>
   </dl>
+
+  {#if monitor.type === 'heartbeat'}
+    <section class="mt-6 rounded-xl border border-neutral-200 bg-white p-6 text-sm">
+      <h2 class="font-medium text-neutral-900">URL de ping</h2>
+      <p class="mt-1 text-neutral-500">
+        Tu tarea programada la llama al terminar; si no llega en
+        {formatSeconds(monitor.interval_s + monitor.grace_period_s)}, se abre un incidente.
+        {#if monitor.last_ping_at}Último ping {timeAgo(monitor.last_ping_at)}.{:else}Pendiente hasta
+          el primer ping.{/if}
+      </p>
+      <div class="mt-3 flex gap-2">
+        <code class="min-w-0 flex-1 truncate rounded-lg bg-neutral-100 px-3 py-2">{pingUrl}</code>
+        <button class={button} onclick={copyPingUrl}>{copied ? 'Copiada' : 'Copiar'}</button>
+      </div>
+      <pre
+        class="mt-3 overflow-x-auto rounded-lg bg-neutral-900 px-3 py-2 text-xs text-neutral-100">0 3 * * * /usr/local/bin/backup.sh && curl -fsS {pingUrl} || curl -fsS {pingUrl}/fail</pre>
+    </section>
+  {/if}
+
+  <section class="mt-6">
+    <h2 class="text-sm font-medium text-neutral-900">Últimos chequeos</h2>
+    {#if checks.length === 0}
+      <p class="mt-2 text-sm text-neutral-500">
+        {monitor.active ? 'Todavía no hay resultados.' : 'El monitor está pausado.'}
+      </p>
+    {:else}
+      <div class="mt-2 overflow-x-auto rounded-xl border border-neutral-200 bg-white">
+        <table class="w-full text-left text-sm">
+          <thead class="border-b border-neutral-200 text-xs text-neutral-500">
+            <tr>
+              <th class="px-4 py-2 font-medium">Cuándo</th>
+              <th class="px-4 py-2 font-medium">Resultado</th>
+              <th class="px-4 py-2 font-medium">Código</th>
+              <th class="px-4 py-2 font-medium">Latencia</th>
+              <th class="px-4 py-2 font-medium">Causa</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-100">
+            {#each checks as check (check.at + check.region)}
+              <tr>
+                <td
+                  class="px-4 py-2 whitespace-nowrap text-neutral-600"
+                  title={formatDateTime(check.at)}
+                >
+                  {timeAgo(check.at)}
+                </td>
+                <td class="px-4 py-2">
+                  <span class={check.ok ? 'text-emerald-700' : 'font-medium text-red-700'}>
+                    {check.ok ? 'OK' : 'Falla'}
+                  </span>
+                </td>
+                <td class="px-4 py-2 text-neutral-600">{check.status ?? '—'}</td>
+                <td class="px-4 py-2 text-neutral-600">
+                  {check.latency_ms === null ? '—' : `${check.latency_ms} ms`}
+                </td>
+                <td class="px-4 py-2 text-neutral-600">{check.error ?? ''}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  </section>
 {/if}

@@ -28,8 +28,21 @@ export interface Monitor {
   last_ping_at: string | null;
   active: boolean;
   status: MonitorStatus;
+  last_check_at: string | null;
+  last_check_ok: boolean | null;
+  last_latency_ms: number | null;
   created_at: string;
   updated_at: string;
+}
+
+/** One stored check result (`GET /v1/monitors/{id}/checks`). */
+export interface CheckResult {
+  at: string;
+  region: string;
+  ok: boolean;
+  status: number | null;
+  latency_ms: number | null;
+  error: string | null;
 }
 
 /** Body of `POST /v1/monitors` and `PUT /v1/monitors/{id}`. */
