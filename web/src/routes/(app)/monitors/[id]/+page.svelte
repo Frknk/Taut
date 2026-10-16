@@ -5,6 +5,7 @@
   import { page } from '$app/state';
 
   import IncidentList from '#lib/components/IncidentList.svelte';
+  import MetricsPanel from '#lib/components/MetricsPanel.svelte';
   import StatusBadge from '#lib/components/StatusBadge.svelte';
   import { API_URL, describeError, request } from '#lib/api.js';
   import { KIND_LABELS, formatDateTime, formatSeconds, timeAgo } from '#lib/format.js';
@@ -173,6 +174,10 @@
       <pre
         class="mt-3 overflow-x-auto rounded-lg bg-neutral-900 px-3 py-2 text-xs text-neutral-100">0 3 * * * /usr/local/bin/backup.sh && curl -fsS {pingUrl} || curl -fsS {pingUrl}/fail</pre>
     </section>
+  {/if}
+
+  {#if monitor.type !== 'heartbeat'}
+    <MetricsPanel monitorId={id} {tenantId} />
   {/if}
 
   {#if incidents.length > 0}

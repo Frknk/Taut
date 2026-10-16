@@ -105,3 +105,45 @@ export interface Delivery {
 export interface IncidentDetail extends Incident {
   deliveries: Delivery[];
 }
+
+export type MetricsRange = '24h' | '7d' | '30d';
+
+export interface MetricsPoint {
+  t: string;
+  checks: number;
+  failures: number;
+  avg_ms: number | null;
+  p95_ms: number | null;
+}
+
+/** Body of `GET /v1/monitors/{id}/metrics`. */
+export interface Metrics {
+  range: MetricsRange;
+  bucket_s: number;
+  checks: number;
+  failures: number;
+  uptime: Record<MetricsRange, number | null>;
+  latency: { p50_ms: number | null; p95_ms: number | null; avg_ms: number | null };
+  series: MetricsPoint[];
+}
+
+export interface DayBar {
+  day: string;
+  checks: number;
+  failures: number;
+  uptime: number | null;
+}
+
+/** Body of `GET /s/{slug}` on the status BFF. */
+export interface StatusPage {
+  tenant: { name: string; slug: string };
+  status: 'operational' | 'partial_outage' | 'major_outage';
+  monitors: { name: string; status: MonitorStatus; uptime_90d: number | null; days: DayBar[] }[];
+  incidents: {
+    monitor_name: string;
+    started_at: string;
+    resolved_at: string | null;
+    duration_s: number;
+  }[];
+  generated_at: string;
+}

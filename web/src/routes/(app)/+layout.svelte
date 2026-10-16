@@ -42,6 +42,12 @@
           {/each}
         </nav>
         <div class="ml-auto flex items-center gap-3 text-sm text-neutral-500">
+          <a
+            href={resolve('/status/[slug]', { slug: selectedTenant.current.slug })}
+            target="_blank"
+            rel="noopener"
+            class="hover:text-neutral-900">Página de estado ↗</a
+          >
           <span class="font-medium text-neutral-800">{selectedTenant.current.name}</span>
           <button class="hover:text-neutral-900" onclick={switchTenant}>Cambiar</button>
         </div>

@@ -49,11 +49,12 @@ dev:
 run svc:
     TAUT_HTTP__ADDR=0.0.0.0:$(just port {{svc}}) cargo run -p taut-{{svc}}
 
-# Corre juntos los servicios de fondo (scheduler, checker, incidents, notifier); Ctrl-C los detiene
+# Corre juntos los servicios que no son la api (scheduler, checker, incidents, notifier y
+# status-bff); Ctrl-C los detiene
 workers:
-    cargo build -p taut-scheduler -p taut-checker -p taut-incidents -p taut-notifier
+    cargo build -p taut-scheduler -p taut-checker -p taut-incidents -p taut-notifier -p taut-status-bff
     trap 'kill 0' EXIT; \
-    for svc in scheduler checker incidents notifier; do \
+    for svc in scheduler checker incidents notifier status-bff; do \
       TAUT_HTTP__ADDR=0.0.0.0:$(just port $svc) ./target/debug/taut-$svc & \
     done; \
     wait
@@ -63,7 +64,7 @@ workers:
 port svc:
     @case {{svc}} in \
       api) echo 8080 ;; scheduler) echo 8081 ;; checker) echo 8082 ;; incidents) echo 8083 ;; \
-      notifier) echo 8084 ;; \
+      notifier) echo 8084 ;; status-bff) echo 8085 ;; \
       *) echo "servicio desconocido: {{svc}}" >&2; exit 1 ;; \
     esac
 

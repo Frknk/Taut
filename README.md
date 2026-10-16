@@ -10,12 +10,12 @@ Backend 100 % Rust (Axum, tokio, sqlx) en un Cargo workspace; frontend SvelteKit
 estática; PostgreSQL 17 con TimescaleDB, Redis y NATS JetStream. El diseño completo está en
 [docs/taut.md](docs/taut.md) y cada decisión importante en un [ADR](docs/adr/README.md).
 
-**Estado:** prototipo 1 en construcción ([docs/prototipo-1.md](docs/prototipo-1.md)). Hechos los
-hitos de la semana 3–4 (tenants, CRUD de monitores con pausa y cuotas, panel), de la semana 5
-(scheduler, checker e incidents sobre NATS: chequeos HTTP, palabra clave, TCP y heartbeat
-guardados en TimescaleDB) y de la semana 6 (incidentes con periodos de confirmación y
-recuperación, alertas por correo, Discord, Slack y webhook). Pendiente: página de estado,
-gráficos y el despliegue a un PaaS.
+**Estado:** prototipo 1 completo en código ([docs/prototipo-1.md](docs/prototipo-1.md)): las 17
+features previstas para la compuerta de Medio Ciclo. Tenants y monitores HTTP, palabra clave, TCP y
+heartbeat con pausa y cuotas; chequeos programados sobre NATS y guardados en TimescaleDB;
+incidentes con periodos de confirmación y recuperación; alertas por correo, Discord, Slack y
+webhook; página de estado pública con 90 días de historia; gráficos de latencia y uptime.
+Pendiente: el despliegue (PaaS, Terraform y Kubernetes, semanas 5–8) y las pruebas de carga.
 
 ## Requisitos
 
@@ -31,12 +31,14 @@ gráficos y el despliegue a un PaaS.
 just setup   # brew bundle, sqlx-cli, cargo-watch, hooks de git, bun install, .env
 just up      # postgres (TimescaleDB), redis y nats, con healthchecks
 just dev     # taut-api en http://localhost:8080 (recompila al guardar)
-just workers # scheduler, checker, incidents y notifier (en otra terminal)
+just workers # scheduler, checker, incidents, notifier y status-bff (en otra terminal)
 just web     # panel en http://localhost:5173 (en otra terminal)
 ```
 
 Cada servicio expone `/health`, `/ready` y `/metrics` en su puerto: api 8080, scheduler 8081,
-checker 8082, incidents 8083, notifier 8084 (los mismos que publica `just up-all`). Los correos de
+checker 8082, incidents 8083, notifier 8084, status-bff 8085 (los mismos que publica
+`just up-all`). La página de estado pública de un tenant está en
+http://localhost:5173/status/{slug}. Los correos de
 alerta no salen de la máquina: Mailpit los guarda y los muestra en http://localhost:8025.
 
 Comprobar:
@@ -61,11 +63,13 @@ Las rutas de `/v1` que actúan sobre un tenant llevan la cabecera `X-Tenant-Id` 
 | `GET/PUT/DELETE /v1/monitors/{id}`    | Lee, reemplaza la configuración o elimina un monitor        |
 | `POST /v1/monitors/{id}/pause` · `/resume` | Pausa o reanuda                                        |
 | `GET /v1/monitors/{id}/checks?limit=` | Últimos resultados (por defecto 50, máximo 500)            |
+| `GET /v1/monitors/{id}/metrics?range=` | Uptime 24 h / 7 d / 30 d, p50 y p95, serie por intervalos (`24h`, `7d`, `30d`) |
 | `GET /v1/incidents?status=&monitor_id=` | Incidentes (abiertos primero); `status` = `open`, `resolved` o `all` |
 | `GET /v1/incidents/{id}`              | Un incidente con las alertas enviadas por canal            |
 | `GET/POST /v1/alert-channels` · `GET/PUT/DELETE /{id}` | Canales: `email`, `discord`, `slack`, `webhook` |
 | `POST /v1/alert-channels/{id}/test`   | Envía un mensaje de prueba por el canal                    |
 | `GET/POST /h/{token}` · `/h/{token}/fail` | Ping público de un heartbeat (sin cabecera de tenant) |
+| `GET /s/{slug}` (status-bff, :8085)   | JSON público de la página de estado; sin sesión            |
 
 ```bash
 tenant=$(curl -s localhost:8080/v1/tenants -H 'content-type: application/json' \
@@ -86,7 +90,7 @@ build del frontend). Es exactamente lo que corre CI.
 | `just down` / `nuke` | Apaga los contenedores; `nuke` borra también los volúmenes                  |
 | `just logs [svc]`    | Sigue los logs de compose                                                   |
 | `just dev`           | Corre `taut-api` con recarga al guardar                                     |
-| `just workers`       | Corre scheduler, checker, incidents y notifier juntos                       |
+| `just workers`       | Corre scheduler, checker, incidents, notifier y status-bff juntos           |
 | `just run svc`       | Corre un servicio en su puerto local (`just run checker`)                   |
 | `just web`           | Servidor de desarrollo del frontend                                         |
 | `just fmt` / `fmt-check` | Formatea (o verifica) Rust y `web/`                                     |
@@ -118,7 +122,8 @@ taut/
 │   ├── scheduler/   taut-scheduler: planifica los chequeos (líder por lock en Redis)
 │   ├── checker/     taut-checker: ejecuta HTTP, palabra clave y TCP
 │   ├── incidents/   taut-incidents: guarda resultados, abre y cierra incidentes
-│   └── notifier/    taut-notifier: alertas por correo, Discord, Slack y webhook
+│   ├── notifier/    taut-notifier: alertas por correo, Discord, Slack y webhook
+│   └── status-bff/  taut-status-bff: JSON público de las páginas de estado
 ├── web/             SvelteKit 3 + Tailwind 4, SPA estática (bun, oxlint, oxfmt)
 ├── migrations/      migraciones sqlx compartidas (una base de datos en el MVP)
 ├── .sqlx/           caché offline de sqlx

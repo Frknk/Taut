@@ -21,8 +21,9 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `services/checker`   | `taut-checker`: consume `checks.requested`, un módulo por tipo en `src/checks/`, publica `checks.completed` |
 | `services/incidents` | `taut-incidents`: guarda `checks.completed`, máquina de estados (`state.rs`), publica `incidents.*` |
 | `services/notifier`  | `taut-notifier`: consume `incidents.*` y `notifications.test`; correo (lettre) y webhooks |
+| `services/status-bff`| `taut-status-bff`: `GET /s/{slug}`, página de estado pública (sin destinos ni causas) |
 | `Dockerfile`         | Imagen de cualquier servicio: `--build-arg SERVICE=<nombre>`                            |
-| `web/`               | SvelteKit 3 + Tailwind 4, bun, oxlint, oxfmt, vitest                                     |
+| `web/`               | SvelteKit 3 + Tailwind 4, bun, oxlint, oxfmt, vitest; panel en `(app)/`, página pública en `status/[slug]` |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
 | `compose.yaml`       | postgres (TimescaleDB), redis, nats, mailpit; los servicios bajo el perfil `app`         |
 | `.github/workflows`  | `ci.yml` (PR y main) y `build.yml` (imagen a GHCR)                                       |
@@ -35,8 +36,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
 - `just check` es lo que corre CI: formato, clippy, oxlint, svelte-check, tests, cargo-deny,
   build del frontend. Tiene que estar en verde antes de dar algo por terminado.
 - `just dev` y `just web` corren la api y el frontend; `just workers` corre scheduler, checker,
-  incidents y notifier juntos y `just run <servicio>` uno solo en su puerto; `just migrate-add
-  <name>` crea migraciones.
+  incidents, notifier y status-bff juntos y `just run <servicio>` uno solo en su puerto;
+  `just migrate-add <name>` crea migraciones; `just sqlx-prepare` regenera `.sqlx/` contra una base
+  vacía (con la base de desarrollo la inferencia de nulabilidad cambia y CI falla).
 - Si el entorno no tiene Docker, di explícitamente qué tests no corriste.
 
 ## Convenciones obligatorias
@@ -66,6 +68,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   `#[sqlx::test(migrator = "taut_db::MIGRATOR")]`.
 - **Lints**: el workspace activa `clippy::pedantic` y `missing_docs`; documenta todo lo público y
   no silencies lints sin un comentario que diga por qué.
+- **Gráficos** en `web/`: tokens de color en `src/routes/layout.css` (paleta validada), funciones
+  puras en `src/lib/charts.ts`; todo gráfico lleva leyenda si tiene más de una serie, tooltip,
+  navegación con teclado y una vista de tabla, y los colores de estado van con texto o icono.
 - **Secretos**: ninguno en el repositorio ni en imágenes; `.env` está ignorado y `.env.example`
   solo lleva valores de desarrollo.
 - **Dependencias**: se declaran en `[workspace.dependencies]` del `Cargo.toml` raíz y los crates

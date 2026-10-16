@@ -56,6 +56,15 @@
         "notifier"
       ],
       "port": 8084
+    },
+    {
+      "name": "status-bff",
+      "runtimeExecutable": "just",
+      "runtimeArgs": [
+        "run",
+        "status-bff"
+      ],
+      "port": 8085
     }
   ]
 }

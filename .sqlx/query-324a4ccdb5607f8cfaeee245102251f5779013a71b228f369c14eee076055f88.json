@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT m.name AS monitor_name, i.started_at, i.resolved_at,\n               floor(extract(epoch FROM coalesce(i.resolved_at, $3) - i.started_at))::bigint\n                   AS \"duration_s!\"\n        FROM incidents i\n        JOIN monitors m ON m.id = i.monitor_id\n        WHERE i.tenant_id = $1\n          AND (i.resolved_at IS NULL OR i.resolved_at > $3 - make_interval(days => $2))\n        ORDER BY i.resolved_at IS NULL DESC, i.started_at DESC\n        LIMIT 20\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "monitor_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "incidents",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "resolved_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "incidents",
+            "name": "resolved_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "duration_s!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "324a4ccdb5607f8cfaeee245102251f5779013a71b228f369c14eee076055f88"
+}

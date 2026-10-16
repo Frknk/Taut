@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            count(*) FILTER (WHERE at > now() - interval '24 hours') AS \"checks_day!\",\n            count(*) FILTER (WHERE at > now() - interval '24 hours' AND NOT ok) AS \"failures_day!\",\n            count(*) FILTER (WHERE at > now() - interval '7 days') AS \"checks_week!\",\n            count(*) FILTER (WHERE at > now() - interval '7 days' AND NOT ok) AS \"failures_week!\",\n            count(*) AS \"checks_month!\",\n            count(*) FILTER (WHERE NOT ok) AS \"failures_month!\",\n            count(*) FILTER (WHERE at > now() - make_interval(secs => $3)) AS \"checks_range!\",\n            count(*) FILTER (WHERE at > now() - make_interval(secs => $3) AND NOT ok)\n                AS \"failures_range!\"\n        FROM check_results\n        WHERE monitor_id = $1 AND tenant_id = $2 AND at > now() - interval '30 days'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "checks_day!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "failures_day!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "checks_week!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "failures_week!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "checks_month!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "failures_month!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "checks_range!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "failures_range!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0556272cb79a60f6c58eb2784a778c63c9c5118343ad28d04f403b896c75189b"
+}
