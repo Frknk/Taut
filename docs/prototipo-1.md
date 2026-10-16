@@ -202,3 +202,34 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
 - Los campos que no aplican al tipo (`keyword` fuera de keyword, `expected_status` fuera de
   HTTP, `target` en heartbeat) son error, no se ignoran. Los campos desconocidos también.
 
+**Semana 5 (scheduler, checker, resultados y heartbeat)**
+
+- Flujo: la API publica `monitors.created|updated|deleted` → el scheduler reacciona al instante y
+  además recarga los monitores activos cada 30 s (`TAUT_SCHEDULER__RESYNC_SECS`) → publica
+  `checks.requested` con todo lo que el checker necesita → el checker publica `checks.completed`
+  → `incidents` lo guarda en `check_results`. Tres streams de JetStream con retención por edad
+  (`CHECKS` 24 h, `INCIDENTS` 7 d, `MONITORS` 24 h) y consumidores durables compartidos por las
+  réplicas (`checker`, `incidents`).
+- Solo una réplica del scheduler planifica: la que tiene el lock `lock:scheduler` en Redis (TTL
+  10 s, renovado cada tercio). Al arrancar reparte los monitores dentro de su primer intervalo;
+  un monitor nuevo o editado se chequea de inmediato. Si el scheduler se atrasa más de un
+  intervalo, salta los chequeos perdidos en vez de dispararlos en ráfaga, y el checker descarta
+  pedidos que vencieron (`expires_at` = siguiente chequeo).
+- Heartbeats: el ping (`/h/{token}`, `/h/{token}/fail`) lo recibe la API, que actualiza
+  `last_ping_at` y publica el resultado; si NATS no está, responde `503` para que el job
+  reintente. El scheduler no manda heartbeats al checker: en cada intervalo mira `last_ping_at`
+  y, si pasó `interval_s + grace_period_s`, publica el fallo "no ping for N s". Hasta el primer
+  ping el heartbeat queda pendiente.
+- El `trace_id` (ULID) nace en el scheduler (o es el id de la petición del ping), viaja en el
+  evento y en la cabecera `x-request-id` del mensaje, y se guarda en `check_results.trace_id`.
+- El checker abre una conexión nueva por chequeo (sin pool) para medir DNS, TCP y TLS cada vez,
+  sigue hasta 5 redirecciones, lee hasta 1 MB del cuerpo para buscar la palabra clave y aplica
+  la regla de direcciones internas a cada IP resuelta y a cada redirección. Causas de error:
+  `timeout after N s`, `connection refused`, `dns: could not resolve <host>`,
+  `status 500 (expected 2xx)`, `keyword missing`, `tls: ...`.
+- `check_results` es una hypertable con clave `(monitor_id, at, region)`, lo que hace idempotente
+  la escritura ante reentregas; sin clave foránea, así que la API borra los resultados al borrar
+  el monitor y `incidents` ignora resultados de monitores que ya no existen.
+- Un solo `Dockerfile` en la raíz para todos los servicios (`--build-arg SERVICE=checker`); la
+  capa de dependencias de cargo-chef es la misma para todos.
+

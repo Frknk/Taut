@@ -1,10 +1,17 @@
 //! Liveness (`GET /health`) and readiness (`GET /ready`) endpoints.
 //!
 //! Kubernetes restarts a pod when `/health` fails and stops routing traffic to it when
-//! `/ready` fails, so liveness never depends on external systems while readiness does.
+//! `/ready` fails, so liveness never depends on external systems while readiness does. Each
+//! service declares what readiness means for it with a list of [`Probe`]s: the API probes
+//! the database, the checker probes NATS, the scheduler probes all three stores.
 
 // Axum handlers receive their state by value even when they only borrow it.
 #![allow(clippy::needless_pass_by_value)]
+
+use std::collections::BTreeMap;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 
 use axum::extract::State;
 use axum::routing::get;
@@ -41,10 +48,42 @@ impl ServiceInfo {
     }
 }
 
+type ProbeFuture = Pin<Box<dyn Future<Output = bool> + Send>>;
+
+/// A dependency that `/ready` verifies: a name for the response and a check that answers
+/// whether the dependency is usable right now.
+#[derive(Clone)]
+pub struct Probe {
+    name: &'static str,
+    check: Arc<dyn Fn() -> ProbeFuture + Send + Sync>,
+}
+
+impl Probe {
+    /// Probe named `name` that is ready when `check` resolves to `true`.
+    pub fn new<F, Fut>(name: &'static str, check: F) -> Self
+    where
+        F: Fn() -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = bool> + Send + 'static,
+    {
+        Self {
+            name,
+            check: Arc::new(move || Box::pin(check())),
+        }
+    }
+
+    /// Probe that pings PostgreSQL.
+    pub fn database(pool: PgPool) -> Self {
+        Self::new("database", move || {
+            let pool = pool.clone();
+            async move { taut_db::ping(&pool).await.is_ok() }
+        })
+    }
+}
+
 #[derive(Clone)]
 struct HealthState {
     info: ServiceInfo,
-    pool: PgPool,
+    probes: Arc<[Probe]>,
 }
 
 #[derive(Serialize)]
@@ -57,20 +96,18 @@ struct HealthResponse {
 #[derive(Serialize)]
 struct ReadyResponse {
     status: &'static str,
-    checks: Checks,
+    checks: BTreeMap<&'static str, &'static str>,
 }
 
-#[derive(Serialize)]
-struct Checks {
-    database: &'static str,
-}
-
-/// Router with `/health` and `/ready`.
-pub fn router(info: ServiceInfo, pool: PgPool) -> Router {
+/// Router with `/health` and `/ready`; `/ready` runs every probe.
+pub fn router(info: ServiceInfo, probes: Vec<Probe>) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/ready", get(ready))
-        .with_state(HealthState { info, pool })
+        .with_state(HealthState {
+            info,
+            probes: probes.into(),
+        })
 }
 
 #[allow(clippy::unused_async)] // axum handlers must be async
@@ -82,12 +119,17 @@ async fn health(State(state): State<HealthState>) -> Json<HealthResponse> {
 }
 
 async fn ready(State(state): State<HealthState>) -> Result<Json<ReadyResponse>, AppError> {
-    taut_db::ping(&state.pool).await.map_err(|err| {
-        tracing::warn!(error = %err, "readiness check failed");
-        AppError::Unavailable("database unavailable".to_owned())
-    })?;
+    let results = futures::future::join_all(state.probes.iter().map(|probe| (probe.check)())).await;
+    let mut checks = BTreeMap::new();
+    for (probe, ok) in state.probes.iter().zip(results) {
+        if !ok {
+            tracing::warn!(dependency = probe.name, "readiness check failed");
+            return Err(AppError::Unavailable(format!("{} unavailable", probe.name)));
+        }
+        checks.insert(probe.name, "ok");
+    }
     Ok(Json(ReadyResponse {
         status: "ready",
-        checks: Checks { database: "ok" },
+        checks,
     }))
 }

@@ -10,7 +10,7 @@ use std::fmt;
 use std::sync::{Mutex, PoisonError};
 
 use chrono::{SecondsFormat, Utc};
-use metrics_exporter_prometheus::{BuildError, Matcher, PrometheusBuilder, PrometheusHandle};
+use metrics_exporter_prometheus::{BuildError, PrometheusBuilder, PrometheusHandle};
 use serde_json::{Map, Value};
 use taut_config::{LogFormat, TelemetrySettings};
 use tracing::field::{Field, Visit};
@@ -23,9 +23,10 @@ use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::{SubscriberInitExt, TryInitError};
 
-/// Histogram buckets for `http_request_duration_seconds`, in seconds.
+/// Buckets of every histogram, in seconds: API latency, check latency and scheduling lag
+/// all fit, from 5 ms up to the 60 s check timeout.
 const LATENCY_BUCKETS: &[f64] = &[
-    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+    0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0,
 ];
 
 /// Failure while installing the subscriber or the metrics recorder.
@@ -96,10 +97,7 @@ fn install(
     }
 
     let metrics = PrometheusBuilder::new()
-        .set_buckets_for_metric(
-            Matcher::Full("http_request_duration_seconds".to_owned()),
-            LATENCY_BUCKETS,
-        )?
+        .set_buckets(LATENCY_BUCKETS)?
         .install_recorder()?;
 
     Ok(Telemetry { metrics })

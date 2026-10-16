@@ -1,4 +1,4 @@
-# Solo lo necesario para compilar la api; el contexto de build es la raíz del repo.
+# Solo lo necesario para compilar los servicios; el contexto de build es la raíz del repo.
 .git
 target
 web

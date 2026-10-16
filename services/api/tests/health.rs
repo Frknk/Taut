@@ -8,6 +8,7 @@ use tower::ServiceExt;
 #[tokio::test]
 async fn health_reports_ok_without_database() {
     let response = common::app_without_database()
+        .await
         .oneshot(common::get("/health"))
         .await
         .unwrap();
@@ -22,6 +23,7 @@ async fn health_reports_ok_without_database() {
 #[tokio::test]
 async fn ready_reports_unavailable_when_database_is_down() {
     let response = common::app_without_database()
+        .await
         .oneshot(common::get("/ready"))
         .await
         .unwrap();
@@ -34,6 +36,7 @@ async fn ready_reports_unavailable_when_database_is_down() {
 #[tokio::test]
 async fn responses_carry_a_ulid_request_id() {
     let response = common::app_without_database()
+        .await
         .oneshot(common::get("/health"))
         .await
         .unwrap();
@@ -53,6 +56,7 @@ async fn incoming_request_id_is_preserved() {
         .body(axum::body::Body::empty())
         .unwrap();
     let response = common::app_without_database()
+        .await
         .oneshot(request)
         .await
         .unwrap();
@@ -65,6 +69,7 @@ async fn incoming_request_id_is_preserved() {
 #[tokio::test]
 async fn unknown_route_returns_json_404() {
     let response = common::app_without_database()
+        .await
         .oneshot(common::get("/nope"))
         .await
         .unwrap();
@@ -77,6 +82,7 @@ async fn unknown_route_returns_json_404() {
 #[tokio::test]
 async fn ping_answers_pong() {
     let response = common::app_without_database()
+        .await
         .oneshot(common::get("/v1/ping"))
         .await
         .unwrap();
@@ -86,7 +92,7 @@ async fn ping_answers_pong() {
 
 #[tokio::test]
 async fn metrics_expose_http_counters() {
-    let app = common::app_without_database();
+    let app = common::app_without_database().await;
     app.clone().oneshot(common::get("/health")).await.unwrap();
 
     let response = app.oneshot(common::get("/metrics")).await.unwrap();

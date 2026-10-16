@@ -1,8 +1,26 @@
 # Infraestructura local de taut.
 #   just up      levanta postgres, redis y nats
-#   just up-all  además construye y levanta la api (perfil "app")
+#   just up-all  además construye y levanta los servicios de taut (perfil "app")
 #   just nuke    borra también los volúmenes
 name: taut
+
+# Entorno común de los servicios de taut dentro de la red de compose.
+x-taut-env: &taut-env
+  TAUT_APP__ENV: dev
+  TAUT_HTTP__ADDR: 0.0.0.0:8080
+  TAUT_TELEMETRY__LOG_FORMAT: json
+  TAUT_CHECKS__ALLOW_PRIVATE_TARGETS: "true"
+  DATABASE_URL: postgres://taut:taut@postgres:5432/taut
+  REDIS_URL: redis://redis:6379
+  NATS_URL: nats://nats:4222
+
+x-taut-deps: &taut-deps
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  nats:
+    condition: service_healthy
 
 services:
   postgres:
@@ -48,30 +66,58 @@ services:
       timeout: 3s
       retries: 10
 
+  # Servicios de taut: una imagen por servicio desde el Dockerfile de la raíz. Los puertos del
+  # host son los mismos que usa `just run <servicio>`.
   api:
     profiles: ["app"]
     build:
       context: .
-      dockerfile: services/api/Dockerfile
-      args:
-        GIT_SHA: ${GIT_SHA:-dev}
+      args: { SERVICE: api, GIT_SHA: "${GIT_SHA:-dev}" }
     environment:
-      TAUT_APP__ENV: dev
-      TAUT_HTTP__ADDR: 0.0.0.0:8080
+      <<: *taut-env
       TAUT_HTTP__CORS_ORIGINS: http://localhost:5173
-      TAUT_TELEMETRY__LOG_FORMAT: json
-      DATABASE_URL: postgres://taut:taut@postgres:5432/taut
-      REDIS_URL: redis://redis:6379
-      NATS_URL: nats://nats:4222
     ports:
       - "8080:8080"
+    depends_on: *taut-deps
+
+  scheduler:
+    profiles: ["app"]
+    build:
+      context: .
+      args: { SERVICE: scheduler, GIT_SHA: "${GIT_SHA:-dev}" }
+    environment: *taut-env
+    ports:
+      - "8081:8080"
+    # La api aplica las migraciones al arrancar.
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      <<: *taut-deps
+      api:
+        condition: service_started
+
+  checker:
+    profiles: ["app"]
+    build:
+      context: .
+      args: { SERVICE: checker, GIT_SHA: "${GIT_SHA:-dev}" }
+    environment: *taut-env
+    ports:
+      - "8082:8080"
+    depends_on:
       nats:
         condition: service_healthy
+
+  incidents:
+    profiles: ["app"]
+    build:
+      context: .
+      args: { SERVICE: incidents, GIT_SHA: "${GIT_SHA:-dev}" }
+    environment: *taut-env
+    ports:
+      - "8083:8080"
+    depends_on:
+      <<: *taut-deps
+      api:
+        condition: service_started
 
 volumes:
   postgres-data:

@@ -10,10 +10,11 @@ Backend 100 % Rust (Axum, tokio, sqlx) en un Cargo workspace; frontend SvelteKit
 estática; PostgreSQL 17 con TimescaleDB, Redis y NATS JetStream. El diseño completo está en
 [docs/taut.md](docs/taut.md) y cada decisión importante en un [ADR](docs/adr/README.md).
 
-**Estado:** prototipo 1 en construcción ([docs/prototipo-1.md](docs/prototipo-1.md)). Hecho el
-hito de la semana 3–4: tenants, CRUD de monitores (HTTP, palabra clave, TCP y heartbeat) con
-pausa, cuotas del plan free y el panel en `web/`. Pendiente: chequeos, incidentes, alertas,
-página de estado y el despliegue a un PaaS.
+**Estado:** prototipo 1 en construcción ([docs/prototipo-1.md](docs/prototipo-1.md)). Hechos los
+hitos de la semana 3–4 (tenants, CRUD de monitores con pausa y cuotas, panel) y de la semana 5
+(scheduler, checker e incidents sobre NATS: chequeos HTTP, palabra clave, TCP y heartbeat
+guardados en TimescaleDB). Pendiente: incidentes, alertas, página de estado y el despliegue a un
+PaaS.
 
 ## Requisitos
 
@@ -29,8 +30,12 @@ página de estado y el despliegue a un PaaS.
 just setup   # brew bundle, sqlx-cli, cargo-watch, hooks de git, bun install, .env
 just up      # postgres (TimescaleDB), redis y nats, con healthchecks
 just dev     # taut-api en http://localhost:8080 (recompila al guardar)
+just workers # scheduler, checker e incidents (en otra terminal)
 just web     # panel en http://localhost:5173 (en otra terminal)
 ```
+
+Cada servicio expone `/health`, `/ready` y `/metrics` en su puerto: api 8080, scheduler 8081,
+checker 8082, incidents 8083 (los mismos que publica `just up-all`).
 
 Comprobar:
 
@@ -53,6 +58,8 @@ Las rutas de `/v1` que actúan sobre un tenant llevan la cabecera `X-Tenant-Id` 
 | `GET /v1/monitors` · `POST`           | Lista o crea monitores del tenant                           |
 | `GET/PUT/DELETE /v1/monitors/{id}`    | Lee, reemplaza la configuración o elimina un monitor        |
 | `POST /v1/monitors/{id}/pause` · `/resume` | Pausa o reanuda                                        |
+| `GET /v1/monitors/{id}/checks?limit=` | Últimos resultados (por defecto 50, máximo 500)            |
+| `GET/POST /h/{token}` · `/h/{token}/fail` | Ping público de un heartbeat (sin cabecera de tenant) |
 
 ```bash
 tenant=$(curl -s localhost:8080/v1/tenants -H 'content-type: application/json' \
@@ -69,10 +76,12 @@ build del frontend). Es exactamente lo que corre CI.
 | Receta               | Qué hace                                                                    |
 | -------------------- | --------------------------------------------------------------------------- |
 | `just setup`         | Instala herramientas, hooks, dependencias de `web/` y crea `.env`           |
-| `just up` / `up-all` | Levanta la infraestructura local; `up-all` construye y levanta también la api |
+| `just up` / `up-all` | Levanta la infraestructura local; `up-all` construye y levanta también los servicios |
 | `just down` / `nuke` | Apaga los contenedores; `nuke` borra también los volúmenes                  |
 | `just logs [svc]`    | Sigue los logs de compose                                                   |
 | `just dev`           | Corre `taut-api` con recarga al guardar                                     |
+| `just workers`       | Corre scheduler, checker e incidents juntos                                 |
+| `just run svc`       | Corre un servicio en su puerto local (`just run checker`)                   |
 | `just web`           | Servidor de desarrollo del frontend                                         |
 | `just fmt` / `fmt-check` | Formatea (o verifica) Rust y `web/`                                     |
 | `just lint`          | `clippy -D warnings`, oxlint y svelte-check                                 |
@@ -83,7 +92,7 @@ build del frontend). Es exactamente lo que corre CI.
 | `just migrate-add x` | Crea la migración `migrations/<timestamp>_x.sql`                            |
 | `just db-reset`      | Recrea la base de datos y aplica las migraciones                            |
 | `just sqlx-prepare`  | Regenera la caché offline `.sqlx/`                                          |
-| `just image`         | Construye la imagen `taut-api:dev` con el commit actual                     |
+| `just image [svc]`   | Construye la imagen `taut-<svc>:dev` (por defecto `api`) con el commit actual |
 | `just loadtest`      | Pruebas de carga con k6 (semana 6)                                          |
 
 ## Estructura
@@ -95,9 +104,13 @@ taut/
 │   ├── telemetry/   taut-telemetry: logs JSON con trace_id, métricas Prometheus
 │   ├── db/          taut-db: PgPool, migraciones embebidas, ping
 │   ├── http/        taut-http: AppError, extractores, /health, /ready, /metrics, middleware, serve()
-│   └── model/       taut-model: tipos de dominio compartidos (tipo y estado de monitor, red)
+│   ├── model/       taut-model: tipos de dominio y eventos del bus compartidos
+│   └── bus/         taut-bus: NATS JetStream (streams, publicación con trace_id, consumidores)
 ├── services/
-│   └── api/         taut-api: tenants y monitores (/v1), tests de integración, Dockerfile
+│   ├── api/         taut-api: tenants, monitores (/v1) y pings de heartbeat (/h)
+│   ├── scheduler/   taut-scheduler: planifica los chequeos (líder por lock en Redis)
+│   ├── checker/     taut-checker: ejecuta HTTP, palabra clave y TCP
+│   └── incidents/   taut-incidents: guarda los resultados en check_results
 ├── web/             SvelteKit 3 + Tailwind 4, SPA estática (bun, oxlint, oxfmt)
 ├── migrations/      migraciones sqlx compartidas (una base de datos en el MVP)
 ├── .sqlx/           caché offline de sqlx
@@ -105,7 +118,8 @@ taut/
 ├── loadtest/        escenarios k6 (sem. 6)
 ├── docs/            documento base, ADRs
 ├── .github/         ci.yml, build.yml, dependabot, plantilla de PR
-├── compose.yaml     postgres (TimescaleDB), redis, nats, api (perfil app)
+├── Dockerfile       imagen de cualquier servicio (--build-arg SERVICE=...)
+├── compose.yaml     postgres (TimescaleDB), redis, nats y los servicios (perfil app)
 ├── justfile         recetas de desarrollo
 ├── lefthook.yml     hooks de git
 └── AGENTS.md        convenciones para agentes de IA (CLAUDE.md lo incluye)

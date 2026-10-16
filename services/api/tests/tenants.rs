@@ -8,7 +8,7 @@ use sqlx::PgPool;
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn creates_reads_and_lists_tenants(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     let (status, created) = common::send(
         &app,
         Method::POST,
@@ -35,7 +35,7 @@ async fn creates_reads_and_lists_tenants(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn duplicate_slug_is_a_conflict(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     common::create_tenant(&app, "acme").await;
     let (status, body) = common::send(
         &app,
@@ -51,7 +51,7 @@ async fn duplicate_slug_is_a_conflict(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn invalid_input_is_a_json_bad_request(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     for body in [
         json!({ "name": "Acme", "slug": "a" }),
         json!({ "name": "", "slug": "acme" }),
@@ -70,7 +70,7 @@ async fn invalid_input_is_a_json_bad_request(pool: PgPool) {
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn unknown_tenant_is_not_found(pool: PgPool) {
-    let app = common::app(pool);
+    let app = common::app(pool).await;
     let path = "/v1/tenants/0192b4a8-0000-7000-8000-000000000000";
     let (status, _) = common::send(&app, Method::GET, path, None, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);

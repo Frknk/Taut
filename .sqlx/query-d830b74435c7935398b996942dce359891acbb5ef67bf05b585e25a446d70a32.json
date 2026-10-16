@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO check_results (monitor_id, tenant_id, at, region, ok, status, latency_ms,\n                                   error, trace_id)\n        SELECT $1::uuid, $2::uuid, $3::timestamptz, $4::text, $5::boolean, $6::smallint,\n               $7::integer, $8::text, $9::text\n        WHERE EXISTS (SELECT 1 FROM monitors WHERE id = $1 AND tenant_id = $2)\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Timestamptz",
+        "Text",
+        "Bool",
+        "Int2",
+        "Int4",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d830b74435c7935398b996942dce359891acbb5ef67bf05b585e25a446d70a32"
+}

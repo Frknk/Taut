@@ -12,29 +12,47 @@ use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+use taut_bus::Bus;
 use taut_config::Settings;
 use tower::ServiceExt;
 
-/// Router whose pool points at a closed port: `/ready` fails fast, everything else works.
-pub fn app_without_database() -> Router {
+/// Router whose pool and bus point at closed ports: `/ready` fails fast, routes that need
+/// neither work.
+pub async fn app_without_database() -> Router {
     let settings = Arc::new(Settings::default());
     let pool = PgPoolOptions::new()
         .acquire_timeout(Duration::from_millis(500))
         .connect_lazy("postgres://taut:taut@127.0.0.1:1/taut")
         .expect("a lazy pool never fails to build");
-    app_with(settings, pool)
+    let bus = Bus::lazy("nats://127.0.0.1:1")
+        .await
+        .expect("a lazy bus never fails to build");
+    build(settings, pool, bus)
 }
 
-/// Router backed by the given pool.
-pub fn app_with(settings: Arc<Settings>, pool: PgPool) -> Router {
-    let telemetry = taut_telemetry::init(taut_api::SERVICE_NAME, &settings.telemetry)
-        .expect("telemetry installs once per process");
-    taut_api::app(settings, pool, telemetry.metrics().clone())
+/// Router backed by the given pool and the NATS of `just up`.
+pub async fn app_with(settings: Arc<Settings>, pool: PgPool) -> Router {
+    let bus = bus().await;
+    build(settings, pool, bus)
 }
 
 /// Router backed by `pool` with the default settings.
-pub fn app(pool: PgPool) -> Router {
-    app_with(Arc::new(Settings::default()), pool)
+pub async fn app(pool: PgPool) -> Router {
+    app_with(Arc::new(Settings::default()), pool).await
+}
+
+/// Connection to the NATS of `just up` (`NATS_URL` from the environment or `.env`).
+pub async fn bus() -> Bus {
+    let settings = Settings::load().expect("settings load");
+    Bus::connect(&settings.nats, "api-tests")
+        .await
+        .expect("nats is up (just up)")
+}
+
+fn build(settings: Arc<Settings>, pool: PgPool, bus: Bus) -> Router {
+    let telemetry = taut_telemetry::init(taut_api::SERVICE_NAME, &settings.telemetry)
+        .expect("telemetry installs once per process");
+    taut_api::app(settings, pool, bus, telemetry.metrics().clone())
 }
 
 /// Sends a request with an optional JSON body and tenant header; returns status and JSON body

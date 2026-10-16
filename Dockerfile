@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
-# Imagen de taut-api. El contexto de build es la raíz del repositorio:
-#   docker build -f services/api/Dockerfile --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t taut-api:dev .
+# Imagen de cualquier servicio de taut; SERVICE elige el binario (api, scheduler, checker,
+# incidents, ...). El contexto de build es la raíz del repositorio:
+#   docker build --build-arg SERVICE=checker --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t taut-checker:dev .
 # Tres etapas: cargo-chef cachea la compilación de dependencias, builder compila el
 # binario y runtime es Debian slim sin toolchain.
 
@@ -15,11 +16,15 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
-# Solo dependencias: esta capa se reutiliza mientras no cambien Cargo.toml ni Cargo.lock.
-RUN cargo chef cook --release --recipe-path recipe.json -p taut-api
+# Dependencias de todo el workspace: la capa es idéntica para todos los servicios y se
+# reutiliza mientras no cambien Cargo.toml ni Cargo.lock. SERVICE se declara después para no
+# invalidarla.
+RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 ENV SQLX_OFFLINE=true
-RUN cargo build --release --locked -p taut-api
+ARG SERVICE=api
+RUN cargo build --release --locked -p "taut-${SERVICE}" \
+ && cp "target/release/taut-${SERVICE}" /app/taut-service
 
 FROM debian:bookworm-slim AS runtime
 ARG GIT_SHA=unknown
@@ -27,7 +32,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin taut
-COPY --from=builder /app/target/release/taut-api /usr/local/bin/taut-api
+COPY --from=builder /app/taut-service /usr/local/bin/taut-service
 # Valores de producción; compose y Kubernetes los sobreescriben por entorno.
 ENV TAUT_APP__ENV=prod \
     TAUT_APP__COMMIT=${GIT_SHA} \
@@ -35,4 +40,4 @@ ENV TAUT_APP__ENV=prod \
     TAUT_TELEMETRY__LOG_FORMAT=json
 USER taut
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/taut-api"]
+ENTRYPOINT ["/usr/local/bin/taut-service"]

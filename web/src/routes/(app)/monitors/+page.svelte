@@ -4,7 +4,7 @@
 
   import StatusBadge from '#lib/components/StatusBadge.svelte';
   import { describeError, request } from '#lib/api.js';
-  import { KIND_LABELS, formatSeconds } from '#lib/format.js';
+  import { KIND_LABELS, formatSeconds, timeAgo } from '#lib/format.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { Monitor } from '#lib/types.js';
 
@@ -40,7 +40,11 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    const timer = setInterval(load, 10_000);
+    return () => clearInterval(timer);
+  });
 </script>
 
 <svelte:head>
@@ -92,6 +96,17 @@
             · cada {formatSeconds(monitor.interval_s)}
           </span>
         </a>
+        <span class="text-right text-xs text-neutral-500">
+          {#if monitor.last_check_at}
+            <span class={monitor.last_check_ok ? 'text-emerald-700' : 'text-red-700'}>
+              {monitor.last_check_ok ? 'OK' : 'Falla'}
+            </span>
+            {timeAgo(monitor.last_check_at)}
+            {#if monitor.last_latency_ms !== null}· {monitor.last_latency_ms} ms{/if}
+          {:else}
+            Sin chequeos aún
+          {/if}
+        </span>
         <button
           class="rounded-lg border border-neutral-300 px-3 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
           onclick={() => toggle(monitor)}

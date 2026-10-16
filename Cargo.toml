@@ -17,6 +17,7 @@ taut-telemetry = { path = "crates/telemetry" }
 taut-db = { path = "crates/db" }
 taut-http = { path = "crates/http" }
 taut-model = { path = "crates/model" }
+taut-bus = { path = "crates/bus" }
 
 # Runtime y HTTP
 tokio = { version = "1.53", features = ["full"] }
@@ -25,6 +26,15 @@ tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.7", features = ["trace", "request-id", "cors", "timeout", "catch-panic"] }
 http = "1"
 http-body-util = "0.1"
+
+# Mensajería, caché y clientes salientes. TLS siempre con rustls + ring, el mismo proveedor que
+# usa sqlx, para no compilar aws-lc.
+async-nats = { version = "0.50", default-features = false, features = ["jetstream", "ring", "nuid", "server_2_10", "server_2_11"] }
+redis = { version = "1.7", default-features = false, features = ["tokio-comp", "script", "connection-manager"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "charset"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+futures = "0.3"
+bytes = "1"
 
 # Datos
 sqlx = { version = "0.9", default-features = false, features = [

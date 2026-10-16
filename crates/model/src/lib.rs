@@ -1,10 +1,11 @@
 //! Domain types shared by taut services.
 //!
-//! Everything here is plain data with no I/O: what a monitor is, the states it can be in and
-//! the rules that more than one service must apply the same way. Enums are stored as `text`
+//! Everything here is plain data with no I/O: what a monitor is, the states it can be in, the
+//! events services exchange and the rules that more than one service must apply the same way. Enums are stored as `text`
 //! in PostgreSQL and serialized in lowercase, so the database, the API and the bus agree on
 //! the spelling.
 
+pub mod events;
 pub mod net;
 
 use std::fmt;
