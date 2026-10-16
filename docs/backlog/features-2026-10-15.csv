@@ -1,8 +1,8 @@
 ID,Módulo,Feature,En Better Stack,Tier,Orden tier,Esfuerzo,Pts esfuerzo,Estado,Nota MVP,Valor curso nube,Fuente
-F-01,Tipos de monitor,HTTP status,"Revisa la URL cada intervalo esperando un 2XX; si no llega, abre incidente y alerta al de turno",P0,1,S,1,Pendiente,,,https://betterstack.com/docs/uptime/uptime-monitor/
-F-02,Tipos de monitor,Keyword,Busca un texto en la respuesta para chequear la salud de la app,P1,2,S,1,Pendiente,Es un body.includes(),,https://betterstack.com/demos/monitoring/
-F-03,Tipos de monitor,Heartbeat / cron,URL única que espera pings; frecuencia + periodo de gracia; 'Pending' hasta el primer ping; /fail con exit code y output,P1,2,M,3,Pendiente,El más barato de agregar: endpoint público + job programado que barre los vencidos,"Sí, primero",https://betterstack.com/docs/uptime/cron-and-heartbeat-monitor/
-F-04,Tipos de monitor,Puerto TCP,Monitor de puertos TCP/UDP,P1,2,S,1,Pendiente,Conexión TCP con timeout,,https://betterstack.com/docs/uptime/naming-monitors/
+F-01,Tipos de monitor,HTTP status,"Revisa la URL cada intervalo esperando un 2XX; si no llega, abre incidente y alerta al de turno",P0,1,S,1,Hecho,,,https://betterstack.com/docs/uptime/uptime-monitor/
+F-02,Tipos de monitor,Keyword,Busca un texto en la respuesta para chequear la salud de la app,P1,2,S,1,Hecho,Es un body.includes(),,https://betterstack.com/demos/monitoring/
+F-03,Tipos de monitor,Heartbeat / cron,URL única que espera pings; frecuencia + periodo de gracia; 'Pending' hasta el primer ping; /fail con exit code y output,P1,2,M,3,Hecho,El más barato de agregar: endpoint público + job programado que barre los vencidos,"Sí, primero",https://betterstack.com/docs/uptime/cron-and-heartbeat-monitor/
+F-04,Tipos de monitor,Puerto TCP,Monitor de puertos TCP/UDP,P1,2,S,1,Hecho,Conexión TCP con timeout,,https://betterstack.com/docs/uptime/naming-monitors/
 F-05,Tipos de monitor,Puerto UDP,Monitor de puertos TCP/UDP,✗,4,L,8,Pendiente,,,https://betterstack.com/docs/uptime/naming-monitors/
 F-06,Tipos de monitor,Ping (ICMP),Monitor de ping,P1,2,M,3,Pendiente,ICMP necesita sockets raw; suelen estar bloqueados en runtimes serverless,,https://betterstack.com/docs/uptime/naming-monitors/
 F-07,Tipos de monitor,Certificado SSL,"Expiración del certificado, incluido en todos los planes",P1,2,S,1,Pendiente,Sale del handshake TLS,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
@@ -12,25 +12,25 @@ F-10,Tipos de monitor,API (asserts sobre body),Chequea el contenido de la respue
 F-11,Tipos de monitor,Playwright (transacciones),"Ejecuta flujos de usuario en un Chromium real (login, checkout)",✗,4,L,8,Pendiente,,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
 F-12,Tipos de monitor,POP3 / IMAP / SMTP,Soporta protocolos de correo,✗,4,M,3,Pendiente,,,https://betterstack.com/uptime
 F-13,Tipos de monitor,Redes privadas,Monitoreo de redes privadas,✗,4,L,8,Pendiente,,,https://betterstack.com/docs/uptime/naming-monitors/
-F-14,Configuración,Frecuencia de chequeo,"3 min en free, 30 s en pago",P0,1,S,1,Pendiente,Valores fijos 30s/1m/3m/5m,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
-F-15,Configuración,Timeout,La frecuencia nunca puede ser menor que el timeout,P0,1,S,1,Pendiente,Validar timeout < frecuencia (ver Parámetros),,https://betterstack.com/docs/uptime/request-timeout/
-F-16,Configuración,Periodo de confirmación,Cuánto espera tras ver un fallo antes de abrir incidente,P0,1,M,3,Pendiente,Se traduce a k checks (ver Parámetros),,https://betterstack.com/docs/uptime/confirmation-and-recovery-period/
-F-17,Configuración,Periodo de recuperación,Tiempo arriba antes de resolver; un fallo reinicia el contador,P0,1,M,3,Pendiente,Se traduce a m checks (ver Parámetros),,https://betterstack.com/docs/uptime/confirmation-and-recovery-period/
+F-14,Configuración,Frecuencia de chequeo,"3 min en free, 30 s en pago",P0,1,S,1,Hecho,Valores fijos 30s/1m/3m/5m,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
+F-15,Configuración,Timeout,La frecuencia nunca puede ser menor que el timeout,P0,1,S,1,Hecho,Validar timeout < frecuencia (ver Parámetros),,https://betterstack.com/docs/uptime/request-timeout/
+F-16,Configuración,Periodo de confirmación,Cuánto espera tras ver un fallo antes de abrir incidente,P0,1,M,3,Hecho,Se traduce a k checks (ver Parámetros),,https://betterstack.com/docs/uptime/confirmation-and-recovery-period/
+F-17,Configuración,Periodo de recuperación,Tiempo arriba antes de resolver; un fallo reinicia el contador,P0,1,M,3,Hecho,Se traduce a m checks (ver Parámetros),,https://betterstack.com/docs/uptime/confirmation-and-recovery-period/
 F-18,Configuración,Multi-región + quórum,Al menos 4 ubicaciones por monitor; incidente solo si fallan al menos 3,P1,2,L,8,Pendiente,Workers en 2–3 regiones; caído si fallan ≥2,"Sí, primero",https://betterstack.com/docs/uptime/locations-and-regions/
 F-19,Configuración,"Método, params, headers, HTTP auth",Configurables por monitor,P1,2,S,1,Pendiente,,,https://betterstack.com/docs/uptime/naming-monitors/
 F-20,Configuración,Verificar SSL,Flag verify_ssl en la API,P1,2,S,1,Pendiente,,,https://raw.githubusercontent.com/api-evangelist/betteruptime/refs/heads/main/json-ld/betteruptime-context.jsonld
 F-21,Configuración,Cache busting,Opción documentada,P2,3,S,1,Pendiente,Es un query param random,,https://betterstack.com/docs/uptime/naming-monitors/
-F-22,Configuración,Nombre del monitor,Campo de 'nombre pronunciable' (probablemente para las llamadas de voz),P0,1,S,1,Pendiente,Campo de texto normal,,https://betterstack.com/docs/uptime/naming-monitors/
+F-22,Configuración,Nombre del monitor,Campo de 'nombre pronunciable' (probablemente para las llamadas de voz),P0,1,S,1,Hecho,Campo de texto normal,,https://betterstack.com/docs/uptime/naming-monitors/
 F-23,Configuración,Badge de GitHub,Badge embebible,P1,2,S,1,Pendiente,SVG dinámico que luce mucho,,https://betterstack.com/docs/uptime/naming-monitors/
 F-24,Configuración,Importación masiva,Importar monitores en bloque,P2,3,M,3,Pendiente,,,https://betterstack.com/demos/monitoring/
-F-25,Configuración,Pausar / reanudar,"(agregado propio, es básico)",P0,1,S,1,Pendiente,,,Propuesta propia (no verificado en Better Stack)
-F-26,Evidencia y métricas,Gráficos de latencia y uptime,Gráficos de tiempo de respuesta y de uptime por monitor,P0,1,M,3,Pendiente,,,https://betterstack.com/demos/monitoring/
-F-27,Evidencia y métricas,Mensaje de error,Guarda el mensaje de error de la API,P0,1,S,1,Pendiente,Status code + causa,,https://betterstack.com/uptime
+F-25,Configuración,Pausar / reanudar,"(agregado propio, es básico)",P0,1,S,1,Hecho,,,Propuesta propia (no verificado en Better Stack)
+F-26,Evidencia y métricas,Gráficos de latencia y uptime,Gráficos de tiempo de respuesta y de uptime por monitor,P0,1,M,3,Hecho,,,https://betterstack.com/demos/monitoring/
+F-27,Evidencia y métricas,Mensaje de error,Guarda el mensaje de error de la API,P0,1,S,1,Hecho,Status code + causa,,https://betterstack.com/uptime
 F-28,Evidencia y métricas,Timeline del incidente,Timeline segundo a segundo,P1,2,M,3,Pendiente,Sale del historial de checks,,https://betterstack.com/uptime
 F-29,Evidencia y métricas,Screenshot del fallo,Captura de la web caída,✗,4,L,8,Pendiente,Requiere navegador headless,,https://betterstack.com/uptime
 F-30,Evidencia y métricas,Traceroute / MTR,"Desde el edge, para diagnosticar timeouts",✗,4,L,8,Pendiente,,,https://betterstack.com/uptime
 F-31,Evidencia y métricas,Reportes / SLA,Sección de reporting,P2,3,M,3,Pendiente,,,https://betterstack.com/docs/uptime/uptime-monitor/
-F-32,Incidentes,Abrir/cerrar automático,Derivado de confirmación/recuperación,P0,1,M,3,Pendiente,,,https://betterstack.com/docs/uptime/confirmation-and-recovery-period/
+F-32,Incidentes,Abrir/cerrar automático,Derivado de confirmación/recuperación,P0,1,M,3,Hecho,,,https://betterstack.com/docs/uptime/confirmation-and-recovery-period/
 F-33,Incidentes,Acknowledge / resolve con autor,"Campos acknowledged_at, resolved_at, acknowledged_by, resolved_by, cause",P1,2,S,1,Pendiente,,,https://raw.githubusercontent.com/api-evangelist/betteruptime/refs/heads/main/json-ld/betteruptime-context.jsonld
 F-34,Incidentes,Fusión de incidentes,"Si se abren 30 a la vez, se reconocen con un solo tap",P2,3,M,3,Pendiente,,,https://betterstack.com/uptime
 F-35,Incidentes,Post-mortems,Se generan desde el timeline,✗,4,L,8,Pendiente,,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
@@ -38,14 +38,14 @@ F-36,Incidentes,Canal de Slack por incidente,Canal dedicado por incidente,✗,4,
 F-37,Incidentes,AI SRE,IA que investiga de forma autónoma,✗,4,L,8,Pendiente,,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
 F-38,Incidentes,Metadata / catálogo,Sección de docs,✗,4,M,3,Pendiente,,,https://betterstack.com/docs/uptime/naming-monitors/
 F-39,Incidentes,Screening de alertas,Sección de docs,✗,4,M,3,Pendiente,,,https://betterstack.com/docs/uptime/naming-monitors/
-F-40,Alertas y on-call,Email,Canal base,P0,1,S,1,Pendiente,,,https://betterstack.com/uptime
-F-41,Alertas y on-call,Webhook genérico (Slack / Teams / Discord),Slack y Teams además de SMS y email,P1,2,S,1,Pendiente,Discord/Slack aceptan incoming webhooks,,https://betterstack.com/uptime
+F-40,Alertas y on-call,Email,Canal base,P0,1,S,1,Hecho,,,https://betterstack.com/uptime
+F-41,Alertas y on-call,Webhook genérico (Slack / Teams / Discord),Slack y Teams además de SMS y email,P1,2,S,1,Hecho,Discord/Slack aceptan incoming webhooks,,https://betterstack.com/uptime
 F-42,Alertas y on-call,Push móvil,Notificaciones push,✗,4,L,8,Pendiente,,,https://betterstack.com/uptime
 F-43,Alertas y on-call,SMS / llamada de voz,Llamadas de voz ilimitadas,✗,4,M,3,Pendiente,Cuesta plata,,https://betterstack.com/uptime
 F-44,Alertas y on-call,Escalamiento,Políticas multinivel por tiempo: primario → espera → secundario → todo el equipo,P2,3,M,3,Pendiente,Versión de un nivel,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
 F-45,Alertas y on-call,Rotaciones on-call,"Con zonas horarias, handoffs y escalamiento si nadie reconoce",✗,4,L,8,Pendiente,,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
-F-46,Status page,Página pública,Estado del sistema en status.tudominio.com,P0,1,M,3,Pendiente,Versión mínima: lista de monitores + barras de 90 días,,https://betterstack.com/uptime
-F-47,Status page,Sync incidente → página,Se actualiza sola al abrirse un incidente,P1,2,S,1,Pendiente,Gratis si el estado sale de los monitores,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
+F-46,Status page,Página pública,Estado del sistema en status.tudominio.com,P0,1,M,3,Hecho,Versión mínima: lista de monitores + barras de 90 días,,https://betterstack.com/uptime
+F-47,Status page,Sync incidente → página,Se actualiza sola al abrirse un incidente,P1,2,S,1,Hecho,Gratis si el estado sale de los monitores,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
 F-48,Status page,"Updates, mantenimiento, degradación","Comunicar incidentes, mantenimientos planificados y degradaciones",P1,2,M,3,Pendiente,,,https://betterstack.com/uptime
 F-49,Status page,Dominio propio,En subdominio propio con branding,P2,3,M,3,Pendiente,CNAME + TLS automático,Bonus,https://betterstack.com/uptime
 F-50,Status page,Suscriptores,"Por email, SMS, Slack y webhook",P2,3,M,3,Pendiente,Solo email,,https://betterstack.com/community/comparisons/better-stack-vs-uptimerobot/
