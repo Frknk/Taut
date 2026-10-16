@@ -22,6 +22,11 @@ updates:
     groups:
       web-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 (reescritura nativa) no expone ts.sys y rompe `svelte-kit sync`;
+      # se levanta cuando SvelteKit lo soporte.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
