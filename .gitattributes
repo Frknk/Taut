@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+# Lockfiles generados: GitHub los colapsa en los diffs
+Cargo.lock linguist-generated=true
+web/bun.lock linguist-generated=true
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary

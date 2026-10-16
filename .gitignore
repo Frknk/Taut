@@ -1,0 +1,22 @@
+# Rust
+/target/
+
+# Node / web
+node_modules/
+web/.svelte-kit/
+web/build/
+
+# Variables de entorno (nunca se versionan; .env.example sí)
+.env
+.env.*
+!.env.example
+web/.env
+web/.env.*
+!web/.env.example
+
+# Sistema y editores
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
