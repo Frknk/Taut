@@ -86,6 +86,17 @@ impl fmt::Display for MonitorStatus {
     }
 }
 
+/// Percentage of healthy checks, `None` when there were none. Used by every uptime figure
+/// (panel, status page) so they always agree.
+pub fn uptime_percent(checks: i64, failures: i64) -> Option<f64> {
+    if checks <= 0 {
+        return None;
+    }
+    #[allow(clippy::cast_precision_loss)] // counts far below 2^52
+    let ratio = (checks - failures.clamp(0, checks)) as f64 / checks as f64;
+    Some(ratio * 100.0)
+}
+
 /// Where an alert goes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
 #[serde(rename_all = "lowercase")]
@@ -136,6 +147,13 @@ mod tests {
     fn statuses_serialize_as_their_name() {
         let json = serde_json::to_string(&MonitorStatus::Paused).unwrap();
         assert_eq!(json, "\"paused\"");
+    }
+
+    #[test]
+    fn uptime_needs_checks() {
+        assert_eq!(uptime_percent(0, 0), None);
+        assert_eq!(uptime_percent(4, 1), Some(75.0));
+        assert_eq!(uptime_percent(4, 9), Some(0.0));
     }
 
     #[test]
