@@ -1,0 +1,36 @@
+[package]
+name = "taut-notifier"
+description = "taut notifier: sends incident alerts by email and webhooks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+chrono.workspace = true
+lettre.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+serde_json.workspace = true
+sqlx.workspace = true
+taut-bus.workspace = true
+taut-config.workspace = true
+taut-db.workspace = true
+taut-http.workspace = true
+taut-model.workspace = true
+taut-net.workspace = true
+taut-telemetry.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+reqwest = { workspace = true, features = ["json"] }
+
+[lints]
+workspace = true
