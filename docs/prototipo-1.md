@@ -10,6 +10,11 @@
 > Alcance decidido el 15-10-2026: **las 12 features P0 más cinco P1 baratas** (keyword, puerto
 > TCP, heartbeat, webhook genérico y sincronización incidente → status page). 17 features,
 > 29 puntos. Ping, DNS y multi-región quedan para el prototipo 2.
+>
+> **Avance (16-10-2026):** las 17 features están implementadas, en cuatro PRs apilados (uno por
+> hito: Frknk/taut#7, #8, #9 y el de la semana 7). Falta lo que no es código de la aplicación:
+> despliegue en PaaS, Terraform, manifiestos de Kubernetes y el reporte de k6. Al fusionar cada
+> PR, la columna Estado de la hoja pasa a Hecho para sus features.
 
 ## Qué es el prototipo 1
 
@@ -264,4 +269,26 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   español; los enlaces apuntan a `TAUT_NOTIFIER__PANEL_URL`.
 - La columna de configuración de `alert_channels` se llama `config` (jsonb) en vez de
   `config_json`; en la API los canales usan `type`, como los monitores.
+
+**Semana 7 (página de estado y gráficos)**
+
+- `uptime_daily` es un agregado continuo de TimescaleDB con agregación en tiempo real
+  (`materialized_only = false`): el día en curso sale de las filas crudas al consultar, así que
+  la barra de hoy nunca espera al refresco (política cada 30 min sobre los últimos 3 días).
+- `status-bff` es un servicio aparte (`GET /s/{slug}`, puerto 8085) que solo lee; la SPA lo pinta
+  en `/status/{slug}`. Devuelve estado general, monitores con 90 barras diarias (UTC) y los
+  incidentes abiertos más los resueltos de los últimos 7 días. No expone destinos, IPs ni causas
+  de falla: una causa como `dns: could not resolve db.internal` revelaría un host interno; un
+  test lo verifica. Responde con `Cache-Control: public, max-age=30`; la caché en Redis llega en
+  la semana 13.
+- Colores de las barras por disponibilidad del día: ≥ 99,9 % bien, ≥ 99 % aviso, ≥ 95 % serio,
+  menos crítico y gris sin datos, con leyenda de umbrales, tooltip por día (ratón o flechas) y
+  una lista de los días con fallas como alternativa sin color. Cada monitor muestra su estado
+  con icono y texto, no solo color.
+- F-26 se sirve desde la API (`GET /v1/monitors/{id}/metrics?range=24h|7d|30d`) leyendo
+  `check_results` con `time_bucket` y `percentile_cont`; la separación CQRS de la semana 10 la
+  mueve a su propio servicio. La latencia solo cuenta chequeos sanos para que los timeouts no
+  desfiguren los percentiles. El panel muestra disponibilidad de 24 h, 7 d y 30 d, p50 y p95, y
+  un gráfico de promedio y p95 con franja de intervalos con fallas, cruz de lectura con tooltip y
+  vista de tabla. Paleta validada con el script de la guía de visualización.
 
