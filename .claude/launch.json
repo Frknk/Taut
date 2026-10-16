@@ -4,13 +4,21 @@
     {
       "name": "api",
       "runtimeExecutable": "cargo",
-      "runtimeArgs": ["run", "-p", "taut-api"],
+      "runtimeArgs": [
+        "run",
+        "-p",
+        "taut-api"
+      ],
       "port": 8080
     },
     {
       "name": "web",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["--cwd", "web", "run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "--cwd=web",
+        "dev"
+      ],
       "port": 5173
     }
   ]
