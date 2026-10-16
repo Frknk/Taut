@@ -2,11 +2,15 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
 
+  import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
+
+  import Banner from '#lib/components/Banner.svelte';
   import MonitorForm from '#lib/components/MonitorForm.svelte';
   import { describeError, request } from '#lib/api.js';
   import { emptyForm } from '#lib/monitor-form.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { Monitor, MonitorInput } from '#lib/types.js';
+  import { backLink } from '#lib/ui.js';
 
   let error = $state('');
 
@@ -28,12 +32,13 @@
   <title>Nuevo monitor · taut</title>
 </svelte:head>
 
-<a href={resolve('/(app)/monitors')} class="text-sm text-neutral-500 hover:text-neutral-900">
-  ← Monitores
+<a href={resolve('/(app)/monitors')} class={backLink}>
+  <ArrowLeftIcon size={14} aria-hidden="true" />
+  Monitores
 </a>
-<h1 class="mt-2 text-xl font-semibold text-neutral-900">Nuevo monitor</h1>
+<h1 class="mt-2 text-2xl font-semibold text-strong">Nuevo monitor</h1>
 {#if error}
-  <p class="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+  <Banner tone="danger" class="mt-6">{error}</Banner>
 {/if}
 <div class="mt-6 max-w-2xl">
   <MonitorForm initial={emptyForm()} submitLabel="Crear monitor" onsubmit={create} />

@@ -1,21 +1,142 @@
 @import 'tailwindcss';
 
 /*
- * Chart tokens (dataviz reference palette, validated on the white card surface). The panel is
- * light-only for now; a dark theme redefines these same roles.
+ * taut UI tokens (design system: https://claude.ai/artifact/7E7UVV55bKyja5QwUtukoL). Each token
+ * holds its light and dark value through light-dark(): the page follows the OS setting, and
+ * data-theme="light" or data-theme="dark" on <html> forces one. Components use the role classes
+ * published below (bg-canvas, text-subtle, ring-line…), never primitive colors or dark: variants.
  */
 :root {
-  --viz-surface: #ffffff;
-  --viz-series-1: #2a78d6;
-  --viz-series-2: #eb6834;
-  --viz-grid: #e1e0d9;
-  --viz-axis: #c3c2b7;
+  color-scheme: light dark;
+
+  /* Surfaces, outermost first */
+  --canvas: light-dark(#fafafa, #09090b);
+  --base: light-dark(#ffffff, #18181b);
+  --elevated: light-dark(#f8f8f9, #101013);
+  --recessed: light-dark(#f1f1f4, #0d0d0f);
+  --tint: light-dark(#f4f4f5, #27272a);
+  --contrast: light-dark(#09090b, #fafafa);
+  --control: light-dark(#ffffff, #18181b);
+  --fill: light-dark(#e4e4e7, #27272a);
+  --interact: light-dark(#d4d4d8, #3f3f46);
+  --scrim: light-dark(#09090b66, #000000a6);
+
+  /* Rings and focus */
+  --hairline: light-dark(#e9e9ec, #27272a);
+  --line: light-dark(#09090b1a, #323238);
+  --focus: light-dark(#155dfc, #51a2ff);
+
+  /* Brand: the logo's ink */
+  --brand: light-dark(#09090b, #fafafa);
+  --brand-hover: light-dark(#27272a, #e4e4e7);
+  --on-brand: light-dark(#fafafa, #09090b);
+
+  /* Text */
+  --text-strong: light-dark(#09090b, #fafafa);
+  --text-default: light-dark(#18181b, #f4f4f5);
+  --text-subtle: light-dark(#6b6b75, #9f9fa9);
+  --text-inactive: light-dark(#d4d4d8, #52525c);
+  --text-placeholder: light-dark(#9f9fa9, #71717b);
+  --text-inverse: light-dark(#fafafa, #09090b);
+  --text-link: light-dark(#193cb8, #51a2ff);
+  --text-success: light-dark(#006300, #4cc94c);
+  --text-warning: light-dark(#905211, #fab219);
+  --text-danger: light-dark(#b91c1c, #ff6b6b);
+  --text-info: var(--text-link);
+
+  /*
+   * Chart tokens (dataviz reference palette). The light values are the validated originals; the
+   * dark steps come from the same palette and were re-validated against --base in dark.
+   */
+  --viz-surface: var(--base);
+  --viz-series-1: light-dark(#2a78d6, #3987e5);
+  --viz-series-2: light-dark(#eb6834, #d95926);
+  --viz-grid: light-dark(#e1e0d9, #2c2c2a);
+  --viz-axis: light-dark(#c3c2b7, #383835);
   --viz-muted: #898781;
-  --viz-ink: #0b0b0b;
-  --viz-ink-secondary: #52514e;
+  --viz-ink: light-dark(#0b0b0b, #f0efec);
+  --viz-ink-secondary: light-dark(#52514e, #c3c2b7);
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #d03b3b;
-  --status-none: #e1e0d9;
+  --status-none: light-dark(#e1e0d9, #383835);
+
+  /* UI states share the chart status hues, so "Operativo" is the same green as the bars */
+  --success: var(--status-good);
+  --success-tint: light-dark(#ecf8ec, #162e19);
+  --warning: var(--status-warning);
+  --warning-tint: light-dark(#fef3da, #382e1b);
+  --danger: var(--status-critical);
+  --danger-hover: #b91c1c;
+  --on-danger: #ffffff;
+  --danger-tint: light-dark(#faebeb, #3d1f21);
+  --info: light-dark(#155dfc, #51a2ff);
+  --info-tint: light-dark(#eaf0ff, #212e3f);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans:
+    'Geist Variable', Geist, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --background-color-canvas: var(--canvas);
+  --background-color-base: var(--base);
+  --background-color-elevated: var(--elevated);
+  --background-color-recessed: var(--recessed);
+  --background-color-tint: var(--tint);
+  --background-color-contrast: var(--contrast);
+  --background-color-control: var(--control);
+  --background-color-scrim: var(--scrim);
+
+  --text-color-strong: var(--text-strong);
+  --text-color-default: var(--text-default);
+  --text-color-subtle: var(--text-subtle);
+  --text-color-inactive: var(--text-inactive);
+  --text-color-placeholder: var(--text-placeholder);
+  --text-color-inverse: var(--text-inverse);
+  --text-color-link: var(--text-link);
+  --text-color-success: var(--text-success);
+  --text-color-warning: var(--text-warning);
+  --text-color-danger: var(--text-danger);
+  --text-color-info: var(--text-info);
+  --text-color-on-brand: var(--on-brand);
+  --text-color-on-danger: var(--on-danger);
+
+  --color-fill: var(--fill);
+  --color-interact: var(--interact);
+  --color-hairline: var(--hairline);
+  --color-line: var(--line);
+  --color-focus: var(--focus);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-tint: var(--danger-tint);
+  --color-info: var(--info);
+  --color-info-tint: var(--info-tint);
+}
+
+@layer base {
+  body {
+    @apply bg-canvas text-sm text-default antialiased;
+  }
+
+  code,
+  kbd,
+  pre {
+    font-size: 0.9em;
+  }
 }

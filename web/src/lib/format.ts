@@ -1,6 +1,7 @@
 // Spanish labels and formatting shared by the panel and the status page.
 
 import type { ChannelKind, MonitorKind, MonitorStatus } from './types.js';
+import type { Tone } from './ui.js';
 
 export const KIND_LABELS: Record<MonitorKind, string> = {
   http: 'HTTP',
@@ -23,12 +24,23 @@ export const STATUS_LABELS: Record<MonitorStatus, string> = {
   paused: 'Pausado',
 };
 
-/** Tailwind classes for a status pill. */
-export const STATUS_TONES: Record<MonitorStatus, string> = {
-  pending: 'bg-neutral-100 text-neutral-600',
-  up: 'bg-emerald-50 text-emerald-700',
-  down: 'bg-red-50 text-red-700',
-  paused: 'bg-amber-50 text-amber-700',
+/**
+ * Badge tone of each status. Paused is the user's choice, not a problem, so it stays neutral;
+ * only `up` and `down` carry a status color.
+ */
+export const STATUS_TONES: Record<MonitorStatus, Tone> = {
+  pending: 'outline',
+  up: 'success',
+  down: 'danger',
+  paused: 'neutral',
+};
+
+/** A different shape per status, so color never tells them apart alone. */
+export const STATUS_GLYPHS: Record<MonitorStatus, 'dot' | 'pause' | 'ring'> = {
+  pending: 'ring',
+  up: 'dot',
+  down: 'dot',
+  paused: 'pause',
 };
 
 /** `30 s`, `1 min`, `1 min 30 s`, `2 h`. */

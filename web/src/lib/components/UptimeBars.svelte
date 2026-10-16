@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatPercent, uptimeLevel } from '#lib/charts.js';
   import type { DayBar } from '#lib/types.js';
+  import { focusRing } from '#lib/ui.js';
 
   let { days, label }: { days: DayBar[]; label: string } = $props();
 
@@ -62,7 +63,7 @@
     aria-valuenow={active ?? days.length - 1}
     aria-valuetext={valueText}
     tabindex="0"
-    class="block touch-none outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+    class={['block touch-none rounded-xs', focusRing]}
     onpointermove={pointerMove}
     onpointerleave={() => (active = null)}
     onkeydown={keyDown}
@@ -74,7 +75,7 @@
         y="0"
         width={barWidth}
         height={HEIGHT}
-        rx="1.5"
+        rx="2"
         fill="var(--status-{uptimeLevel(day.uptime)})"
         opacity={active === null || active === index ? 1 : 0.55}
       />
@@ -83,18 +84,22 @@
   {#if active !== null}
     {@const day = days[active]}
     <div
-      class="pointer-events-none absolute top-10 z-10 w-44 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs shadow-sm"
+      class="pointer-events-none absolute top-10 z-10 w-44 rounded-md bg-base px-3 py-2 text-xs shadow-md ring ring-line"
       style:left="{tooltipLeft}px"
     >
-      <p class="text-neutral-500">{formatDay(day.day)}</p>
+      <p style:color="var(--viz-ink-secondary)">{formatDay(day.day)}</p>
       {#if day.checks === 0}
-        <p class="mt-1 text-neutral-700">Sin datos</p>
+        <p class="mt-1" style:color="var(--viz-ink)">Sin datos</p>
       {:else}
         <p class="mt-1">
-          <span class="font-semibold text-neutral-900">{formatPercent(day.uptime)}</span>
-          <span class="text-neutral-600"> disponible</span>
+          <span class="font-semibold tabular-nums" style:color="var(--viz-ink)"
+            >{formatPercent(day.uptime)}</span
+          >
+          <span style:color="var(--viz-ink-secondary)"> disponible</span>
         </p>
-        <p class="text-neutral-600">{day.failures} de {day.checks} chequeos fallaron</p>
+        <p style:color="var(--viz-ink-secondary)">
+          {day.failures} de {day.checks} chequeos fallaron
+        </p>
       {/if}
     </div>
   {/if}

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import Banner from '#lib/components/Banner.svelte';
+  import Button from '#lib/components/Button.svelte';
+  import Select from '#lib/components/Select.svelte';
   import { KIND_LABELS, formatSeconds } from '#lib/format.js';
   import {
     INTERVALS,
@@ -10,6 +13,7 @@
     type MonitorFormValues,
   } from '#lib/monitor-form.js';
   import type { MonitorInput, MonitorKind } from '#lib/types.js';
+  import { fieldError, help as hint, input, label } from '#lib/ui.js';
 
   interface Props {
     initial: MonitorFormValues;
@@ -46,32 +50,33 @@
       submitting = false;
     }
   }
-
-  const label = 'block text-sm font-medium text-neutral-700';
-  const input =
-    'mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs focus:border-neutral-500 focus:outline-none';
-  const hint = 'mt-1 text-xs text-neutral-500';
-  const fieldError = 'mt-1 text-xs text-red-600';
 </script>
 
 <form class="space-y-6" onsubmit={submit} novalidate>
   <div>
     <label class={label} for="name">Nombre</label>
-    <input id="name" class={input} bind:value={values.name} placeholder="Sitio principal" />
+    <input
+      id="name"
+      class={input}
+      bind:value={values.name}
+      placeholder="Sitio principal"
+      aria-invalid={errors.name ? 'true' : undefined}
+    />
     {#if errors.name}<p class={fieldError}>{errors.name}</p>{/if}
   </div>
 
   <fieldset>
     <legend class={label}>Tipo</legend>
-    <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div class="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
       {#each kinds as kind (kind)}
         <label
           class={[
-            'flex cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-sm',
+            'flex h-9 cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium ring',
+            'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus',
             values.type === kind
-              ? 'border-neutral-900 bg-neutral-900 text-white'
-              : 'border-neutral-300 bg-white text-neutral-700',
-            editing && values.type !== kind && 'cursor-not-allowed opacity-40',
+              ? 'bg-brand text-on-brand ring-brand'
+              : 'bg-control text-default ring-line hover:bg-tint',
+            editing && values.type !== kind && 'cursor-not-allowed text-inactive hover:bg-control',
           ]}
         >
           <input
@@ -94,17 +99,18 @@
       <label class={label} for="target">{isHttp ? 'URL' : 'Host y puerto'}</label>
       <input
         id="target"
-        class={input}
+        class={[input, 'font-mono']}
+        aria-invalid={errors.target ? 'true' : undefined}
         bind:value={values.target}
         placeholder={isHttp ? 'https://ejemplo.com/health' : 'db.ejemplo.com:5432'}
       />
       {#if errors.target}<p class={fieldError}>{errors.target}</p>{/if}
     </div>
   {:else}
-    <p class="rounded-lg bg-neutral-100 px-4 py-3 text-sm text-neutral-600">
+    <Banner>
       Un heartbeat no tiene destino: tu tarea programada llama a una URL secreta de taut. Si no
       llama a tiempo, se abre un incidente.
-    </p>
+    </Banner>
   {/if}
 
   {#if values.type === 'keyword'}
@@ -121,11 +127,11 @@
       <label class={label} for="interval">
         {values.type === 'heartbeat' ? 'Frecuencia esperada del ping' : 'Frecuencia'}
       </label>
-      <select id="interval" class={input} bind:value={values.interval_s}>
+      <Select id="interval" bind:value={values.interval_s}>
         {#each INTERVALS as interval (interval)}
           <option value={interval}>Cada {formatSeconds(interval)}</option>
         {/each}
-      </select>
+      </Select>
       {#if errors.interval_s}<p class={fieldError}>{errors.interval_s}</p>{/if}
     </div>
 
@@ -160,8 +166,8 @@
   {/if}
 
   {#if values.type !== 'heartbeat'}
-    <details class="rounded-lg border border-neutral-200 bg-white px-4 py-3">
-      <summary class="cursor-pointer text-sm font-medium text-neutral-700">
+    <details class="rounded-lg bg-base px-4 py-3 ring ring-hairline">
+      <summary class="cursor-pointer rounded-sm font-medium text-default">
         Confirmación y recuperación
       </summary>
       <div class="mt-4 grid gap-6 sm:grid-cols-2">
@@ -195,11 +201,7 @@
     </details>
   {/if}
 
-  <button
-    type="submit"
-    class="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
-    disabled={submitting}
-  >
+  <Button type="submit" variant="primary" disabled={submitting}>
     {submitting ? 'Guardando…' : submitLabel}
-  </button>
+  </Button>
 </form>
