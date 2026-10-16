@@ -58,6 +58,10 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Dependencias (avisos, licencias, duplicados)
         run: cargo deny check
+      # Las macros de sqlx se verifican contra la base real en los tests y en `prepare --check`,
+      # así que necesita el esquema.
+      - name: Migraciones
+        run: sqlx migrate run
       - name: Tests
         env:
           SQLX_OFFLINE: "false"
