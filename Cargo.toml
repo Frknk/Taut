@@ -16,6 +16,7 @@ taut-config = { path = "crates/config" }
 taut-telemetry = { path = "crates/telemetry" }
 taut-db = { path = "crates/db" }
 taut-http = { path = "crates/http" }
+taut-model = { path = "crates/model" }
 
 # Runtime y HTTP
 tokio = { version = "1.53", features = ["full"] }
@@ -53,7 +54,8 @@ metrics-exporter-prometheus = { version = "0.18", default-features = false }
 thiserror = "2"
 anyhow = "1"
 ulid = "3"
-uuid = { version = "1", features = ["v7", "serde"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+url = "2"
 chrono = { version = "0.4", features = ["serde"] }
 
 [workspace.lints.rust]

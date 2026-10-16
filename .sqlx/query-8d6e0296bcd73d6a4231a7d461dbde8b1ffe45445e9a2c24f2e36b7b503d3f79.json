@@ -1,0 +1,228 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, tenant_id, name, kind AS \"kind: MonitorKind\", target, interval_s, timeout_s,\n               expected_status, keyword, confirmation_period_s, recovery_period_s,\n               grace_period_s, heartbeat_token, last_ping_at, active,\n               CASE WHEN active THEN 'pending' ELSE 'paused' END AS \"status!: MonitorStatus\",\n               created_at, updated_at\n        FROM monitors\n        WHERE tenant_id = $1 AND id = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "tenant_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind: MonitorKind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "target",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "target"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "interval_s",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "interval_s"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "timeout_s",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "timeout_s"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "expected_status",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "expected_status"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "keyword",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "keyword"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "confirmation_period_s",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "confirmation_period_s"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "recovery_period_s",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "recovery_period_s"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "grace_period_s",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "grace_period_s"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "heartbeat_token",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "heartbeat_token"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "last_ping_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "last_ping_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "active"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "status!: MonitorStatus",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "monitors",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "8d6e0296bcd73d6a4231a7d461dbde8b1ffe45445e9a2c24f2e36b7b503d3f79"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO monitors (id, tenant_id, name, kind, target, interval_s, timeout_s,\n                              expected_status, keyword, confirmation_period_s,\n                              recovery_period_s, grace_period_s, heartbeat_token)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int2",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "387cb82a9e37e91cc9a6f2e3d5238dc33f511e62db8446f35caf26b6c2f146c6"
+}
