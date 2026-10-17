@@ -1,6 +1,7 @@
 # ADR 0007: Design system «Taut UI» basado en Kumo
 
-- **Estado:** Aceptado
+- **Estado:** Aceptado; los componentes interactivos se apoyan en bits-ui desde la
+  [ADR 0009](0009-bits-ui-componentes-accesibles.md)
 - **Fecha:** 2026-10-16
 
 ## Contexto

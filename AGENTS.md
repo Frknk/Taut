@@ -25,7 +25,7 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `services/notifier`  | `taut-notifier`: consume `incidents.*` y `notifications.test`; correo (lettre) y webhooks |
 | `services/status-bff`| `taut-status-bff`: `GET /s/{slug}`, página de estado pública (sin destinos ni causas) |
 | `Dockerfile`         | Imagen de cualquier servicio: `--build-arg SERVICE=<nombre>`                            |
-| `web/`               | SvelteKit 3 + Tailwind 4, bun, oxlint, oxfmt, vitest; panel en `(app)/` con `Sidebar` (selector de organización), página pública en `status/[slug]`; recetas de estilo en `src/lib/ui.ts` |
+| `web/`               | SvelteKit 3 + Tailwind 4, bits-ui, bun, oxlint, oxfmt, vitest (Node y Chromium); panel en `(app)/` con `Sidebar` (selector de organización), página pública en `status/[slug]`; recetas de estilo en `src/lib/ui.ts` |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
 | `compose.yaml`       | postgres (TimescaleDB), redis, nats, mailpit; los servicios bajo el perfil `app`         |
 | `.github/workflows`  | `ci.yml` (PR y main) y `build.yml` (imagen a GHCR)                                       |
@@ -93,8 +93,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   del design system [Taut UI](https://claude.ai/artifact/7E7UVV55bKyja5QwUtukoL) (`bg-canvas`,
   `bg-base`, `text-subtle`, `ring-line`, `bg-brand`…), declaradas en `src/routes/layout.css`.
   Nunca colores primitivos (`bg-neutral-50`, `text-red-700`) ni la variante `dark:`. Reusa los
-  componentes de `src/lib/components/` (Button, Badge, Banner, LayerCard, Tabs, Select, Dialog,
-  Menu, Empty, Logo, TenantForm) y las recetas de `src/lib/ui.ts`; el logo va sin fondo ni texto.
+  componentes de `src/lib/components/` (Button, Badge, Banner, LayerCard, Tabs/TabList/TabPanel,
+  Select, Dialog, Menu/MenuItem/MenuRadioItem, Tooltip, Empty, Logo, TenantForm) y las recetas
+  de `src/lib/ui.ts`; el logo va sin fondo ni texto.
   La navegación del panel vive en `Sidebar.svelte`: una sección nueva se agrega ahí, al grupo
   Monitoreo u Organización (lo personal va al menú de usuario del pie).
 - **Reglas de Kumo** en `web/` (detalle en [ADR 0007](docs/adr/0007-design-system-taut-ui.md)):
@@ -105,8 +106,14 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   nunca con `border`; radios concéntricos (exterior = interior + padding); iconos junto a texto
   multilínea en `h-lh flex items-center` dentro de `items-start`; monoespaciado en línea con
   `text-[0.9em]`; elementos `sticky` separados con `border`; contenido que se colapsa conserva su
-  ancho; nunca un `LayerCard` dentro de otro; los `Dialog` no se renderizan con `{#if}`, se
-  controlan con `open`.
+  ancho; nunca un `LayerCard` dentro de otro; los `Dialog` se controlan con `open` y nunca se
+  envuelven en `{#if}` (bits-ui ya monta el contenido solo mientras está abierto).
+- **Accesibilidad** en `web/` ([ADR 0009](docs/adr/0009-bits-ui-componentes-accesibles.md)): todo
+  widget interactivo (diálogo, menú, select, tabs, acordeón, tooltip, toggle) se construye sobre
+  [bits-ui](https://bits-ui.com), nunca con ARIA o teclado a mano. Los estados se estilan con los
+  `data-*` que expone (`data-highlighted`, `data-[state=open]`). Nada de `title=` para información:
+  `Tooltip`. Cada componente tiene su `*.svelte.test.ts` (Vitest en Chromium) que prueba el
+  teclado y termina con `expectAccessible()` de `src/lib/test/axe.ts`.
 - **Gráficos** en `web/`: tokens de color en `src/routes/layout.css` (paleta validada), funciones
   puras en `src/lib/charts.ts`; todo gráfico lleva leyenda si tiene más de una serie, tooltip,
   navegación con teclado y una vista de tabla, y los colores de estado van con texto o icono.
