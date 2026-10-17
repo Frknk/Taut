@@ -127,13 +127,16 @@
 </script>
 
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3">
-  <a
-    href={resolve('/(app)/monitors')}
-    class={['w-fit rounded-sm px-1.5 pt-1 text-strong', focusRing]}
-    aria-label="taut, inicio"
-  >
-    <Logo class="w-6" />
-  </a>
+  <!-- Header row, framed like the account footer; as tall as the drawer's close button. -->
+  <div class="flex border-b border-hairline pb-3">
+    <a
+      href={resolve('/(app)/monitors')}
+      class={['flex h-[26px] items-center rounded-sm px-1.5 text-strong', focusRing]}
+      aria-label="taut, inicio"
+    >
+      <Logo class="w-6" />
+    </a>
+  </div>
 
   <Menu label="Organizaciones" triggerClass={rowTrigger} onopen={refreshTenants}>
     {#snippet trigger()}
