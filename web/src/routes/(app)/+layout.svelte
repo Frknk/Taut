@@ -1,16 +1,17 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import { afterNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import type { Snippet } from 'svelte';
-  import ArrowUpRightIcon from 'phosphor-svelte/lib/ArrowUpRightIcon';
+  import { onMount, tick, type Snippet } from 'svelte';
+  import ListIcon from 'phosphor-svelte/lib/ListIcon';
+  import XIcon from 'phosphor-svelte/lib/XIcon';
 
-  import Button from '#lib/components/Button.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import ReauthDialog from '#lib/components/ReauthDialog.svelte';
+  import Sidebar from '#lib/components/Sidebar.svelte';
   import { session } from '#lib/session.svelte.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
-  import { focusRing } from '#lib/ui.js';
+  import { buttonClass, focusRing } from '#lib/ui.js';
 
   let { children }: { children: Snippet } = $props();
 
@@ -24,65 +25,122 @@
     }
   });
 
-  const links = [
-    { href: resolve('/(app)/monitors'), label: 'Monitores' },
-    { href: resolve('/(app)/incidents'), label: 'Incidentes' },
-    { href: resolve('/(app)/channels'), label: 'Canales' },
-    { href: resolve('/(app)/settings/profile'), match: '/settings', label: 'Configuración' },
-  ];
+  // The list feeds the switcher, and corrects a renamed tenant or a changed role.
+  onMount(() => {
+    selectedTenant.refresh().catch(() => {
+      // The switcher retries when it opens; the pages show their own errors.
+    });
+  });
 
-  function switchTenant() {
-    selectedTenant.clear();
+  // Below `lg` the sidebar is a drawer over the content, opened from the top bar.
+  let drawerOpen = $state(false);
+  let openButton = $state<HTMLButtonElement>();
+  let closeButton = $state<HTMLButtonElement>();
+
+  async function openDrawer() {
+    drawerOpen = true;
+    await tick();
+    closeButton?.focus();
   }
 
-  const navLink = `inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-sm ${focusRing}`;
+  async function closeDrawer() {
+    if (!drawerOpen) return;
+    drawerOpen = false;
+    // The top bar stops being inert after the update.
+    await tick();
+    openButton?.focus();
+  }
+
+  afterNavigate(() => {
+    drawerOpen = false;
+  });
+
+  // Growing past `lg` with the drawer open would leave the content inert.
+  onMount(() => {
+    const wide = window.matchMedia('(min-width: 64rem)');
+    const reset = () => {
+      if (wide.matches) drawerOpen = false;
+    };
+    wide.addEventListener('change', reset);
+    return () => wide.removeEventListener('change', reset);
+  });
+
+  function keyDown(event: KeyboardEvent) {
+    // A menu or dialog inside the sidebar handles its own Escape first.
+    if (event.key !== 'Escape' || event.defaultPrevented || !drawerOpen) return;
+    if (event.target instanceof Element && event.target.closest('dialog')) return;
+    void closeDrawer();
+  }
 </script>
 
+<svelte:window onkeydown={keyDown} />
+
 {#if session.status === 'authenticated' && selectedTenant.current}
-  <div class="min-h-screen">
-    <header class="sticky top-0 z-10 border-b border-hairline bg-base">
-      <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2">
-        <a
-          href={resolve('/(app)/monitors')}
-          class={['rounded-sm text-strong', focusRing]}
-          aria-label="taut, inicio"
-        >
-          <Logo class="w-6" />
-        </a>
-        <nav class="flex gap-1" aria-label="Secciones">
-          {#each links as link (link.href)}
-            {@const current = page.url.pathname.startsWith(link.match ?? link.href)}
-            <a
-              href={link.href}
-              aria-current={current ? 'page' : undefined}
-              class={[
-                navLink,
-                current ? 'bg-tint font-medium text-default' : 'text-subtle hover:text-default',
-              ]}
-            >
-              {link.label}
-            </a>
-          {/each}
-        </nav>
-        <div class="ml-auto flex items-center gap-3 text-sm">
-          <a
-            href={resolve('/status/[slug]', { slug: selectedTenant.current.slug })}
-            target="_blank"
-            rel="noopener"
-            class={[navLink, 'text-subtle hover:text-default']}
-          >
-            Página de estado
-            <ArrowUpRightIcon size={14} aria-hidden="true" />
-          </a>
-          <span class="font-medium text-default">{selectedTenant.current.name}</span>
-          <Button variant="ghost" size="sm" onclick={switchTenant}>Cambiar</Button>
-          <span class="text-subtle" aria-label="Usuario">{session.user?.name}</span>
-          <Button variant="ghost" size="sm" onclick={() => void session.logout()}>Salir</Button>
-        </div>
-      </div>
+  <div class="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+    <header
+      class="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-hairline bg-base px-2 lg:hidden"
+      inert={drawerOpen}
+    >
+      <button
+        bind:this={openButton}
+        type="button"
+        class={buttonClass('ghost', 'base', true)}
+        aria-label="Abrir navegación"
+        aria-expanded={drawerOpen}
+        aria-controls="sidebar"
+        onclick={() => void openDrawer()}
+      >
+        <ListIcon size={18} aria-hidden="true" />
+      </button>
+      <a
+        href={resolve('/(app)/monitors')}
+        class={['rounded-sm text-strong', focusRing]}
+        aria-label="taut, inicio"
+      >
+        <Logo class="w-5" />
+      </a>
+      <span class="min-w-0 truncate font-medium text-default">{selectedTenant.current.name}</span>
     </header>
-    <main class="mx-auto max-w-5xl px-4 py-8">
-      {@render children()}
+
+    {#if drawerOpen}
+      <!-- Pointer shortcut only: the close button and Escape do the same from the keyboard. -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <div class="fixed inset-0 z-20 bg-scrim lg:hidden" onclick={() => void closeDrawer()}></div>
+    {/if}
+
+    <aside
+      id="sidebar"
+      aria-label="Navegación"
+      class={[
+        'w-60 border-r border-hairline bg-base',
+        'max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:shadow-lg',
+        // Visibility only animates on close: opening shows the drawer at once, so it can take
+        // the focus in the same frame.
+        drawerOpen
+          ? 'max-lg:translate-x-0 max-lg:transition-[translate] max-lg:duration-200'
+          : 'max-lg:invisible max-lg:-translate-x-full max-lg:transition-[translate,visibility] max-lg:duration-200',
+        'lg:sticky lg:top-0 lg:h-screen',
+      ]}
+    >
+      <button
+        bind:this={closeButton}
+        type="button"
+        class={[buttonClass('ghost', 'sm', true), 'absolute top-3 right-3 lg:hidden']}
+        aria-label="Cerrar navegación"
+        onclick={() => void closeDrawer()}
+      >
+        <XIcon size={16} aria-hidden="true" />
+      </button>
+      <Sidebar />
+    </aside>
+
+    <main class="mx-auto w-full max-w-5xl px-4 py-8 lg:px-8" inert={drawerOpen}>
+      <!-- A new tenant remounts the page, so it loads that tenant's data. -->
+      {#if !selectedTenant.switching}
+        {#key selectedTenant.current.id}
+          {@render children()}
+        {/key}
+      {/if}
     </main>
     <ReauthDialog />
   </div>

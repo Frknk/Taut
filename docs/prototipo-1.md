@@ -394,3 +394,15 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
 - Panel: `/settings/api-keys` (solo owners) con la lista (prefijo, permiso, creada, último uso,
   revocada), un diálogo de creación que pasa por `ReauthDialog` y muestra la clave una vez con
   botones para copiarla y copiar un `curl` de prueba, y revocar con confirmación.
+
+**Panel: barra lateral y cambio de organización**
+
+- El panel navega con una barra lateral fija (un drawer bajo 1024 px): grupo **Monitoreo**
+  (Monitores, Incidentes con el número de incidentes abiertos, Canales) y grupo **Organización**
+  (Miembros, Ajustes, API keys solo para owners, Página de estado). Lo personal (Perfil,
+  Seguridad, tema Sistema/Claro/Oscuro, Salir) está en el menú de usuario del pie.
+- El selector de la cabecera lista las organizaciones del usuario (`GET /v1/tenants`) y crea
+  una nueva en un diálogo. Cambiar de organización mantiene la sección; desde un recurso de la
+  anterior (un monitor) vuelve a la lista.
+- La raíz solo aparece cuando hay que elegir o crear: con la organización recordada o una sola,
+  el panel entra directo.

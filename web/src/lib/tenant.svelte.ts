@@ -1,7 +1,9 @@
 // Tenant selected in the panel: the user picks one of their organizations and every call to
 // the api sends its id in `X-Tenant-Id`. The choice survives reloads in localStorage (it is
-// not a secret: the api checks the membership on every request).
+// not a secret: the api checks the membership on every request). The list of the user's
+// tenants feeds the switcher in the sidebar.
 
+import { request } from './api.js';
 import type { TenantWithRole } from './types.js';
 
 const STORAGE_KEY = 'taut.tenant';
@@ -19,6 +21,15 @@ function load(): SelectedTenant | null {
 
 class TenantSelection {
   current = $state<SelectedTenant | null>(load());
+  /** The user's tenants, as of the last `refresh`. */
+  list = $state<TenantWithRole[]>([]);
+  /** Whether `list` came from the api at least once. */
+  loaded = $state(false);
+  /**
+   * True while the panel moves to another tenant. The layout unmounts the page meanwhile, so
+   * a page of the old tenant never asks for its data with the new tenant's id.
+   */
+  switching = $state(false);
 
   /** Whether the selected tenant lets the user manage channels, members and the tenant. */
   get isOwner(): boolean {
@@ -41,6 +52,36 @@ class TenantSelection {
     } catch {
       // Nothing stored.
     }
+  }
+
+  /**
+   * Fetches the user's tenants. The selection follows what the api says: a renamed tenant or
+   * a changed role updates it, a tenant the user left clears it. Throws what `request` throws.
+   */
+  async refresh(): Promise<TenantWithRole[]> {
+    const tenants = await request<TenantWithRole[]>('GET', '/v1/tenants');
+    this.list = tenants;
+    this.loaded = true;
+    const current = this.current;
+    if (current) {
+      const fresh = tenants.find((tenant) => tenant.id === current.id);
+      if (!fresh) this.clear();
+      else if (
+        fresh.name !== current.name ||
+        fresh.role !== current.role ||
+        fresh.slug !== current.slug
+      ) {
+        this.select(fresh);
+      }
+    }
+    return tenants;
+  }
+
+  /** Forgets the list too: on logout. */
+  reset(): void {
+    this.clear();
+    this.list = [];
+    this.loaded = false;
   }
 }
 
