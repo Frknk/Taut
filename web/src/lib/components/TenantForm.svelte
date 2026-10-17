@@ -56,5 +56,5 @@
       pattern="[a-z0-9][a-z0-9\-]*[a-z0-9]"
     />
   </div>
-  {#if error}<p class={fieldError}>{error}</p>{/if}
+  {#if error}<p class={fieldError} role="alert">{error}</p>{/if}
 </form>

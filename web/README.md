@@ -9,7 +9,8 @@ bun run dev          # http://localhost:5173 (necesita la api en http://localhos
 bun run check        # svelte-check
 bun run lint         # oxlint (solo el <script> de los .svelte)
 bun run fmt          # oxfmt (los .svelte pasan por prettier-plugin-svelte)
-bun run test         # vitest
+bunx playwright install chromium   # una vez: los tests de componentes corren en Chromium
+bun run test         # vitest: lógica en Node y componentes (*.svelte.test.ts) con axe
 bun run build        # build/ listo para servir desde un CDN
 ```
 

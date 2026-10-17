@@ -133,6 +133,15 @@ export const menu = {
   separator: 'my-1 h-px bg-hairline',
 };
 
+/** Modal dialog recipe: the scrim behind it and the centred panel. */
+export const dialog = {
+  overlay: 'fixed inset-0 z-50 bg-scrim',
+  content: [
+    'fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,440px)] -translate-1/2 overflow-y-auto',
+    'rounded-xl bg-base px-6 py-5 text-sm text-default shadow-lg ring ring-line focus-visible:outline-none',
+  ].join(' '),
+};
+
 /** A link of the sidebar; `bg-tint` and medium weight mark the current page. */
 export function navItemClass(current: boolean): string {
   const state = current
