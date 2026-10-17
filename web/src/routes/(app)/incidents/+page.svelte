@@ -4,6 +4,8 @@
   import Banner from '#lib/components/Banner.svelte';
   import Empty from '#lib/components/Empty.svelte';
   import IncidentList from '#lib/components/IncidentList.svelte';
+  import TabList from '#lib/components/TabList.svelte';
+  import TabPanel from '#lib/components/TabPanel.svelte';
   import Tabs from '#lib/components/Tabs.svelte';
   import { describeError, request } from '#lib/api.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
@@ -45,30 +47,32 @@
   <title>Incidentes · Taut</title>
 </svelte:head>
 
-<div class="flex flex-wrap items-end justify-between gap-4">
-  <div>
-    <h1 class="text-2xl font-semibold text-strong">Incidentes</h1>
-    <p class="mt-0.5 max-w-prose text-[13px]/[18px] text-subtle">
-      Se abren cuando una falla dura el periodo de confirmación y se cierran tras el de
-      recuperación.
-    </p>
+<Tabs bind:value={filter} onchange={() => void load()}>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-strong">Incidentes</h1>
+      <p class="mt-0.5 max-w-prose text-[13px]/[18px] text-subtle">
+        Se abren cuando una falla dura el periodo de confirmación y se cierran tras el de
+        recuperación.
+      </p>
+    </div>
+    <TabList options={FILTERS} label="Filtro" />
   </div>
-  <Tabs options={FILTERS} bind:value={filter} label="Filtro" onchange={() => void load()} />
-</div>
 
-{#if error}
-  <Banner tone="danger" class="mt-6">{error}</Banner>
-{/if}
-
-<div class="mt-6">
-  {#if loaded && incidents.length === 0 && !error}
-    <Empty
-      title={filter === 'open' ? 'Ningún incidente abierto' : 'Todavía no hubo incidentes'}
-      text={filter === 'open'
-        ? 'Todo en orden. Si un monitor falla, el incidente aparece aquí.'
-        : 'Cuando un monitor falle el tiempo de confirmación, el incidente aparece aquí.'}
-    />
-  {:else if incidents.length > 0}
-    <IncidentList {incidents} {tenantId} />
+  {#if error}
+    <Banner tone="danger" class="mt-6">{error}</Banner>
   {/if}
-</div>
+
+  <TabPanel value={filter} class="mt-6">
+    {#if loaded && incidents.length === 0 && !error}
+      <Empty
+        title={filter === 'open' ? 'Ningún incidente abierto' : 'Todavía no hubo incidentes'}
+        text={filter === 'open'
+          ? 'Todo en orden. Si un monitor falla, el incidente aparece aquí.'
+          : 'Cuando un monitor falle el tiempo de confirmación, el incidente aparece aquí.'}
+      />
+    {:else if incidents.length > 0}
+      <IncidentList {incidents} {tenantId} />
+    {/if}
+  </TabPanel>
+</Tabs>

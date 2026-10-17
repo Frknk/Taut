@@ -260,11 +260,11 @@
       </div>
       <div>
         <label class={label} for="{formId}-scope">Permiso</label>
-        <Select id="{formId}-scope" bind:value={values.scope}>
-          {#each scopes as scope (scope)}
-            <option value={scope}>{SCOPE_LABELS[scope]}</option>
-          {/each}
-        </Select>
+        <Select
+          id="{formId}-scope"
+          bind:value={values.scope}
+          items={scopes.map((scope) => ({ value: scope, label: SCOPE_LABELS[scope] }))}
+        />
         {#if errors.scope}
           <p class={fieldError}>{errors.scope}</p>
         {:else}

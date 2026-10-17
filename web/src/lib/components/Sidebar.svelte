@@ -2,11 +2,11 @@
   import { afterNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { DropdownMenu } from 'bits-ui';
   import ArrowUpRightIcon from 'phosphor-svelte/lib/ArrowUpRightIcon';
   import BellIcon from 'phosphor-svelte/lib/BellIcon';
   import BroadcastIcon from 'phosphor-svelte/lib/BroadcastIcon';
   import CaretUpDownIcon from 'phosphor-svelte/lib/CaretUpDownIcon';
-  import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
   import DesktopIcon from 'phosphor-svelte/lib/DesktopIcon';
   import GearIcon from 'phosphor-svelte/lib/GearIcon';
   import KeyIcon from 'phosphor-svelte/lib/KeyIcon';
@@ -24,6 +24,8 @@
   import Dialog from '#lib/components/Dialog.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import Menu from '#lib/components/Menu.svelte';
+  import MenuItem from '#lib/components/MenuItem.svelte';
+  import MenuRadioItem from '#lib/components/MenuRadioItem.svelte';
   import TenantForm from '#lib/components/TenantForm.svelte';
   import { request } from '#lib/api.js';
   import { ROLE_LABELS } from '#lib/format.js';
@@ -101,8 +103,9 @@
     });
   }
 
-  async function switchTo(tenant: TenantWithRole) {
-    if (tenant.id === current?.id) return;
+  async function switchTo(tenantId: string) {
+    const tenant = selectedTenant.list.find((t) => t.id === tenantId);
+    if (!tenant || tenant.id === current?.id) return;
     selectedTenant.switching = true;
     selectedTenant.select(tenant);
     try {
@@ -154,50 +157,33 @@
       <CaretUpDownIcon size={16} class="shrink-0 text-subtle" aria-hidden="true" />
     {/snippet}
 
-    {#snippet children(close)}
-      <div role="group" aria-label="Tus organizaciones" class="max-h-72 overflow-y-auto">
-        <p class={menu.heading} aria-hidden="true">Tus organizaciones</p>
-        {#if !selectedTenant.loaded}
-          <p class="px-2 py-1.5 text-sm text-subtle" role="status">Cargando…</p>
-        {/if}
-        {#each selectedTenant.list as tenant (tenant.id)}
-          {@const selected = tenant.id === current?.id}
-          <button
-            type="button"
-            role="menuitemradio"
-            aria-checked={selected}
-            class={menu.item}
-            onclick={() => {
-              close();
-              void switchTo(tenant);
-            }}
+    <DropdownMenu.RadioGroup
+      value={current?.id}
+      onValueChange={(id) => void switchTo(id)}
+      class="max-h-72 overflow-y-auto"
+    >
+      <DropdownMenu.GroupHeading class={menu.heading}>Tus organizaciones</DropdownMenu.GroupHeading>
+      {#if !selectedTenant.loaded}
+        <MenuItem disabled>Cargando…</MenuItem>
+      {/if}
+      {#each selectedTenant.list as tenant (tenant.id)}
+        <MenuRadioItem value={tenant.id} textValue={tenant.name}>
+          <span
+            class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-fill text-xs font-semibold text-default"
+            aria-hidden="true"
           >
-            <span
-              class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-fill text-xs font-semibold text-default"
-              aria-hidden="true"
-            >
-              {initial(tenant.name)}
-            </span>
-            <span class="min-w-0 flex-1 truncate">{tenant.name}</span>
-            <span class="text-xs text-subtle">{ROLE_LABELS[tenant.role]}</span>
-            <CheckIcon size={14} class={selected ? '' : 'invisible'} aria-hidden="true" />
-          </button>
-        {/each}
-      </div>
-      <div class={menu.separator} role="separator"></div>
-      <button
-        type="button"
-        role="menuitem"
-        class={menu.item}
-        onclick={() => {
-          close();
-          createOpen = true;
-        }}
-      >
-        <PlusIcon size={16} aria-hidden="true" />
-        Crear organización
-      </button>
-    {/snippet}
+            {initial(tenant.name)}
+          </span>
+          <span class="min-w-0 flex-1 truncate">{tenant.name}</span>
+          <span class="text-xs text-subtle">{ROLE_LABELS[tenant.role]}</span>
+        </MenuRadioItem>
+      {/each}
+    </DropdownMenu.RadioGroup>
+    <DropdownMenu.Separator class={menu.separator} />
+    <MenuItem onSelect={() => (createOpen = true)}>
+      <PlusIcon size={16} aria-hidden="true" />
+      Crear organización
+    </MenuItem>
   </Menu>
 
   <nav class="flex flex-col gap-4" aria-label="Secciones">
@@ -255,7 +241,7 @@
   </nav>
 
   <div class="mt-auto border-t border-hairline pt-3">
-    <Menu label="Cuenta" triggerClass={rowTrigger} placement="above">
+    <Menu label="Cuenta" triggerClass={rowTrigger} side="top">
       {#snippet trigger()}
         <span
           class="flex size-8 shrink-0 items-center justify-center rounded-full bg-fill text-sm font-semibold text-default"
@@ -271,57 +257,33 @@
         <CaretUpDownIcon size={16} class="shrink-0 text-subtle" aria-hidden="true" />
       {/snippet}
 
-      {#snippet children(close)}
-        <a
-          role="menuitem"
-          href={resolve('/(app)/settings/profile')}
-          class={menu.item}
-          onclick={close}
-        >
-          <UserIcon size={16} aria-hidden="true" />
-          Perfil
-        </a>
-        <a
-          role="menuitem"
-          href={resolve('/(app)/settings/security')}
-          class={menu.item}
-          onclick={close}
-        >
-          <ShieldCheckIcon size={16} aria-hidden="true" />
-          Seguridad
-        </a>
-        <div class={menu.separator} role="separator"></div>
-        <div role="group" aria-label="Tema">
-          <p class={menu.heading} aria-hidden="true">Tema</p>
-          {#each themes as option (option.value)}
-            {@const selected = theme.current === option.value}
-            <button
-              type="button"
-              role="menuitemradio"
-              aria-checked={selected}
-              class={menu.item}
-              onclick={() => theme.set(option.value)}
-            >
-              <option.icon size={16} aria-hidden="true" />
-              <span class="flex-1">{option.label}</span>
-              <CheckIcon size={14} class={selected ? '' : 'invisible'} aria-hidden="true" />
-            </button>
-          {/each}
-        </div>
-        <div class={menu.separator} role="separator"></div>
-        <button
-          type="button"
-          role="menuitem"
-          class={menu.item}
-          onclick={() => {
-            close();
-            void session.logout();
-          }}
-        >
-          <SignOutIcon size={16} aria-hidden="true" />
-          Salir
-        </button>
-      {/snippet}
+      <MenuItem href={resolve('/(app)/settings/profile')}>
+        <UserIcon size={16} aria-hidden="true" />
+        Perfil
+      </MenuItem>
+      <MenuItem href={resolve('/(app)/settings/security')}>
+        <ShieldCheckIcon size={16} aria-hidden="true" />
+        Seguridad
+      </MenuItem>
+      <DropdownMenu.Separator class={menu.separator} />
+      <DropdownMenu.RadioGroup
+        value={theme.current}
+        onValueChange={(value) => theme.set(value as Theme)}
+      >
+        <DropdownMenu.GroupHeading class={menu.heading}>Tema</DropdownMenu.GroupHeading>
+        {#each themes as option (option.value)}
+          <!-- Stays open: trying the themes one after another is the point. -->
+          <MenuRadioItem value={option.value} closeOnSelect={false}>
+            <option.icon size={16} aria-hidden="true" />
+            {option.label}
+          </MenuRadioItem>
+        {/each}
+      </DropdownMenu.RadioGroup>
+      <DropdownMenu.Separator class={menu.separator} />
+      <MenuItem onSelect={() => void session.logout()}>
+        <SignOutIcon size={16} aria-hidden="true" />
+        Salir
+      </MenuItem>
     </Menu>
   </div>
 </div>
@@ -331,9 +293,7 @@
   title="Crear una organización"
   description="Tendrá sus propios monitores, canales y miembros, y tú quedarás como propietario."
 >
-  {#if createOpen}
-    <TenantForm id="sidebar-new-tenant" bind:creating={creatingTenant} oncreated={created} />
-  {/if}
+  <TenantForm id="sidebar-new-tenant" bind:creating={creatingTenant} oncreated={created} />
   {#snippet actions()}
     <Button onclick={() => (createOpen = false)}>Cancelar</Button>
     <Button type="submit" form="sidebar-new-tenant" variant="primary" disabled={creatingTenant}>
