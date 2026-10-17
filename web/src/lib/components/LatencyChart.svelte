@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { Toggle } from 'bits-ui';
+  import TableIcon from 'phosphor-svelte/lib/TableIcon';
   import { formatLatency, nearestIndex, niceCeil, scale, segments, ticks } from '#lib/charts.js';
-  import { focusRing, link } from '#lib/ui.js';
+  import { buttonClass, focusRing } from '#lib/ui.js';
   import type { MetricsPoint } from '#lib/types.js';
 
   interface Props {
@@ -135,9 +137,14 @@
       ></span>
       Intervalos con fallas
     </span>
-    <button class={['ml-auto cursor-pointer', link]} onclick={() => (showTable = !showTable)}>
-      {showTable ? 'Ver gráfico' : 'Ver tabla'}
-    </button>
+    <!-- A toggle with a fixed name: pressed, the chart shows as a table. -->
+    <Toggle.Root
+      bind:pressed={showTable}
+      class={[buttonClass('ghost', 'sm'), 'ml-auto data-[state=on]:bg-tint']}
+    >
+      <TableIcon size={14} aria-hidden="true" />
+      Ver tabla
+    </Toggle.Root>
   </div>
 
   {#if showTable}
@@ -145,11 +152,11 @@
       <table class="w-full text-left tabular-nums">
         <thead class="sticky top-0 border-b border-hairline bg-base text-subtle">
           <tr>
-            <th class="py-1 pr-4 font-medium">Intervalo</th>
-            <th class="py-1 pr-4 font-medium">Chequeos</th>
-            <th class="py-1 pr-4 font-medium">Fallas</th>
-            <th class="py-1 pr-4 font-medium">Promedio</th>
-            <th class="py-1 font-medium">p95</th>
+            <th scope="col" class="py-1 pr-4 font-medium">Intervalo</th>
+            <th scope="col" class="py-1 pr-4 font-medium">Chequeos</th>
+            <th scope="col" class="py-1 pr-4 font-medium">Fallas</th>
+            <th scope="col" class="py-1 pr-4 font-medium">Promedio</th>
+            <th scope="col" class="py-1 font-medium">p95</th>
           </tr>
         </thead>
         <tbody>
