@@ -22,6 +22,8 @@ setup:
     command -v cargo-watch >/dev/null || cargo install cargo-watch --locked
     lefthook install
     cd {{web_dir}} && bun install
+    # Los tests de componentes de web/ corren en Chromium
+    cd {{web_dir}} && bunx playwright install chromium
     cp -n .env.example .env || true
     @echo "Listo. Ahora: just up && just dev (y just web en otra terminal)"
 

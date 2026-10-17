@@ -72,7 +72,7 @@
           : 'Cuando un monitor falle el tiempo de confirmación, el incidente aparece aquí.'}
       />
     {:else if incidents.length > 0}
-      <IncidentList {incidents} {tenantId} />
+      <IncidentList {incidents} {tenantId} headingLevel={2} />
     {/if}
   </TabPanel>
 </Tabs>

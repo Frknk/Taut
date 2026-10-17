@@ -8,6 +8,7 @@
   import Empty from '#lib/components/Empty.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
   import Select from '#lib/components/Select.svelte';
+  import Tooltip from '#lib/components/Tooltip.svelte';
   import { describeError, request } from '#lib/api.js';
   import {
     DESTINATION_HINTS,
@@ -149,9 +150,9 @@
         <span class="text-xs">
           {#if channel.last_delivery_at}
             {#if channel.last_delivery_error}
-              <span class="text-danger" title={channel.last_delivery_error}>
+              <Tooltip content={channel.last_delivery_error} class="text-danger">
                 Último envío falló {timeAgo(channel.last_delivery_at)}
-              </span>
+              </Tooltip>
             {:else}
               <span class="text-success">Último envío OK {timeAgo(channel.last_delivery_at)}</span>
             {/if}

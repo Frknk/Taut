@@ -143,7 +143,7 @@ build del frontend). Es exactamente lo que corre CI.
 | `just web`           | Servidor de desarrollo del frontend                                         |
 | `just fmt` / `fmt-check` | Formatea (o verifica) Rust y `web/`                                     |
 | `just lint`          | `clippy -D warnings`, oxlint y svelte-check                                 |
-| `just test`          | `cargo nextest` (necesita `just up`) y vitest                               |
+| `just test`          | `cargo nextest` (necesita `just up`) y vitest (componentes en Chromium)     |
 | `just deny`          | cargo-deny: avisos de seguridad, licencias y duplicados                     |
 | `just check` / `ci`  | Todo lo anterior más el build del frontend                                  |
 | `just migrate`       | Aplica las migraciones pendientes                                           |
@@ -174,7 +174,7 @@ taut/
 │   ├── incidents/   taut-incidents: guarda resultados, abre y cierra incidentes
 │   ├── notifier/    taut-notifier: alertas por correo, Discord, Slack y webhook; correos de cuenta
 │   └── status-bff/  taut-status-bff: JSON público de las páginas de estado
-├── web/             SvelteKit 3 + Tailwind 4, SPA estática (bun, oxlint, oxfmt)
+├── web/             SvelteKit 3 + Tailwind 4 + bits-ui, SPA estática (bun, oxlint, oxfmt)
 ├── migrations/      migraciones sqlx compartidas (una base de datos en el MVP)
 ├── .sqlx/           caché offline de sqlx
 ├── infra/           terraform/ (sem. 5) y k8s/ (sem. 8)

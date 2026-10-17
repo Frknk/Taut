@@ -8,6 +8,7 @@
   import Empty from '#lib/components/Empty.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
   import Select from '#lib/components/Select.svelte';
+  import Tooltip from '#lib/components/Tooltip.svelte';
   import { API_URL, describeError, request } from '#lib/api.js';
   import {
     SCOPE_HINTS,
@@ -177,8 +178,9 @@
                   {SCOPE_LABELS[key.scope]}
                 </Badge>
               </td>
-              <td class={[table.td, 'text-subtle']} title={formatDateTime(key.created_at)}>
-                {timeAgo(key.created_at)}
+              <td class={[table.td, 'text-subtle']}>
+                <Tooltip content={formatDateTime(key.created_at)}>{timeAgo(key.created_at)}</Tooltip
+                >
               </td>
               <td class={[table.td, 'text-subtle']}>
                 {key.last_used_at ? timeAgo(key.last_used_at) : 'Nunca'}

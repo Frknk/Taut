@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Collapsible, RadioGroup } from 'bits-ui';
+  import CaretDownIcon from 'phosphor-svelte/lib/CaretDownIcon';
   import { untrack } from 'svelte';
 
   import Banner from '#lib/components/Banner.svelte';
@@ -13,7 +15,7 @@
     type MonitorFormValues,
   } from '#lib/monitor-form.js';
   import type { MonitorInput, MonitorKind } from '#lib/types.js';
-  import { fieldError, help as hint, input, label } from '#lib/ui.js';
+  import { fieldError, focusRing, help as hint, input, label } from '#lib/ui.js';
 
   interface Props {
     initial: MonitorFormValues;
@@ -36,6 +38,12 @@
   });
 
   const kinds = Object.keys(KIND_LABELS) as MonitorKind[];
+
+  // The periods start folded; an error inside them unfolds them, or it would go unseen.
+  let periodsOpen = $state(false);
+  $effect(() => {
+    if (errors.confirmation_period_s || errors.recovery_period_s) periodsOpen = true;
+  });
   const isHttp = $derived(values.type === 'http' || values.type === 'keyword');
 
   async function submit(event: SubmitEvent) {
@@ -65,34 +73,35 @@
     {#if errors.name}<p class={fieldError}>{errors.name}</p>{/if}
   </div>
 
-  <fieldset>
-    <legend class={label}>Tipo</legend>
-    <div class="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+  <div>
+    <span id="type-label" class={label}>Tipo</span>
+    <RadioGroup.Root
+      bind:value={() => values.type, (type) => (values.type = type as MonitorKind)}
+      disabled={editing}
+      orientation="horizontal"
+      aria-labelledby="type-label"
+      aria-describedby={editing ? 'type-hint' : undefined}
+      class="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4"
+    >
       {#each kinds as kind (kind)}
-        <label
+        <RadioGroup.Item
+          value={kind}
           class={[
             'flex h-9 cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium ring',
-            'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus',
-            values.type === kind
-              ? 'bg-brand text-on-brand ring-brand'
-              : 'bg-control text-default ring-line hover:bg-tint',
-            editing && values.type !== kind && 'cursor-not-allowed text-inactive hover:bg-control',
+            'bg-control text-default ring-line hover:bg-tint',
+            'data-[state=checked]:bg-brand data-[state=checked]:text-on-brand data-[state=checked]:ring-brand',
+            'data-disabled:cursor-not-allowed data-[state=unchecked]:data-disabled:text-inactive data-[state=unchecked]:data-disabled:hover:bg-control',
+            focusRing,
           ]}
         >
-          <input
-            type="radio"
-            class="sr-only"
-            name="type"
-            value={kind}
-            bind:group={values.type}
-            disabled={editing}
-          />
           {KIND_LABELS[kind]}
-        </label>
+        </RadioGroup.Item>
       {/each}
-    </div>
-    {#if editing}<p class={hint}>El tipo no se puede cambiar; crea otro monitor.</p>{/if}
-  </fieldset>
+    </RadioGroup.Root>
+    {#if editing}
+      <p id="type-hint" class={hint}>El tipo no se puede cambiar; crea otro monitor.</p>
+    {/if}
+  </div>
 
   {#if values.type !== 'heartbeat'}
     <div>
@@ -166,11 +175,24 @@
   {/if}
 
   {#if values.type !== 'heartbeat'}
-    <details class="rounded-lg bg-base px-4 py-3 ring ring-hairline">
-      <summary class="cursor-pointer rounded-sm font-medium text-default">
+    <Collapsible.Root
+      bind:open={periodsOpen}
+      class="rounded-lg bg-base px-4 py-3 ring ring-hairline"
+    >
+      <Collapsible.Trigger
+        class={[
+          'group flex w-full cursor-pointer items-center gap-1.5 rounded-sm text-left font-medium text-default',
+          focusRing,
+        ]}
+      >
+        <CaretDownIcon
+          size={14}
+          class="-rotate-90 text-subtle group-data-[state=open]:rotate-0"
+          aria-hidden="true"
+        />
         Confirmación y recuperación
-      </summary>
-      <div class="mt-4 grid gap-6 sm:grid-cols-2">
+      </Collapsible.Trigger>
+      <Collapsible.Content class="mt-4 grid gap-6 sm:grid-cols-2">
         <div>
           <label class={label} for="confirmation">Periodo de confirmación (s)</label>
           <input
@@ -197,8 +219,8 @@
           <p class={hint}>Cuánto debe estar sano antes de cerrar el incidente.</p>
           {#if errors.recovery_period_s}<p class={fieldError}>{errors.recovery_period_s}</p>{/if}
         </div>
-      </div>
-    </details>
+      </Collapsible.Content>
+    </Collapsible.Root>
   {/if}
 
   <Button type="submit" variant="primary" disabled={submitting}>

@@ -2,6 +2,7 @@
   import '@fontsource-variable/geist';
   import '@fontsource-variable/geist-mono';
   import './layout.css';
+  import { Tooltip } from 'bits-ui';
   import { onMount } from 'svelte';
   import favicon from '#lib/assets/favicon.svg';
   import { session } from '#lib/session.svelte.js';
@@ -17,10 +18,13 @@
   <link rel="icon" href={favicon} />
 </svelte:head>
 
-{#if session.status === 'booting'}
-  <div class="flex min-h-screen items-center justify-center text-sm text-subtle" role="status">
-    Cargando…
-  </div>
-{:else}
-  {@render children()}
-{/if}
+<!-- One provider: moving between tooltips skips the delay. -->
+<Tooltip.Provider delayDuration={300}>
+  {#if session.status === 'booting'}
+    <div class="flex min-h-screen items-center justify-center text-sm text-subtle" role="status">
+      Cargando…
+    </div>
+  {:else}
+    {@render children()}
+  {/if}
+</Tooltip.Provider>

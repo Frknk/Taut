@@ -13,6 +13,7 @@
   import LayerCard from '#lib/components/LayerCard.svelte';
   import MetricsPanel from '#lib/components/MetricsPanel.svelte';
   import StatusBadge from '#lib/components/StatusBadge.svelte';
+  import Tooltip from '#lib/components/Tooltip.svelte';
   import { API_URL, describeError, request } from '#lib/api.js';
   import { KIND_LABELS, formatDateTime, formatSeconds, timeAgo } from '#lib/format.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
@@ -236,11 +237,8 @@
         <tbody>
           {#each checks as check (check.at + check.region)}
             <tr class={table.row}>
-              <td
-                class={[table.td, 'whitespace-nowrap text-subtle']}
-                title={formatDateTime(check.at)}
-              >
-                {timeAgo(check.at)}
+              <td class={[table.td, 'whitespace-nowrap text-subtle']}>
+                <Tooltip content={formatDateTime(check.at)}>{timeAgo(check.at)}</Tooltip>
               </td>
               <td class={table.td}>
                 <span class={check.ok ? 'text-success' : 'font-medium text-danger'}>
