@@ -30,6 +30,15 @@ los colores que de verdad indican una falla.
 - Recetas en `web/src/lib/ui.ts` y componentes en `web/src/lib/components/` (Button, Badge,
   StatusBadge, Banner, LayerCard, Tabs, Select, Dialog, Empty, Logo).
 
+### Reglas de diseño heredadas de Kumo
+
+Las guías `kumo-design` de Cloudflare aplican a todo el frontend; el resumen operativo está en
+`AGENTS.md`. Reglas: `content-text-size`, `heading-case`, `font-tracking`, `font-weight`,
+`related-text-spacing`, `text-spacing`, `hover-color-transitions`, `shadow-borders`,
+`concentric-border-radius`, `icon-alignment`, `inline-monospace-size`, `sticky-borders`,
+`collapse-content-size`, `layer-card-nesting` y `dialog-rendering`. Excepciones documentadas: el
+texto `text-xs` de badges, ayudas y botones pequeños, y el banner grande de la página pública.
+
 ## Alternativas consideradas
 
 - **Usar Kumo directamente:** es una librería de React; el panel es Svelte.

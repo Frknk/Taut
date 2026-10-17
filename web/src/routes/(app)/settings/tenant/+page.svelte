@@ -202,7 +202,7 @@
 >
   <form id="delete-tenant" onsubmit={remove} novalidate>
     <label class={label} for="delete-slug">
-      Escribe <code class="font-mono text-strong">{current?.slug}</code> para confirmar
+      Escribe <code class="font-mono text-[0.9em] text-strong">{current?.slug}</code> para confirmar
     </label>
     <input
       id="delete-slug"

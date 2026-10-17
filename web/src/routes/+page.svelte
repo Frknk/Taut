@@ -60,7 +60,7 @@
   </div>
 {:else}
   <main class="flex min-h-screen items-center justify-center p-6">
-    <section class="w-full max-w-md space-y-6 rounded-xl bg-base p-8 ring ring-hairline">
+    <section class="w-full max-w-md space-y-6 rounded-xl bg-base px-8 py-7 ring ring-hairline">
       <div class="flex items-start justify-between gap-4">
         <div>
           <Logo class="w-10 text-strong" label="Taut" />

@@ -231,7 +231,7 @@
         </ol>
         <p class="text-subtle">
           Clave manual:
-          <code class="rounded-sm bg-fill px-1 py-0.5 font-mono text-xs break-all text-default"
+          <code class="rounded-sm bg-fill px-1 py-0.5 font-mono text-[0.9em] break-all text-default"
             >{enrollment.secret}</code
           >
         </p>

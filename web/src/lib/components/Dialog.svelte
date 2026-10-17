@@ -38,7 +38,7 @@
   role={alert ? 'alertdialog' : 'dialog'}
   aria-labelledby="{id}-title"
   aria-describedby={description ? `${id}-text` : undefined}
-  class="m-auto w-[min(100%-2rem,440px)] rounded-xl bg-base p-6 text-sm text-default shadow-lg ring ring-line backdrop:bg-scrim"
+  class="m-auto w-[min(100%-2rem,440px)] rounded-xl bg-base px-6 py-5 text-sm text-default shadow-lg ring ring-line backdrop:bg-scrim"
   onclose={() => (open = false)}
 >
   <h2 id="{id}-title" class="text-xl font-semibold text-strong">{title}</h2>

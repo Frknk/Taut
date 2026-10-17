@@ -171,7 +171,7 @@
               <td class={[table.td, key.revoked_at ? 'text-subtle' : 'font-medium text-strong']}>
                 {key.name}
               </td>
-              <td class={table.td}><code class="font-mono text-xs">{key.prefix}…</code></td>
+              <td class={table.td}><code class="font-mono text-[0.9em]">{key.prefix}…</code></td>
               <td class={table.td}>
                 <Badge tone={key.scope === 'write' ? 'inverted' : 'outline'}>
                   {SCOPE_LABELS[key.scope]}
@@ -203,7 +203,7 @@
 
   <LayerCard title="Cómo se usan">
     <p class="text-sm text-default">
-      Envía la clave en la cabecera <code class="font-mono text-xs"
+      Envía la clave en la cabecera <code class="font-mono text-[0.9em]"
         >Authorization: Bearer taut_live_…</code
       >. La organización va en la propia clave. Una clave de lectura solo consulta; una de escritura
       también gestiona monitores. Ninguna toca miembros, canales, otras API keys ni la organización.

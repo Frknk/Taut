@@ -143,7 +143,7 @@
   {#if showTable}
     <div class="mt-3 max-h-72 overflow-auto">
       <table class="w-full text-left tabular-nums">
-        <thead class="sticky top-0 bg-base text-subtle">
+        <thead class="sticky top-0 border-b border-hairline bg-base text-subtle">
           <tr>
             <th class="py-1 pr-4 font-medium">Intervalo</th>
             <th class="py-1 pr-4 font-medium">Chequeos</th>

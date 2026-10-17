@@ -97,6 +97,16 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   Menu, Empty, Logo, TenantForm) y las recetas de `src/lib/ui.ts`; el logo va sin fondo ni texto.
   La navegación del panel vive en `Sidebar.svelte`: una sección nueva se agrega ahí, al grupo
   Monitoreo u Organización (lo personal va al menú de usuario del pie).
+- **Reglas de Kumo** en `web/` (detalle en [ADR 0007](docs/adr/0007-design-system-taut-ui.md)):
+  texto de contenido a 14px (16px o más solo en títulos); títulos en sentence case, sin
+  `uppercase`; nunca `tracking-*` ni `font-bold` (`font-semibold` en títulos, `font-medium` en
+  negrita en línea); texto relacionado más junto que el contenido que lo rodea; padding óptico
+  (`px-5 py-4`, no `p-5`); hover sin `transition-colors`; sombra siempre con `ring ring-line`,
+  nunca con `border`; radios concéntricos (exterior = interior + padding); iconos junto a texto
+  multilínea en `h-lh flex items-center` dentro de `items-start`; monoespaciado en línea con
+  `text-[0.9em]`; elementos `sticky` separados con `border`; contenido que se colapsa conserva su
+  ancho; nunca un `LayerCard` dentro de otro; los `Dialog` no se renderizan con `{#if}`, se
+  controlan con `open`.
 - **Gráficos** en `web/`: tokens de color en `src/routes/layout.css` (paleta validada), funciones
   puras en `src/lib/charts.ts`; todo gráfico lleva leyenda si tiene más de una serie, tooltip,
   navegación con teclado y una vista de tabla, y los colores de estado van con texto o icono.
