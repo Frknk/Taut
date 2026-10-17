@@ -1,6 +1,6 @@
 [package]
 name = "taut-net"
-description = "Outbound HTTP for taut services: a client that refuses internal addresses"
+description = "Outbound HTTP for Taut services: a client that refuses internal addresses"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

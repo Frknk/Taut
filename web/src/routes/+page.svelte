@@ -51,7 +51,7 @@
 </script>
 
 <svelte:head>
-  <title>Organizaciones · taut</title>
+  <title>Organizaciones · Taut</title>
 </svelte:head>
 
 {#if !loaded}
@@ -63,7 +63,7 @@
     <section class="w-full max-w-md space-y-6 rounded-xl bg-base p-8 ring ring-hairline">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <Logo class="w-10 text-strong" label="taut" />
+          <Logo class="w-10 text-strong" label="Taut" />
           <h1 class="mt-6 text-2xl font-semibold text-strong">Tus organizaciones</h1>
           <p class="mt-1 text-subtle">Hola, {session.user?.name}. Elige dónde entrar.</p>
         </div>

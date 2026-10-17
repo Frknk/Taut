@@ -176,7 +176,7 @@
 </script>
 
 <svelte:head>
-  <title>Seguridad · taut</title>
+  <title>Seguridad · Taut</title>
 </svelte:head>
 
 {#if error}<Banner tone="danger">{error}</Banner>{/if}

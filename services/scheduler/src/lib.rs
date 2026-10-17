@@ -1,4 +1,4 @@
-//! taut scheduler: asks for every active monitor's check at its interval.
+//! Taut scheduler: asks for every active monitor's check at its interval.
 //!
 //! The leader (see [`leader`]) loads the active monitors, keeps a [`schedule::Schedule`] and
 //! every second publishes `checks.requested` for the monitors that are due. It reacts to

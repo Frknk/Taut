@@ -1,4 +1,4 @@
-//! Domain types shared by taut services.
+//! Domain types shared by Taut services.
 //!
 //! Everything here is plain data with no I/O: what a monitor is, the states it can be in, the
 //! events services exchange and the rules that more than one service must apply the same way. Enums are stored as `text`
@@ -23,7 +23,7 @@ pub enum MonitorKind {
     Keyword,
     /// TCP connection to `host:port`.
     Tcp,
-    /// Inbound: the monitored job pings taut, and silence is the failure.
+    /// Inbound: the monitored job pings Taut, and silence is the failure.
     Heartbeat,
 }
 

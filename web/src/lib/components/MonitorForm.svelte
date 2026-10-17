@@ -108,7 +108,7 @@
     </div>
   {:else}
     <Banner>
-      Un heartbeat no tiene destino: tu tarea programada llama a una URL secreta de taut. Si no
+      Un heartbeat no tiene destino: tu tarea programada llama a una URL secreta de Taut. Si no
       llama a tiempo, se abre un incidente.
     </Banner>
   {/if}

@@ -1,6 +1,6 @@
 [package]
 name = "taut-auth"
-description = "taut auth service: users, passwords, sessions and the keys the other services trust"
+description = "Taut auth service: users, passwords, sessions and the keys the other services trust"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

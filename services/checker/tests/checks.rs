@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 async fn echo_server() -> SocketAddr {
     let app = Router::new()
-        .route("/ok", get(|| async { "Welcome to taut" }))
+        .route("/ok", get(|| async { "Welcome to Taut" }))
         .route(
             "/status/{code}",
             get(|Path(code): Path<u16>| async move {

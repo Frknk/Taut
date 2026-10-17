@@ -30,7 +30,7 @@ pub fn incident(event: &IncidentChanged, panel_url: &str) -> Rendered {
     let started = format_time(event.started_at);
     match event.resolved_at {
         None => Rendered {
-            subject: format!("[taut] Caído: {name}"),
+            subject: format!("[Taut] Caído: {name}"),
             text: format!(
                 "El monitor «{name}» está caído desde el {started}.\n\n\
                  Causa: {cause}\n\n\
@@ -41,14 +41,14 @@ pub fn incident(event: &IncidentChanged, panel_url: &str) -> Rendered {
                 "content": format!("🔴 **{name}** está caído: {}\n{link}", event.cause)
             }),
             slack: json!({
-                "text": format!("🔴 *{name}* está caído: {}\n<{link}|Ver en taut>", event.cause)
+                "text": format!("🔴 *{name}* está caído: {}\n<{link}|Ver en Taut>", event.cause)
             }),
             webhook: webhook_body("incident.opened", event, &link),
         },
         Some(resolved_at) => {
             let duration = format_duration((resolved_at - event.started_at).num_seconds());
             Rendered {
-                subject: format!("[taut] Recuperado: {name}"),
+                subject: format!("[Taut] Recuperado: {name}"),
                 text: format!(
                     "El monitor «{name}» se recuperó el {resolved} después de {duration} caído.\n\n\
                      Causa original: {cause}\n\n\
@@ -60,7 +60,7 @@ pub fn incident(event: &IncidentChanged, panel_url: &str) -> Rendered {
                     "content": format!("🟢 **{name}** se recuperó tras {duration}.\n{link}")
                 }),
                 slack: json!({
-                    "text": format!("🟢 *{name}* se recuperó tras {duration}.\n<{link}|Ver en taut>")
+                    "text": format!("🟢 *{name}* se recuperó tras {duration}.\n<{link}|Ver en Taut>")
                 }),
                 webhook: webhook_body("incident.resolved", event, &link),
             }
@@ -71,10 +71,10 @@ pub fn incident(event: &IncidentChanged, panel_url: &str) -> Rendered {
 /// Renders the message of the "send test" button.
 pub fn test_message(channel_name: &str) -> Rendered {
     let text = format!(
-        "Mensaje de prueba del canal «{channel_name}» de taut. Si lo ves, las alertas llegarán aquí."
+        "Mensaje de prueba del canal «{channel_name}» de Taut. Si lo ves, las alertas llegarán aquí."
     );
     Rendered {
-        subject: "[taut] Prueba de alertas".to_owned(),
+        subject: "[Taut] Prueba de alertas".to_owned(),
         text: format!("{text}\n"),
         discord: json!({ "content": format!("🔔 {text}") }),
         slack: json!({ "text": format!("🔔 {text}") }),
@@ -92,7 +92,7 @@ pub fn account_email(email: &AccountEmail) -> Rendered {
             expires_at,
             ..
         } => (
-            "[taut] Confirma tu correo".to_owned(),
+            "[Taut] Confirma tu correo".to_owned(),
             format!(
                 "Hola, {name}.\n\n\
                  Confirma tu dirección de correo para entrar a taut:\n\n{link}\n\n\
@@ -106,10 +106,10 @@ pub fn account_email(email: &AccountEmail) -> Rendered {
             expires_at,
             ..
         } => (
-            "[taut] Restablece tu contraseña".to_owned(),
+            "[Taut] Restablece tu contraseña".to_owned(),
             format!(
                 "Hola, {name}.\n\n\
-                 Alguien pidió restablecer la contraseña de tu cuenta de taut. Si fuiste tú, \
+                 Alguien pidió restablecer la contraseña de tu cuenta de Taut. Si fuiste tú, \
                  elige una nueva aquí:\n\n{link}\n\n\
                  El enlace vale hasta el {}. Si no lo pediste, tu contraseña sigue igual.\n",
                 format_time(*expires_at)
@@ -121,10 +121,10 @@ pub fn account_email(email: &AccountEmail) -> Rendered {
             reset_link,
             ..
         } => (
-            "[taut] Ya tienes una cuenta".to_owned(),
+            "[Taut] Ya tienes una cuenta".to_owned(),
             format!(
                 "Hola, {name}.\n\n\
-                 Alguien intentó registrarse en taut con tu dirección, pero ya tienes una cuenta.\n\n\
+                 Alguien intentó registrarse en Taut con tu dirección, pero ya tienes una cuenta.\n\n\
                  Entra aquí: {login_link}\n\
                  ¿Olvidaste la contraseña? {reset_link}\n\n\
                  Si no fuiste tú, no hace falta que hagas nada.\n"
@@ -138,9 +138,9 @@ pub fn account_email(email: &AccountEmail) -> Rendered {
             expires_at,
             ..
         } => (
-            format!("[taut] Te invitaron a {tenant_name}"),
+            format!("[Taut] Te invitaron a {tenant_name}"),
             format!(
-                "{invited_by} te invitó a «{tenant_name}» en taut como {}.\n\n\
+                "{invited_by} te invitó a «{tenant_name}» en Taut como {}.\n\n\
                  Acepta la invitación aquí:\n\n{link}\n\n\
                  La invitación vale hasta el {}.\n",
                 role_label(role),
@@ -232,7 +232,7 @@ mod tests {
     #[test]
     fn opened_alert_names_monitor_cause_and_link() {
         let rendered = incident(&event(None), "http://panel.test/");
-        assert_eq!(rendered.subject, "[taut] Caído: API");
+        assert_eq!(rendered.subject, "[Taut] Caído: API");
         assert!(rendered.text.contains("Causa: status 503 (expected 2xx)"));
         assert!(
             rendered
@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn resolved_alert_says_how_long_it_was_down() {
         let rendered = incident(&event(Some(200)), "http://panel.test");
-        assert_eq!(rendered.subject, "[taut] Recuperado: API");
+        assert_eq!(rendered.subject, "[Taut] Recuperado: API");
         assert!(rendered.text.contains("después de 3 min 20 s caído"));
         assert!(
             rendered.slack["text"]
@@ -274,7 +274,7 @@ mod tests {
             link: "http://panel.test/verify-email?token=abc".to_owned(),
             expires_at,
         });
-        assert_eq!(verification.subject, "[taut] Confirma tu correo");
+        assert_eq!(verification.subject, "[Taut] Confirma tu correo");
         assert!(verification.text.contains("Hola, Ana."));
         assert!(
             verification
@@ -290,7 +290,7 @@ mod tests {
             link: "http://panel.test/reset-password?token=xyz".to_owned(),
             expires_at,
         });
-        assert_eq!(reset.subject, "[taut] Restablece tu contraseña");
+        assert_eq!(reset.subject, "[Taut] Restablece tu contraseña");
         assert!(reset.text.contains("token=xyz"));
 
         let notice = account_email(&AccountEmail::AlreadyRegistered {
@@ -300,7 +300,7 @@ mod tests {
             login_link: "http://panel.test/login".to_owned(),
             reset_link: "http://panel.test/forgot-password".to_owned(),
         });
-        assert_eq!(notice.subject, "[taut] Ya tienes una cuenta");
+        assert_eq!(notice.subject, "[Taut] Ya tienes una cuenta");
         assert!(notice.text.contains("http://panel.test/forgot-password"));
 
         let invite = account_email(&AccountEmail::MemberInvited {
@@ -313,7 +313,7 @@ mod tests {
             link: "http://panel.test/invite/abc".to_owned(),
             expires_at,
         });
-        assert_eq!(invite.subject, "[taut] Te invitaron a Acme");
+        assert_eq!(invite.subject, "[Taut] Te invitaron a Acme");
         assert!(invite.text.contains("como propietario"));
     }
 

@@ -41,7 +41,7 @@
 </script>
 
 <svelte:head>
-  <title>Perfil · taut</title>
+  <title>Perfil · Taut</title>
 </svelte:head>
 
 <LayerCard title="Cuenta">

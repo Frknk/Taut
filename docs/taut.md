@@ -1,13 +1,13 @@
-# taut — Documento base del proyecto
+# Taut — Documento base del proyecto
 
 > Origen: el documento de Drive "Uptime — Documento base del proyecto" (14 de octubre de 2026,
 > Frank Rivera), traído al repositorio el 15 de octubre de 2026 con el proyecto ya renombrado a
-> **taut**. Las decisiones tomadas desde entonces viven en los [ADRs](adr/README.md); donde
+> **Taut**. Las decisiones tomadas desde entonces viven en los [ADRs](adr/README.md); donde
 > cambian lo que decía el documento original hay una nota en cursiva.
 
 ## Visión y alcance
 
-taut es un servicio SaaS multi-tenant que vigila la disponibilidad de sitios, APIs y servidores, y
+Taut es un servicio SaaS multi-tenant que vigila la disponibilidad de sitios, APIs y servidores, y
 avisa cuando algo cae. Cumple el producto obligatorio del curso (aplicación desplegada en la nube) y
 sirve de hilo conductor para las 4 unidades del sílabo IS04E104.
 
@@ -386,7 +386,7 @@ porque las unidades 3 y 4 solo agregan capas sobre él.
 
 ```mermaid
 timeline
-  title Roadmap de taut (4 fases de 4 semanas, 4 compuertas)
+  title Roadmap de Taut (4 fases de 4 semanas, 4 compuertas)
   section Fase 1 · Unidad 1 (sem. 1–4)
     Sem. 1–2 : API mínima en Docker : PostgreSQL : GET /health en un PaaS
     Sem. 3–4 : CRUD de monitores y tenants : Compuerta Parcial 1

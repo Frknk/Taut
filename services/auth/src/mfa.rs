@@ -25,7 +25,7 @@ use uuid::Uuid;
 use crate::redis_error;
 
 /// `issuer` of the otpauth URI: what the authenticator app shows above the code.
-pub const ISSUER: &str = "taut";
+pub const ISSUER: &str = "Taut";
 /// Backup codes handed out per enrollment.
 pub const BACKUP_CODE_COUNT: usize = 8;
 /// Seconds an enrollment waits for its confirmation code.
@@ -385,14 +385,14 @@ mod tests {
         let totp = totp(secret.as_bytes(), "ana@example.com").unwrap();
         let uri = totp.to_url().unwrap();
         assert!(
-            uri.starts_with("otpauth://totp/taut:ana%40example.com?"),
+            uri.starts_with("otpauth://totp/Taut:ana%40example.com?"),
             "{uri}"
         );
         assert!(
             uri.contains(&format!("secret={}", secret.to_base32())),
             "{uri}"
         );
-        assert!(uri.contains("issuer=taut"), "{uri}");
+        assert!(uri.contains("issuer=Taut"), "{uri}");
         let now = now_secs();
         let code = totp.generate(now).to_string();
         assert_eq!(totp.check(&code, now), Some(now / 30));

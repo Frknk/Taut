@@ -1,4 +1,4 @@
-//! taut status BFF: the public status page of each tenant (F-46, F-47).
+//! Taut status BFF: the public status page of each tenant (F-46, F-47).
 //!
 //! `GET /s/{slug}` answers, without a session, the JSON the SPA paints at `/status/{slug}`:
 //! the overall state, every monitor with its current status and 90 daily uptime bars, and

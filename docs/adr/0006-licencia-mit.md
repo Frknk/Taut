@@ -9,13 +9,13 @@ El repositorio nació privado y sin licencia; la fundación dejó la decisión p
 equipo. Es un proyecto de curso que con alta probabilidad se hará público como portafolio y para
 que el docente lo revise sin invitaciones. Todas las dependencias del workspace y de `web/` son
 permisivas (MIT, Apache-2.0, BSD, ISC, MPL-2.0, Zlib, CC0, CDLA-Permissive-2.0), así que ninguna
-condiciona la elección. Como taut es un SaaS, una licencia copyleft de red (AGPL) habría sido la
+condiciona la elección. Como Taut es un SaaS, una licencia copyleft de red (AGPL) habría sido la
 forma de impedir que alguien lo opere como servicio sin devolver sus cambios.
 
 ## Decisión
 
 Licenciar todo el repositorio bajo **MIT**, con el aviso
-`Copyright (c) 2026 Frank Rivera and taut contributors` (en inglés, como el texto de la licencia).
+`Copyright (c) 2026 Frank Rivera and Taut contributors` (en inglés, como el texto de la licencia).
 
 Aplicación:
 
@@ -32,7 +32,7 @@ Aplicación:
 - **Apache-2.0:** añade licencia explícita de patentes y términos de contribución; más formal y
   algo menos común en proyectos pequeños. Mientras haya un único titular, migrar de MIT a
   Apache-2.0 es trivial si el proyecto crece, así que no hace falta pagarlo hoy.
-- **AGPL-3.0:** protege frente a servicios cerrados construidos sobre taut, pero frena la adopción
+- **AGPL-3.0:** protege frente a servicios cerrados construidos sobre Taut, pero frena la adopción
   (muchas organizaciones la evitan) y no es el objetivo del curso; la referencia de producto
   (Uptime Kuma) usa MIT.
 - **Sin licencia:** mientras el repo es privado no cambia nada, pero al hacerlo público nadie
@@ -41,10 +41,10 @@ Aplicación:
 
 ## Consecuencias
 
-- Cualquiera puede usar, modificar y redistribuir taut conservando el aviso; también operarlo como
+- Cualquiera puede usar, modificar y redistribuir Taut conservando el aviso; también operarlo como
   servicio sin publicar cambios. Se asume: el valor del proyecto está en el aprendizaje y el
   portafolio, no en la exclusividad.
-- Si el equipo crece, los nuevos autores quedan cubiertos por "taut contributors"; no hace falta
+- Si el equipo crece, los nuevos autores quedan cubiertos por "Taut contributors"; no hace falta
   tocar el aviso.
 - Hacer público el repositorio ya no depende de la licencia; sí de la decisión del equipo.
 - Si en el futuro se quisiera cambiar a Apache-2.0 o AGPL, haría falta el acuerdo de todos los

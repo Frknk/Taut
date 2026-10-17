@@ -1,6 +1,6 @@
 [package]
 name = "taut-checker"
-description = "taut checker workers: run HTTP, keyword and TCP checks requested on the bus"
+description = "Taut checker workers: run HTTP, keyword and TCP checks requested on the bus"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -2,7 +2,7 @@
   import type { ClassValue } from 'svelte/elements';
 
   /**
-   * The taut mark alone, in one ink (`currentColor`). The rounded ground only exists in the
+   * The Taut mark alone, in one ink (`currentColor`). The rounded ground only exists in the
    * favicon. Without `label` the mark is decorative and the surrounding link must name it.
    */
   let { class: className = 'w-6', label }: { class?: ClassValue; label?: string } = $props();

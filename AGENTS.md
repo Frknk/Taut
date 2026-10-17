@@ -1,6 +1,6 @@
 # AGENTS.md: instrucciones para agentes de IA
 
-taut es un SaaS multi-tenant de monitoreo de disponibilidad (proyecto del curso IS04E104). Backend
+Taut es un SaaS multi-tenant de monitoreo de disponibilidad (proyecto del curso IS04E104). Backend
 100 % Rust en un Cargo workspace, frontend SvelteKit como SPA estática, PostgreSQL 17 con
 TimescaleDB, Redis y NATS JetStream. El diseño está en [docs/taut.md](docs/taut.md) y las decisiones
 en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitectura.
@@ -90,7 +90,7 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
 - **Lints**: el workspace activa `clippy::pedantic` y `missing_docs`; documenta todo lo público y
   no silencies lints sin un comentario que diga por qué.
 - **Estilos** en `web/` ([ADR 0007](docs/adr/0007-design-system-taut-ui.md)): solo clases de rol
-  del design system [taut UI](https://claude.ai/artifact/7E7UVV55bKyja5QwUtukoL) (`bg-canvas`,
+  del design system [Taut UI](https://claude.ai/artifact/7E7UVV55bKyja5QwUtukoL) (`bg-canvas`,
   `bg-base`, `text-subtle`, `ring-line`, `bg-brand`…), declaradas en `src/routes/layout.css`.
   Nunca colores primitivos (`bg-neutral-50`, `text-red-700`) ni la variante `dark:`. Reusa los
   componentes de `src/lib/components/` (Button, Badge, Banner, LayerCard, Tabs, Select, Dialog,

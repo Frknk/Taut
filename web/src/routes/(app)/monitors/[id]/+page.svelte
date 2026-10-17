@@ -87,7 +87,7 @@
 </script>
 
 <svelte:head>
-  <title>{monitor?.name ?? 'Monitor'} · taut</title>
+  <title>{monitor?.name ?? 'Monitor'} · Taut</title>
 </svelte:head>
 
 <a href={resolve('/(app)/monitors')} class={backLink}>

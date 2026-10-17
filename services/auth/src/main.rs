@@ -1,4 +1,4 @@
-//! Entry point of the taut auth service.
+//! Entry point of the Taut auth service.
 
 use std::sync::Arc;
 

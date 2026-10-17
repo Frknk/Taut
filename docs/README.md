@@ -1,4 +1,4 @@
-# Documentación de taut
+# Documentación de Taut
 
 - [Documento base del proyecto](taut.md): visión, mapa del sílabo, arquitectura, modelo de datos,
   stack, infraestructura, seguridad, observabilidad, roadmap y riesgos.

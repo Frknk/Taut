@@ -111,7 +111,7 @@
 </script>
 
 <svelte:head>
-  <title>Canales · taut</title>
+  <title>Canales · Taut</title>
 </svelte:head>
 
 <h1 class="text-2xl font-semibold text-strong">Canales de alerta</h1>

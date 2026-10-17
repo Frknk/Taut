@@ -262,7 +262,7 @@ async fn email_alerts_reach_the_smtp_server(pool: PgPool) {
     })
     .await
     .expect("email delivered to mailpit");
-    assert_eq!(found["messages"][0]["Subject"], "[taut] Recuperado: API");
+    assert_eq!(found["messages"][0]["Subject"], "[Taut] Recuperado: API");
 }
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]

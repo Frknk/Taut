@@ -1,4 +1,4 @@
-//! Entry point of the taut incident service.
+//! Entry point of the Taut incident service.
 
 use std::sync::Arc;
 

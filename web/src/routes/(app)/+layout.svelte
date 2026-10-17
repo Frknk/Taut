@@ -95,7 +95,7 @@
       <a
         href={resolve('/(app)/monitors')}
         class={['rounded-sm text-strong', focusRing]}
-        aria-label="taut, inicio"
+        aria-label="Taut, inicio"
       >
         <Logo class="w-5" />
       </a>

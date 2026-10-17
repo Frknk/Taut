@@ -1,6 +1,6 @@
 [package]
 name = "taut-status-bff"
-description = "taut status BFF: the public status page of each tenant as JSON"
+description = "Taut status BFF: the public status page of each tenant as JSON"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

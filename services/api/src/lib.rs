@@ -1,4 +1,4 @@
-//! taut API: the control plane (tenants, monitors, alert channels).
+//! Taut API: the control plane (tenants, monitors, alert channels).
 //!
 //! The router is built by [`app`] so integration tests can drive it in-process, without
 //! opening a socket. `main.rs` only wires configuration, telemetry, the database and the

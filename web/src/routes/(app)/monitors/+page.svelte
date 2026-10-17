@@ -55,7 +55,7 @@
 </script>
 
 <svelte:head>
-  <title>Monitores · taut</title>
+  <title>Monitores · Taut</title>
 </svelte:head>
 
 <div class="flex flex-wrap items-end justify-between gap-4">

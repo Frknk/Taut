@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * taut UI tokens (design system: https://claude.ai/artifact/7E7UVV55bKyja5QwUtukoL). Each token
+ * Taut UI tokens (design system: https://claude.ai/artifact/7E7UVV55bKyja5QwUtukoL). Each token
  * holds its light and dark value through light-dark(): the page follows the OS setting, and
  * data-theme="light" or data-theme="dark" on <html> forces one. Components use the role classes
  * published below (bg-canvas, text-subtle, ring-line…), never primitive colors or dark: variants.

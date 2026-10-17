@@ -5,7 +5,7 @@
 
 ## Contexto
 
-El panel de taut es pequeño: monitores, incidentes, canales de alerta y configuración del tenant,
+El panel de Taut es pequeño: monitores, incidentes, canales de alerta y configuración del tenant,
 siempre detrás de login. El [documento base](../taut.md) proponía SvelteKit + TypeScript + Tailwind
 "compilado a estático para servir desde CDN" y dejaba Next.js como alternativa. La página de estado
 pública la sirve el Status BFF (respuesta cacheada en Redis), no el panel.

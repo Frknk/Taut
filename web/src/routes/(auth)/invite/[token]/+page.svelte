@@ -66,7 +66,7 @@
 </script>
 
 <svelte:head>
-  <title>Invitación · taut</title>
+  <title>Invitación · Taut</title>
 </svelte:head>
 
 {#if loadError}

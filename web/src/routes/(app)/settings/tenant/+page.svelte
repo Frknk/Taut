@@ -107,7 +107,7 @@
 </script>
 
 <svelte:head>
-  <title>Ajustes de la organización · taut</title>
+  <title>Ajustes de la organización · Taut</title>
 </svelte:head>
 
 {#if error}<Banner tone="danger">{error}</Banner>{/if}

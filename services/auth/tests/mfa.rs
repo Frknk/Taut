@@ -31,8 +31,8 @@ impl Authenticator {
     fn from(enrollment: &Value) -> Self {
         let secret = Secret::try_from_base32(enrollment["secret"].as_str().unwrap()).unwrap();
         let uri = enrollment["otpauth_uri"].as_str().unwrap();
-        assert!(uri.starts_with("otpauth://totp/taut:"), "{enrollment}");
-        assert!(uri.contains("issuer=taut"), "{enrollment}");
+        assert!(uri.starts_with("otpauth://totp/Taut:"), "{enrollment}");
+        assert!(uri.contains("issuer=Taut"), "{enrollment}");
         let totp = Builder::new()
             .with_secret(secret.as_bytes().to_vec())
             .build()

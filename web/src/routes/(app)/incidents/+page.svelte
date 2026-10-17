@@ -42,7 +42,7 @@
 </script>
 
 <svelte:head>
-  <title>Incidentes · taut</title>
+  <title>Incidentes · Taut</title>
 </svelte:head>
 
 <div class="flex flex-wrap items-end justify-between gap-4">

@@ -1,4 +1,4 @@
-//! taut incident service: the consumer of `checks.completed`.
+//! Taut incident service: the consumer of `checks.completed`.
 //!
 //! Every result is stored in the `check_results` hypertable (keyed by monitor, instant and
 //! region, so a redelivered event is a no-op) and applied to the monitor's state machine

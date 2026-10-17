@@ -1,4 +1,4 @@
-//! Configuration for taut services.
+//! Configuration for Taut services.
 //!
 //! Every service builds a [`Settings`] value once at startup with [`Settings::load`].
 //! Values come from environment variables with the `TAUT_` prefix, using `__` to nest
@@ -121,7 +121,7 @@ pub struct TelemetrySettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChecksSettings {
     /// Allow monitors that target loopback, private or link-local addresses. Off by default
-    /// so a tenant cannot use taut to probe the cluster's internal network; `.env.example`
+    /// so a tenant cannot use Taut to probe the cluster's internal network; `.env.example`
     /// turns it on so local development can monitor services on the same machine.
     pub allow_private_targets: bool,
     /// Region label of this checker, stored with every result (`local` in development).
@@ -272,7 +272,7 @@ impl Default for Settings {
             },
             notifier: NotifierSettings {
                 smtp_url: "smtp://localhost:1025".to_owned(),
-                email_from: "taut <alertas@taut.localhost>".to_owned(),
+                email_from: "Taut <alertas@taut.localhost>".to_owned(),
             },
             auth: AuthSettings {
                 url: "http://localhost:8086".to_owned(),

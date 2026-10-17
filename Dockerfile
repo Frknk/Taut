@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Imagen de cualquier servicio de taut; SERVICE elige el binario (api, scheduler, checker,
+# Imagen de cualquier servicio de Taut; SERVICE elige el binario (api, scheduler, checker,
 # incidents, ...). El contexto de build es la raíz del repositorio:
 #   docker build --build-arg SERVICE=checker --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t taut-checker:dev .
 # Tres etapas: cargo-chef cachea la compilación de dependencias, builder compila el

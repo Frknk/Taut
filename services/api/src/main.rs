@@ -1,4 +1,4 @@
-//! Entry point of the taut API service.
+//! Entry point of the Taut API service.
 
 use std::sync::Arc;
 use std::time::Duration;

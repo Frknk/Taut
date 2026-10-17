@@ -1,4 +1,4 @@
-//! NATS JetStream for taut services.
+//! NATS JetStream for Taut services.
 //!
 //! [`Bus::connect`] opens the connection and makes sure the four streams exist: `CHECKS`
 //! (`checks.>`), `INCIDENTS` (`incidents.>` and `notifications.>`), `MONITORS`

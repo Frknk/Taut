@@ -1,4 +1,4 @@
-//! taut notifier: turns incident events into alerts.
+//! Taut notifier: turns incident events into alerts.
 //!
 //! It consumes `incidents.opened` and `incidents.resolved` and sends one message per active
 //! channel of the tenant (F-40 email, F-41 webhooks for Discord, Slack or any endpoint).

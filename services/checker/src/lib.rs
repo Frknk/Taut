@@ -1,4 +1,4 @@
-//! taut checker: runs the checks the scheduler requests and publishes their results.
+//! Taut checker: runs the checks the scheduler requests and publishes their results.
 //!
 //! Workers share the durable consumer `checker` on `checks.requested`, so adding replicas
 //! (or regions, in prototype 2) spreads the work. A worker never touches the database:

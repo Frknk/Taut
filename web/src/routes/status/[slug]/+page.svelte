@@ -181,7 +181,7 @@
 
       <footer class="mt-12 flex flex-col items-center gap-3 text-xs text-subtle">
         <Logo class="w-5 text-strong" />
-        <p>Actualizado {formatDateTime(status.generated_at)} · con taut</p>
+        <p>Actualizado {formatDateTime(status.generated_at)} · con Taut</p>
       </footer>
     {/if}
   </div>

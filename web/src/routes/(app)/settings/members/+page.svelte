@@ -139,7 +139,7 @@
 </script>
 
 <svelte:head>
-  <title>Miembros · taut</title>
+  <title>Miembros · Taut</title>
 </svelte:head>
 
 {#if error}<Banner tone="danger">{error}</Banner>{/if}

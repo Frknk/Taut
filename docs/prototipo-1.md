@@ -58,7 +58,7 @@ Valores derivados (fórmulas propias a partir de los anteriores; la hoja los ref
 - Carga por tenant en el plan free: 10 monitores × 1 región × 1 440 chequeos/día =
   **14 400 filas/día** en `check_results`; con retención de 90 días, 1,3 M filas por tenant.
 
-## Mapa feature → taut
+## Mapa feature → Taut
 
 Columnas: dónde vive (servicio o crate), qué datos toca, qué API o pantalla expone, en qué semana
 del roadmap entra y cómo se da por hecha. Los servicios son los del [documento base](taut.md):
@@ -349,7 +349,7 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
 - Invitaciones por correo: `POST /v1/invitations {email, role}` (solo owners, como mucho 20
   pendientes por tenant) guarda el SHA-256 de un secreto de 256 bits en `invitations` y publica
   `tenants.member_invited` con el enlace `{TAUT_APP__PANEL_URL}/invite/{token}`, que el notifier
-  envía («[taut] Te invitaron a …»). El enlace vale 7 días; invitar otra vez al mismo correo
+  envía («[Taut] Te invitaron a …»). El enlace vale 7 días; invitar otra vez al mismo correo
   reemplaza la invitación pendiente (solo el último enlace funciona) y `DELETE
   /v1/invitations/{id}` la revoca. Invitar a quien ya es miembro responde `409`.
 - `GET /v1/invitations/{token}` no pide sesión (el secreto es el enlace) y devuelve solo el

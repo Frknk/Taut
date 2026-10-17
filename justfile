@@ -29,7 +29,7 @@ setup:
 up:
     docker compose up -d --wait
 
-# Levanta también los servicios de taut (construye las imágenes)
+# Levanta también los servicios de Taut (construye las imágenes)
 up-all:
     GIT_SHA=$(git rev-parse --short HEAD) docker compose --profile app up -d --build --wait
 

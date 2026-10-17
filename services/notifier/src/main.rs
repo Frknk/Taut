@@ -1,4 +1,4 @@
-//! Entry point of the taut notifier.
+//! Entry point of the Taut notifier.
 
 use std::sync::Arc;
 

@@ -130,7 +130,7 @@
 </script>
 
 <svelte:head>
-  <title>API keys · taut</title>
+  <title>API keys · Taut</title>
 </svelte:head>
 
 {#if !selectedTenant.isOwner}

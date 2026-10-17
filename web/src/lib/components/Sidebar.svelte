@@ -132,7 +132,7 @@
     <a
       href={resolve('/(app)/monitors')}
       class={['flex h-[26px] items-center rounded-sm px-1.5 text-strong', focusRing]}
-      aria-label="taut, inicio"
+      aria-label="Taut, inicio"
     >
       <Logo class="w-6" />
     </a>

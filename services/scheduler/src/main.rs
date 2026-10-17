@@ -1,4 +1,4 @@
-//! Entry point of the taut scheduler.
+//! Entry point of the Taut scheduler.
 
 use std::sync::Arc;
 

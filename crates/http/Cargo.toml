@@ -1,6 +1,6 @@
 [package]
 name = "taut-http"
-description = "Axum building blocks shared by taut services: errors, health, metrics, middleware"
+description = "Axum building blocks shared by Taut services: errors, health, metrics, middleware"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

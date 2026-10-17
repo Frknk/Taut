@@ -1,6 +1,6 @@
 [package]
 name = "taut-bus"
-description = "NATS JetStream for taut services: streams, publishing with trace ids, consumers"
+description = "NATS JetStream for Taut services: streams, publishing with trace ids, consumers"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

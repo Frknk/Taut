@@ -20,7 +20,7 @@ pub enum TokenKind {
     Mfa,
 }
 
-/// Claims of a taut token. Times are Unix seconds, as the JWT spec says.
+/// Claims of a Taut token. Times are Unix seconds, as the JWT spec says.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Claims {
     /// Issuer, the auth service.

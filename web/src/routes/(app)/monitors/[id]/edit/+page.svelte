@@ -40,7 +40,7 @@
 </script>
 
 <svelte:head>
-  <title>Editar monitor · taut</title>
+  <title>Editar monitor · Taut</title>
 </svelte:head>
 
 <a href={resolve('/(app)/monitors/[id]', { id })} class={backLink}>

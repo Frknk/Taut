@@ -1,4 +1,4 @@
-# Herramientas de desarrollo de taut. Instalar con `brew bundle` (o `just setup`).
+# Herramientas de desarrollo de Taut. Instalar con `brew bundle` (o `just setup`).
 # Rust viene de rustup (rust-toolchain.toml fija la versión); bun y Docker/OrbStack van aparte.
 brew "just"
 brew "lefthook"

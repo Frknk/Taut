@@ -1,4 +1,4 @@
-//! HTTP building blocks shared by every taut service.
+//! HTTP building blocks shared by every Taut service.
 //!
 //! A service composes its router from these pieces:
 //!

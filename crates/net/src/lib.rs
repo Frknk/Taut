@@ -1,8 +1,8 @@
-//! Outbound HTTP for taut services.
+//! Outbound HTTP for Taut services.
 //!
-//! Every request taut makes on behalf of a tenant (checks, webhooks) goes through
+//! Every request Taut makes on behalf of a tenant (checks, webhooks) goes through
 //! [`guarded_client`]: its resolver drops internal addresses and its redirect policy refuses
-//! hops to them, so a tenant cannot point taut at the cluster's own network. TLS uses rustls
+//! hops to them, so a tenant cannot point Taut at the cluster's own network. TLS uses rustls
 //! with `ring`, the provider sqlx also uses.
 
 pub mod resolver;

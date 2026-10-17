@@ -1,4 +1,4 @@
-//! Entry point of the taut status BFF.
+//! Entry point of the Taut status BFF.
 
 use taut_config::Settings;
 use taut_status_bff::SERVICE_NAME;

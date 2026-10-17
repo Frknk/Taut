@@ -1,4 +1,4 @@
-// Class recipes of the taut UI components, shared by the Svelte components and plain markup.
+// Class recipes of the Taut UI components, shared by the Svelte components and plain markup.
 
 export type ButtonVariant =
   | 'primary'

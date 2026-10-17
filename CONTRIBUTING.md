@@ -1,4 +1,4 @@
-# Cómo contribuir a taut
+# Cómo contribuir a Taut
 
 ## Flujo de trabajo
 

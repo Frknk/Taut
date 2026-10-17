@@ -19,7 +19,7 @@
 
 <main class="flex min-h-screen items-center justify-center p-6">
   <section class="w-full max-w-md space-y-6 rounded-xl bg-base p-8 ring ring-hairline">
-    <Logo class="w-10 text-strong" label="taut" />
+    <Logo class="w-10 text-strong" label="Taut" />
     {@render children()}
   </section>
 </main>

@@ -1,6 +1,6 @@
 [package]
 name = "taut-db"
-description = "PostgreSQL pool, migrations and health ping for taut services"
+description = "PostgreSQL pool, migrations and health ping for Taut services"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "taut-notifier"
-description = "taut notifier: sends incident alerts by email and webhooks"
+description = "Taut notifier: sends incident alerts by email and webhooks"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

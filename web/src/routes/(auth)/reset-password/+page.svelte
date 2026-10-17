@@ -36,7 +36,7 @@
 </script>
 
 <svelte:head>
-  <title>Nueva contraseña · taut</title>
+  <title>Nueva contraseña · Taut</title>
 </svelte:head>
 
 {#if done}

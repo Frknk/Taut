@@ -93,7 +93,7 @@
 </script>
 
 <svelte:head>
-  <title>Entrar · taut</title>
+  <title>Entrar · Taut</title>
 </svelte:head>
 
 {#if mfaToken}
@@ -146,7 +146,7 @@
   {/if}
   {#if unverified}
     <Banner tone="warning">
-      Confirma tu correo antes de entrar: busca el mensaje de taut en tu bandeja.
+      Confirma tu correo antes de entrar: busca el mensaje de Taut en tu bandeja.
       {#if resent}
         Te enviamos otro enlace.
       {:else}

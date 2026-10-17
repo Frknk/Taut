@@ -1,4 +1,4 @@
-//! Structured logging and metrics for taut services.
+//! Structured logging and metrics for Taut services.
 //!
 //! [`init`] installs, once per process, a `tracing` subscriber and a Prometheus recorder.
 //! In JSON mode every log line is one object with the fields fixed by the project:

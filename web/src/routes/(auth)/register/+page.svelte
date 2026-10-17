@@ -54,7 +54,7 @@
 </script>
 
 <svelte:head>
-  <title>Crear cuenta · taut</title>
+  <title>Crear cuenta · Taut</title>
 </svelte:head>
 
 {#if sent}

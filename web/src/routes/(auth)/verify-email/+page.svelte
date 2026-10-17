@@ -29,7 +29,7 @@
 </script>
 
 <svelte:head>
-  <title>Confirmar correo · taut</title>
+  <title>Confirmar correo · Taut</title>
 </svelte:head>
 
 {#if outcome === 'checking'}

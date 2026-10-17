@@ -1,6 +1,6 @@
 [package]
 name = "taut-incidents"
-description = "taut incident service: records check results and opens and resolves incidents"
+description = "Taut incident service: records check results and opens and resolves incidents"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

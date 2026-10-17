@@ -1,6 +1,6 @@
 [package]
 name = "taut-scheduler"
-description = "taut scheduler: requests every active monitor's check at its interval"
+description = "Taut scheduler: requests every active monitor's check at its interval"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

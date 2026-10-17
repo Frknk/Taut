@@ -1,4 +1,4 @@
-//! Entry point of the taut checker.
+//! Entry point of the Taut checker.
 
 use std::sync::Arc;
 

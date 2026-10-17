@@ -31,7 +31,7 @@
 </script>
 
 <svelte:head>
-  <title>Recuperar contraseña · taut</title>
+  <title>Recuperar contraseña · Taut</title>
 </svelte:head>
 
 <div>

@@ -1,4 +1,4 @@
-/** Body of `GET /health` from a taut service. */
+/** Body of `GET /health` from a Taut service. */
 export interface Health {
   status: string;
   service: string;

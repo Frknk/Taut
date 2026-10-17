@@ -1,6 +1,6 @@
 [package]
 name = "taut-telemetry"
-description = "Structured logging and Prometheus metrics for taut services"
+description = "Structured logging and Prometheus metrics for Taut services"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

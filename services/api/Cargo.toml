@@ -1,6 +1,6 @@
 [package]
 name = "taut-api"
-description = "taut control plane: tenants, monitors and alert channels over HTTP"
+description = "Taut control plane: tenants, monitors and alert channels over HTTP"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

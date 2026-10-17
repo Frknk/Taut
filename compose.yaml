@@ -1,10 +1,10 @@
-# Infraestructura local de taut.
+# Infraestructura local de Taut.
 #   just up      levanta postgres, redis, nats y mailpit
-#   just up-all  además construye y levanta los servicios de taut (perfil "app")
+#   just up-all  además construye y levanta los servicios de Taut (perfil "app")
 #   just nuke    borra también los volúmenes
 name: taut
 
-# Entorno común de los servicios de taut dentro de la red de compose.
+# Entorno común de los servicios de Taut dentro de la red de compose.
 x-taut-env: &taut-env
   TAUT_APP__ENV: dev
   TAUT_HTTP__ADDR: 0.0.0.0:8080

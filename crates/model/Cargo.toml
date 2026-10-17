@@ -1,6 +1,6 @@
 [package]
 name = "taut-model"
-description = "Domain types shared by taut services: monitors, bus events, address rules"
+description = "Domain types shared by Taut services: monitors, bus events, address rules"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

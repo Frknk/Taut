@@ -1,4 +1,4 @@
-//! PostgreSQL access for taut services: connection pool, migrations and health ping.
+//! PostgreSQL access for Taut services: connection pool, migrations and health ping.
 //!
 //! All services share one database in the MVP, so the migrations live at the repository
 //! root (`migrations/`) and are embedded here through [`MIGRATOR`]. Integration tests use

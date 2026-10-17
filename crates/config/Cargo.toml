@@ -1,6 +1,6 @@
 [package]
 name = "taut-config"
-description = "Configuration loading for taut services"
+description = "Configuration loading for Taut services"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

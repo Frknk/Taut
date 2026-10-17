@@ -26,7 +26,7 @@ use crate::{AppState, password, redis_error, users};
 pub(crate) struct Enrollment {
     /// Base32 secret, for apps that cannot scan.
     secret: String,
-    /// `otpauth://totp/taut:{email}?secret=…&issuer=taut`, rendered as a QR by the panel.
+    /// `otpauth://totp/Taut:{email}?secret=…&issuer=Taut`, rendered as a QR by the panel.
     otpauth_uri: String,
 }
 

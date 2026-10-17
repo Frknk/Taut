@@ -1,4 +1,4 @@
-//! taut auth service: who the user is.
+//! Taut auth service: who the user is.
 //!
 //! Registration, email verification, login (with an optional second factor: TOTP and backup
 //! codes), sessions (an access JWT plus a refresh cookie), re-authentication for the

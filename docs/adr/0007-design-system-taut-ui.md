@@ -1,4 +1,4 @@
-# ADR 0007: Design system «taut UI» basado en Kumo
+# ADR 0007: Design system «Taut UI» basado en Kumo
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-10-16
@@ -6,17 +6,17 @@
 ## Contexto
 
 El panel y la página de estado usaban colores primitivos de Tailwind (`neutral-*`, `red-50`,
-`emerald-700`) repartidos por cada página, solo tenían tema claro y el logo era la palabra «taut».
+`emerald-700`) repartidos por cada página, solo tenían tema claro y el logo era la palabra «Taut».
 Cada pantalla nueva reinventaba botones, tarjetas y estados, y el ámbar de «Pausado» competía con
 los colores que de verdad indican una falla.
 
 ## Decisión
 
-- Un design system propio, «taut UI», con referencia en
+- Un design system propio, «Taut UI», con referencia en
   [Kumo](https://kumo-ui.com/) (Cloudflare): tokens semánticos por rol (`canvas`, `base`,
   `elevated`, `text-subtle`…), todo el contenido a 14px, anillos en vez de bordes cuando hay
   sombra, radios concéntricos y hover sin transiciones. Se publica como artifact
-  ([taut UI](https://claude.ai/artifact/7E7UVV55bKyja5QwUtukoL)) con tokens, guías y previews.
+  ([Taut UI](https://claude.ai/artifact/7E7UVV55bKyja5QwUtukoL)) con tokens, guías y previews.
 - Marca monocroma: el color primario es la tinta del logo (`#09090B`, `#FAFAFA` en oscuro). El
   color queda para estados y enlaces. El logo aparece siempre sin fondo y sin texto; el fondo
   redondeado solo existe en el favicon.

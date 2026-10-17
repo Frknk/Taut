@@ -1,4 +1,4 @@
-# taut
+# Taut
 
 Servicio SaaS multi-tenant de monitoreo de disponibilidad: vigila sitios, APIs y servidores,
 abre incidentes cuando algo cae, avisa por correo, Telegram o Discord y publica una página de
@@ -204,6 +204,6 @@ prefijo porque sqlx-cli y las imágenes oficiales usan esos nombres.
 
 ## Licencia
 
-[MIT](LICENSE), © 2026 Frank Rivera y colaboradores de taut
+[MIT](LICENSE), © 2026 Frank Rivera y colaboradores de Taut
 ([ADR 0006](docs/adr/0006-licencia-mit.md)). El repositorio es privado por ahora; la licencia ya
 rige cuando se haga público.
