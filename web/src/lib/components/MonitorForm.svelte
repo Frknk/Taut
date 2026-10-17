@@ -127,11 +127,11 @@
       <label class={label} for="interval">
         {values.type === 'heartbeat' ? 'Frecuencia esperada del ping' : 'Frecuencia'}
       </label>
-      <Select id="interval" bind:value={values.interval_s}>
-        {#each INTERVALS as interval (interval)}
-          <option value={interval}>Cada {formatSeconds(interval)}</option>
-        {/each}
-      </Select>
+      <Select
+        id="interval"
+        bind:value={values.interval_s}
+        items={INTERVALS.map((s) => ({ value: s, label: `Cada ${formatSeconds(s)}` }))}
+      />
       {#if errors.interval_s}<p class={fieldError}>{errors.interval_s}</p>{/if}
     </div>
 

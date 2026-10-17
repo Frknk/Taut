@@ -193,11 +193,11 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
           <label class={label} for="channel-type">Tipo</label>
-          <Select id="channel-type" bind:value={values.type}>
-            {#each kinds as kind (kind)}
-              <option value={kind}>{CHANNEL_LABELS[kind]}</option>
-            {/each}
-          </Select>
+          <Select
+            id="channel-type"
+            bind:value={values.type}
+            items={kinds.map((kind) => ({ value: kind, label: CHANNEL_LABELS[kind] }))}
+          />
         </div>
         <div>
           <label class={label} for="channel-name">Nombre</label>

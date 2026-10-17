@@ -2,7 +2,8 @@
   import { afterNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { onMount, tick, type Snippet } from 'svelte';
+  import { Dialog } from 'bits-ui';
+  import { onMount, type Snippet } from 'svelte';
   import ListIcon from 'phosphor-svelte/lib/ListIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
@@ -32,30 +33,15 @@
     });
   });
 
-  // Below `lg` the sidebar is a drawer over the content, opened from the top bar.
+  // Below `lg` the sidebar is a drawer over the content, opened from the top bar. bits-ui
+  // traps the focus, closes it with Escape or a click outside and gives the focus back.
   let drawerOpen = $state(false);
-  let openButton = $state<HTMLButtonElement>();
-  let closeButton = $state<HTMLButtonElement>();
-
-  async function openDrawer() {
-    drawerOpen = true;
-    await tick();
-    closeButton?.focus();
-  }
-
-  async function closeDrawer() {
-    if (!drawerOpen) return;
-    drawerOpen = false;
-    // The top bar stops being inert after the update.
-    await tick();
-    openButton?.focus();
-  }
 
   afterNavigate(() => {
     drawerOpen = false;
   });
 
-  // Growing past `lg` with the drawer open would leave the content inert.
+  // Past `lg` the drawer is hidden: leaving it open would keep the page scroll locked.
   onMount(() => {
     const wide = window.matchMedia('(min-width: 64rem)');
     const reset = () => {
@@ -64,35 +50,37 @@
     wide.addEventListener('change', reset);
     return () => wide.removeEventListener('change', reset);
   });
-
-  function keyDown(event: KeyboardEvent) {
-    // A menu or dialog inside the sidebar handles its own Escape first.
-    if (event.key !== 'Escape' || event.defaultPrevented || !drawerOpen) return;
-    // Dialogs are portalled to <body>, so they are not inside the sidebar.
-    if (event.target instanceof Element && event.target.closest('[role$="dialog"]')) return;
-    void closeDrawer();
-  }
 </script>
-
-<svelte:window onkeydown={keyDown} />
 
 {#if session.status === 'authenticated' && selectedTenant.current}
   <div class="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
     <header
       class="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-hairline bg-base px-2 lg:hidden"
-      inert={drawerOpen}
     >
-      <button
-        bind:this={openButton}
-        type="button"
-        class={buttonClass('ghost', 'base', true)}
-        aria-label="Abrir navegación"
-        aria-expanded={drawerOpen}
-        aria-controls="sidebar"
-        onclick={() => void openDrawer()}
-      >
-        <ListIcon size={18} aria-hidden="true" />
-      </button>
+      <Dialog.Root bind:open={drawerOpen}>
+        <Dialog.Trigger class={buttonClass('ghost', 'base', true)} aria-label="Abrir navegación">
+          <ListIcon size={18} aria-hidden="true" />
+        </Dialog.Trigger>
+        <Dialog.Portal>
+          <Dialog.Overlay class="fixed inset-0 z-40 bg-scrim lg:hidden" />
+          <Dialog.Content
+            class={[
+              'fixed inset-y-0 left-0 z-40 w-60 border-r border-hairline bg-base shadow-lg lg:hidden',
+              'transition-[translate] duration-200 starting:-translate-x-full focus-visible:outline-none',
+            ]}
+          >
+            <Dialog.Title class="sr-only">Navegación</Dialog.Title>
+            <Sidebar />
+            <!-- After the sidebar: the focus starts on its first link, not on the X. -->
+            <Dialog.Close
+              class={[buttonClass('ghost', 'sm', true), 'absolute top-3 right-3']}
+              aria-label="Cerrar navegación"
+            >
+              <XIcon size={16} aria-hidden="true" />
+            </Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
       <a
         href={resolve('/(app)/monitors')}
         class={['rounded-sm text-strong', focusRing]}
@@ -103,39 +91,14 @@
       <span class="min-w-0 truncate font-medium text-default">{selectedTenant.current.name}</span>
     </header>
 
-    {#if drawerOpen}
-      <!-- Pointer shortcut only: the close button and Escape do the same from the keyboard. -->
-      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-      <div class="fixed inset-0 z-20 bg-scrim lg:hidden" onclick={() => void closeDrawer()}></div>
-    {/if}
-
     <aside
-      id="sidebar"
       aria-label="Navegación"
-      class={[
-        'w-60 border-r border-hairline bg-base',
-        'max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:shadow-lg',
-        // Visibility only animates on close: opening shows the drawer at once, so it can take
-        // the focus in the same frame.
-        drawerOpen
-          ? 'max-lg:translate-x-0 max-lg:transition-[translate] max-lg:duration-200'
-          : 'max-lg:invisible max-lg:-translate-x-full max-lg:transition-[translate,visibility] max-lg:duration-200',
-        'lg:sticky lg:top-0 lg:h-screen',
-      ]}
+      class="sticky top-0 hidden h-screen w-60 border-r border-hairline bg-base lg:block"
     >
-      <button
-        bind:this={closeButton}
-        type="button"
-        class={[buttonClass('ghost', 'sm', true), 'absolute top-3 right-3 lg:hidden']}
-        aria-label="Cerrar navegación"
-        onclick={() => void closeDrawer()}
-      >
-        <XIcon size={16} aria-hidden="true" />
-      </button>
       <Sidebar />
     </aside>
 
-    <main class="mx-auto w-full max-w-5xl px-4 py-8 lg:px-8" inert={drawerOpen}>
+    <main class="mx-auto w-full max-w-5xl px-4 py-8 lg:px-8">
       <!-- A new tenant remounts the page, so it loads that tenant's data. -->
       {#if !selectedTenant.switching}
         {#key selectedTenant.current.id}

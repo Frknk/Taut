@@ -122,12 +122,17 @@ export const table = {
   row: 'even:bg-elevated',
 };
 
-/** Dropdown menu recipe: the floating panel, an item, a group heading and a separator. */
+/**
+ * Floating list recipe, for menus and the options of a select: the panel (at least as wide as
+ * its trigger), an item, a group heading and a separator. bits-ui marks the item under the
+ * keyboard or the pointer with `data-highlighted`.
+ */
 export const menu = {
-  panel: 'absolute z-20 min-w-full rounded-lg bg-base p-1 shadow-lg ring ring-line',
+  panel:
+    'z-50 max-h-(--bits-floating-available-height) min-w-(--bits-floating-anchor-width) overflow-y-auto rounded-lg bg-base p-1 shadow-lg ring ring-line focus-visible:outline-none',
   item: [
-    'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-default',
-    'hover:bg-tint focus-visible:bg-tint focus-visible:outline-none',
+    'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-default outline-none',
+    'data-highlighted:bg-tint data-disabled:cursor-default data-disabled:text-subtle',
   ].join(' '),
   heading: 'px-2 pt-1.5 pb-1 text-xs text-subtle',
   separator: 'my-1 h-px bg-hairline',

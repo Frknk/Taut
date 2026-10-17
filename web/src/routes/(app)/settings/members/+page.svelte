@@ -24,6 +24,7 @@
   const tenantId = $derived(selectedTenant.current?.id ?? '');
   const isOwner = $derived(selectedTenant.isOwner);
   const roles = Object.keys(ROLE_LABELS) as Role[];
+  const roleItems = roles.map((role) => ({ value: role, label: ROLE_LABELS[role] }));
 
   let members = $state<Member[]>([]);
   let invitations = $state<Invitation[]>([]);
@@ -172,12 +173,9 @@
                 id="role-{member.user_id}"
                 inline
                 value={member.role}
+                items={roleItems}
                 onchange={(role) => changeRole(member, role)}
-              >
-                {#each roles as role (role)}
-                  <option value={role}>{ROLE_LABELS[role]}</option>
-                {/each}
-              </Select>
+              />
             {:else}
               <Badge tone={member.role === 'owner' ? 'inverted' : 'outline'}>
                 {ROLE_LABELS[member.role]}
@@ -243,11 +241,7 @@
           </div>
           <div>
             <label class={label} for="invite-role">Rol</label>
-            <Select id="invite-role" bind:value={values.role}>
-              {#each roles as role (role)}
-                <option value={role}>{ROLE_LABELS[role]}</option>
-              {/each}
-            </Select>
+            <Select id="invite-role" bind:value={values.role} items={roleItems} />
             {#if errors.role}<p class={fieldError}>{errors.role}</p>{/if}
           </div>
         </div>
