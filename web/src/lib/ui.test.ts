@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { badgeClass, bannerClass, buttonClass } from './ui';
+import { badgeClass, bannerClass, buttonClass, navItemClass } from './ui';
 
 describe('buttonClass', () => {
   it('defaults to a 36px secondary button', () => {
@@ -25,5 +25,13 @@ describe('tones', () => {
   it('pairs each status text with its tint', () => {
     expect(badgeClass('danger')).toContain('bg-danger-tint text-danger');
     expect(bannerClass('success')).toContain('bg-success-tint text-success');
+  });
+});
+
+describe('navItemClass', () => {
+  it('marks the current page and keeps the focus ring', () => {
+    expect(navItemClass(true)).toContain('bg-tint font-medium');
+    expect(navItemClass(false)).toContain('text-subtle');
+    expect(navItemClass(false)).toContain('focus-visible:outline-focus');
   });
 });

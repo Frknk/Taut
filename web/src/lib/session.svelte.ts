@@ -96,7 +96,7 @@ class Session {
       // The cookie may be gone already; the local state goes anyway.
     }
     this.clear();
-    selectedTenant.clear();
+    selectedTenant.reset();
     void goto(resolve('/(auth)/login'));
   }
 
@@ -123,7 +123,7 @@ configureAuth({
   refresh: () => session.refresh(),
   onSignedOut: () => {
     session.clear();
-    selectedTenant.clear();
+    selectedTenant.reset();
     void goto(resolve('/(auth)/login'));
   },
   onNotMember: () => {

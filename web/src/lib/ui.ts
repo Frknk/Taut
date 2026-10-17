@@ -121,3 +121,22 @@ export const table = {
   td: 'p-3 align-middle',
   row: 'even:bg-elevated',
 };
+
+/** Dropdown menu recipe: the floating panel, an item, a group heading and a separator. */
+export const menu = {
+  panel: 'absolute z-20 min-w-full rounded-lg bg-base p-1 shadow-lg ring ring-line',
+  item: [
+    'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-default',
+    'hover:bg-tint focus-visible:bg-tint focus-visible:outline-none',
+  ].join(' '),
+  heading: 'px-2 pt-1.5 pb-1 text-xs text-subtle',
+  separator: 'my-1 h-px bg-hairline',
+};
+
+/** A link of the sidebar; `bg-tint` and medium weight mark the current page. */
+export function navItemClass(current: boolean): string {
+  const state = current
+    ? 'bg-tint font-medium text-default'
+    : 'text-subtle hover:bg-tint hover:text-default';
+  return `flex h-8 items-center gap-2 rounded-md px-2 text-sm ${focusRing} ${state}`;
+}
