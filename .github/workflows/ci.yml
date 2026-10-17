@@ -26,6 +26,10 @@ jobs:
   changes:
     name: changes (rutas relevantes)
     runs-on: ubuntu-latest
+    # paths-filter lists the PR files through the API, which needs this scope.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       image: ${{ steps.filter.outputs.image }}
     steps:
