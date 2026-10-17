@@ -70,7 +70,7 @@
             ]}
           >
             <Dialog.Title class="sr-only">Navegación</Dialog.Title>
-            <Sidebar />
+            <Sidebar drawer />
             <!-- After the sidebar: the focus starts on its first link, not on the X. -->
             <Dialog.Close
               class={[buttonClass('ghost', 'sm', true), 'absolute top-3 right-3']}

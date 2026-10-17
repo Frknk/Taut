@@ -38,6 +38,13 @@
 
   /** The panel's navigation: tenant switcher, sections, and the user's menu at the bottom. */
 
+  interface Props {
+    /** In the drawer the close button sits over the header's top-right corner: leave room for it. */
+    drawer?: boolean;
+  }
+
+  let { drawer = false }: Props = $props();
+
   const current = $derived(selectedTenant.current);
 
   const monitoring = [
@@ -130,61 +137,57 @@
 </script>
 
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3">
-  <!-- Header row, framed like the account footer; as tall as the drawer's close button. -->
-  <div class="flex border-b border-hairline pb-3">
+  <!-- Header row, framed like the account footer: the mark and the tenant switcher side by side. -->
+  <div class={['flex items-center gap-2 border-b border-hairline pb-3', drawer && 'pe-8']}>
     <a
       href={resolve('/(app)/monitors')}
-      class={['flex h-[26px] items-center rounded-sm px-1.5 text-strong', focusRing]}
+      class={['flex h-[26px] shrink-0 items-center rounded-sm px-1.5 text-strong', focusRing]}
       aria-label="Taut, inicio"
     >
       <Logo class="w-6" />
     </a>
-  </div>
 
-  <Menu label="Organizaciones" triggerClass={rowTrigger} onopen={refreshTenants}>
-    {#snippet trigger()}
-      <span
-        class="flex size-8 shrink-0 items-center justify-center rounded-md bg-contrast text-sm font-semibold text-inverse"
-        aria-hidden="true"
+    <Menu label="Organizaciones" triggerClass={rowTrigger} onopen={refreshTenants}>
+      {#snippet trigger()}
+        <span class="min-w-0 flex-1">
+          <span class="sr-only">Organización:</span>
+          <span class="block truncate font-medium text-strong">{current?.name}</span>
+          <span class="block text-xs text-subtle">{current ? ROLE_LABELS[current.role] : ''}</span>
+        </span>
+        <CaretUpDownIcon size={16} class="shrink-0 text-subtle" aria-hidden="true" />
+      {/snippet}
+
+      <DropdownMenu.RadioGroup
+        value={current?.id}
+        onValueChange={(id) => void switchTo(id)}
+        class="max-h-72 overflow-y-auto"
       >
-        {initial(current?.name)}
-      </span>
-      <span class="min-w-0 flex-1">
-        <span class="sr-only">Organización:</span>
-        <span class="block truncate font-medium text-strong">{current?.name}</span>
-        <span class="block text-xs text-subtle">{current ? ROLE_LABELS[current.role] : ''}</span>
-      </span>
-      <CaretUpDownIcon size={16} class="shrink-0 text-subtle" aria-hidden="true" />
-    {/snippet}
-
-    <DropdownMenu.RadioGroup
-      value={current?.id}
-      onValueChange={(id) => void switchTo(id)}
-      class="max-h-72 overflow-y-auto"
-    >
-      <DropdownMenu.GroupHeading class={menu.heading}>Tus organizaciones</DropdownMenu.GroupHeading>
-      {#if !selectedTenant.loaded}
-        <MenuItem disabled>Cargando…</MenuItem>
-      {/if}
-      {#each selectedTenant.list as tenant (tenant.id)}
-        <MenuRadioItem value={tenant.id} textValue={tenant.name}>
-          <span
-            class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-fill text-xs font-semibold text-default"
-            aria-hidden="true"
-          >
-            {initial(tenant.name)}
-          </span>
-          <span class="min-w-0 flex-1 truncate">{tenant.name}</span>
-          <span class="text-xs text-subtle">{ROLE_LABELS[tenant.role]}</span>
-        </MenuRadioItem>
-      {/each}
-    </DropdownMenu.RadioGroup>
-    <DropdownMenu.Separator class={menu.separator} />
-    <MenuItem onSelect={() => (createOpen = true)}>
-      <PlusIcon size={16} aria-hidden="true" />
-      Crear organización
-    </MenuItem>
-  </Menu>
+        <DropdownMenu.GroupHeading class={menu.heading}
+          >Tus organizaciones</DropdownMenu.GroupHeading
+        >
+        {#if !selectedTenant.loaded}
+          <MenuItem disabled>Cargando…</MenuItem>
+        {/if}
+        {#each selectedTenant.list as tenant (tenant.id)}
+          <MenuRadioItem value={tenant.id} textValue={tenant.name}>
+            <span
+              class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-fill text-xs font-semibold text-default"
+              aria-hidden="true"
+            >
+              {initial(tenant.name)}
+            </span>
+            <span class="min-w-0 flex-1 truncate">{tenant.name}</span>
+            <span class="text-xs text-subtle">{ROLE_LABELS[tenant.role]}</span>
+          </MenuRadioItem>
+        {/each}
+      </DropdownMenu.RadioGroup>
+      <DropdownMenu.Separator class={menu.separator} />
+      <MenuItem onSelect={() => (createOpen = true)}>
+        <PlusIcon size={16} aria-hidden="true" />
+        Crear organización
+      </MenuItem>
+    </Menu>
+  </div>
 
   <nav class="flex flex-col gap-4" aria-label="Secciones">
     <div>
