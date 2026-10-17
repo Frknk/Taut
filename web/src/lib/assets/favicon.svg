@@ -1,13 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 220" width="100%" height="100%">
-  <!-- Fondo oscuro -->
-  <rect width="260" height="220" rx="32" fill="#09090B"/>
-
-  <!-- Bloque Superior Izquierdo -->
-  <polygon points="68,95 50,64 68,33 176,33 194,64 86,64" fill="#FAFAFA"/>
-
-  <!-- Bloque Medio Izquierdo -->
-  <polygon points="68,95 104,95 68,157 50,126" fill="#FAFAFA"/>
-
-  <!-- Bloque Inferior Derecho -->
-  <polygon points="194,64 212,95 194,126 158,126 122,188 86,188 68,157 104,157 140,95 176,95" fill="#FAFAFA"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Square ground so browsers do not stretch it; the mark is centred inside. -->
+  <rect width="200" height="200" rx="40" fill="#09090B"/>
+  <g fill="#FAFAFA" transform="translate(-31 -10.5)">
+    <polygon points="68,95 50,64 68,33 176,33 194,64 86,64"/>
+    <polygon points="68,95 104,95 68,157 50,126"/>
+    <polygon points="194,64 212,95 194,126 158,126 122,188 86,188 68,157 104,157 140,95 176,95"/>
+  </g>
 </svg>
