@@ -136,6 +136,12 @@ jobs:
       - run: bun run lint
       - run: bun run fmt:check
       - run: bun run check
+      # Los tests de componentes (*.svelte.test.ts) corren en Chromium con Playwright.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
+      - run: bunx playwright install --with-deps chromium
       - run: bun run test
       - run: bun run build
 

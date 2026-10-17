@@ -68,7 +68,8 @@
   function keyDown(event: KeyboardEvent) {
     // A menu or dialog inside the sidebar handles its own Escape first.
     if (event.key !== 'Escape' || event.defaultPrevented || !drawerOpen) return;
-    if (event.target instanceof Element && event.target.closest('dialog')) return;
+    // Dialogs are portalled to <body>, so they are not inside the sidebar.
+    if (event.target instanceof Element && event.target.closest('[role$="dialog"]')) return;
     void closeDrawer();
   }
 </script>

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { playwright } from '@vitest/browser-playwright';
 import tailwindcss from '@tailwindcss/vite';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
@@ -26,6 +27,21 @@ export default defineConfig({
           environment: 'node',
           include: ['src/**/*.{test,spec}.{js,ts}'],
           exclude: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+        },
+      },
+      {
+        // Components run in a real Chromium: focus, portals and keyboard behave as in the app.
+        extends: './vite.config.ts',
+        test: {
+          name: 'client',
+          include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+          setupFiles: ['src/lib/test/setup.ts'],
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            headless: true,
+            instances: [{ browser: 'chromium' }],
+          },
         },
       },
     ],

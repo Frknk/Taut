@@ -71,8 +71,11 @@
         autocomplete="current-password"
         bind:value={values.password}
         aria-invalid={errors.password ? true : undefined}
+        aria-describedby={errors.password ? `${formId}-password-error` : undefined}
       />
-      {#if errors.password}<p class={fieldError}>{errors.password}</p>{/if}
+      {#if errors.password}
+        <p id="{formId}-password-error" class={fieldError}>{errors.password}</p>
+      {/if}
     </div>
     {#if mfaEnabled}
       <div>
@@ -84,11 +87,14 @@
           autocomplete="one-time-code"
           bind:value={values.code}
           aria-invalid={errors.code ? true : undefined}
+          aria-describedby="{formId}-code-note"
         />
         {#if errors.code}
-          <p class={fieldError}>{errors.code}</p>
+          <p id="{formId}-code-note" class={fieldError}>{errors.code}</p>
         {:else}
-          <p class={help}>El de tu app de autenticación, o un código de respaldo.</p>
+          <p id="{formId}-code-note" class={help}>
+            El de tu app de autenticación, o un código de respaldo.
+          </p>
         {/if}
       </div>
     {/if}
