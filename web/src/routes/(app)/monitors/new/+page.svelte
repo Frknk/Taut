@@ -2,15 +2,12 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
 
-  import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
-
   import Banner from '#lib/components/Banner.svelte';
   import MonitorForm from '#lib/components/MonitorForm.svelte';
   import { describeError, request } from '#lib/api.js';
   import { emptyForm } from '#lib/monitor-form.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { Monitor, MonitorInput } from '#lib/types.js';
-  import { backLink } from '#lib/ui.js';
 
   let error = $state('');
 
@@ -32,11 +29,7 @@
   <title>Nuevo monitor · Taut</title>
 </svelte:head>
 
-<a href={resolve('/(app)/monitors')} class={backLink}>
-  <ArrowLeftIcon size={14} aria-hidden="true" />
-  Monitores
-</a>
-<h1 class="mt-2 text-2xl font-semibold text-strong">Nuevo monitor</h1>
+<h1 class="text-2xl font-semibold text-strong">Nuevo monitor</h1>
 {#if error}
   <Banner tone="danger" class="mt-6">{error}</Banner>
 {/if}

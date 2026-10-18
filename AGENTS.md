@@ -94,10 +94,12 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   `bg-base`, `text-subtle`, `ring-line`, `bg-brand`…), declaradas en `src/routes/layout.css`.
   Nunca colores primitivos (`bg-neutral-50`, `text-red-700`) ni la variante `dark:`. Reusa los
   componentes de `src/lib/components/` (Button, Badge, Banner, LayerCard, Tabs/TabList/TabPanel,
-  Select, Dialog, Menu/MenuItem/MenuRadioItem, Tooltip, Empty, Logo, TenantForm) y las recetas
+  Select, Dialog, Menu/MenuItem/MenuRadioItem, Tooltip, Empty, Logo, TenantForm, Breadcrumb) y las recetas
   de `src/lib/ui.ts`; el logo va sin fondo ni texto.
   La navegación del panel vive en `Sidebar.svelte`: una sección nueva se agrega ahí, al grupo
-  Monitoreo u Organización (lo personal va al menú de usuario del pie).
+  Monitoreo u Organización (lo personal va al menú de usuario del pie), y a `SECTIONS` de
+  `src/lib/breadcrumb.ts` para la ruta de la barra superior (`Breadcrumb`). Las páginas anidadas
+  no llevan enlace de volver: la ruta ya lo es, y nombran su recurso con `useBreadcrumbName`.
 - **Reglas de Kumo** en `web/` (detalle en [ADR 0007](docs/adr/0007-design-system-taut-ui.md)):
   texto de contenido a 14px (16px o más solo en títulos); títulos en sentence case, sin
   `uppercase`; nunca `tracking-*` ni `font-bold` (`font-semibold` en títulos, `font-medium` en

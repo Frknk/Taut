@@ -4,8 +4,6 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
 
-  import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
-
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
   import Dialog from '#lib/components/Dialog.svelte';
@@ -16,14 +14,16 @@
   import Tooltip from '#lib/components/Tooltip.svelte';
   import { API_URL, describeError, request } from '#lib/api.js';
   import { KIND_LABELS, formatDateTime, formatSeconds, timeAgo } from '#lib/format.js';
+  import { useBreadcrumbName } from '#lib/breadcrumb.svelte.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { CheckResult, Incident, Monitor } from '#lib/types.js';
-  import { backLink, table } from '#lib/ui.js';
+  import { table } from '#lib/ui.js';
 
   const id = $derived(page.params.id ?? '');
   const tenantId = $derived(selectedTenant.current?.id ?? '');
 
   let monitor = $state<Monitor | null>(null);
+  useBreadcrumbName(() => monitor?.name);
   let checks = $state<CheckResult[]>([]);
   let incidents = $state<Incident[]>([]);
   let error = $state('');
@@ -91,17 +91,12 @@
   <title>{monitor?.name ?? 'Monitor'} · Taut</title>
 </svelte:head>
 
-<a href={resolve('/(app)/monitors')} class={backLink}>
-  <ArrowLeftIcon size={14} aria-hidden="true" />
-  Monitores
-</a>
-
 {#if error}
   <Banner tone="danger" class="mt-6">{error}</Banner>
 {/if}
 
 {#if monitor}
-  <div class="mt-2 flex flex-wrap items-center gap-3">
+  <div class="flex flex-wrap items-center gap-3">
     <h1 class="text-2xl font-semibold text-strong">{monitor.name}</h1>
     <StatusBadge status={monitor.status} />
     <div class="ml-auto flex gap-2">

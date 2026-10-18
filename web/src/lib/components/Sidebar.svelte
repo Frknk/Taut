@@ -132,16 +132,20 @@
     void goto(resolve('/(app)/monitors'));
   }
 
-  const rowTrigger = 'flex w-full items-center gap-2 rounded-lg p-1.5 text-left hover:bg-tint';
-  const groupTitle = 'px-2 pb-1 text-xs font-medium text-subtle';
+  // Every row shares two columns: a 24px leading one (logo, nav icon, avatar) 8px in from the
+  // edge and the text 8px after it, so marks and labels line up from the header to the footer.
+  const rowTrigger =
+    'flex w-full items-center gap-2 rounded-lg py-1.5 ps-2 pe-3 text-left hover:bg-tint';
+  const groupTitle = 'px-3 pb-1 text-xs font-medium text-subtle';
 </script>
 
 <div class="flex h-full flex-col gap-4 overflow-y-auto p-3">
-  <!-- Header row, framed like the account footer: the mark and the tenant switcher side by side. -->
-  <div class={['flex items-center gap-2 border-b border-hairline pb-3', drawer && 'pe-8']}>
+  <!-- Header row: the mark and the tenant switcher side by side. No divider: the panel's top bar
+       draws the only line across. -->
+  <div class={['flex items-center', drawer && 'pe-8']}>
     <a
       href={resolve('/(app)/monitors')}
-      class={['flex h-[26px] shrink-0 items-center rounded-sm px-1.5 text-strong', focusRing]}
+      class={['flex h-[26px] shrink-0 items-center rounded-sm ps-2 text-strong', focusRing]}
       aria-label="Taut, inicio"
     >
       <Logo class="w-6" />
@@ -243,11 +247,11 @@
     </div>
   </nav>
 
-  <div class="mt-auto border-t border-hairline pt-3">
+  <div class="mt-auto">
     <Menu label="Cuenta" triggerClass={rowTrigger} side="top">
       {#snippet trigger()}
         <span
-          class="flex size-8 shrink-0 items-center justify-center rounded-full bg-fill text-sm font-semibold text-default"
+          class="flex size-6 shrink-0 items-center justify-center rounded-full bg-fill text-xs font-semibold text-default"
           aria-hidden="true"
         >
           {initial(session.user?.name)}

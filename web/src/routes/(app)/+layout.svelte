@@ -7,14 +7,19 @@
   import ListIcon from 'phosphor-svelte/lib/ListIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
+  import Breadcrumb from '#lib/components/Breadcrumb.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import ReauthDialog from '#lib/components/ReauthDialog.svelte';
   import Sidebar from '#lib/components/Sidebar.svelte';
+  import { crumbsFor } from '#lib/breadcrumb.js';
+  import { breadcrumb } from '#lib/breadcrumb.svelte.js';
   import { session } from '#lib/session.svelte.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import { buttonClass, focusRing } from '#lib/ui.js';
 
   let { children }: { children: Snippet } = $props();
+
+  const crumbs = $derived(crumbsFor(page.url.pathname, breadcrumb.name));
 
   // Every page under (app) needs a session and a tenant: without session, to the login page;
   // without tenant, to the chooser.
@@ -53,12 +58,19 @@
 </script>
 
 {#if session.status === 'authenticated' && selectedTenant.current}
-  <div class="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+  <div
+    class="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]"
+  >
+    <!-- The top bar: below lg the drawer's button, the mark and the breadcrumb; past lg only the
+         breadcrumb, centred on the sidebar's tenant row. -->
     <header
-      class="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-hairline bg-base px-2 lg:hidden"
+      class="sticky top-0 z-10 flex h-12 items-center gap-2 border-b border-hairline bg-base px-2 lg:col-start-2 lg:h-[72px] lg:bg-canvas lg:px-0"
     >
       <Dialog.Root bind:open={drawerOpen}>
-        <Dialog.Trigger class={buttonClass('ghost', 'base', true)} aria-label="Abrir navegación">
+        <Dialog.Trigger
+          class={[buttonClass('ghost', 'base', true), 'lg:hidden']}
+          aria-label="Abrir navegación"
+        >
           <ListIcon size={18} aria-hidden="true" />
         </Dialog.Trigger>
         <Dialog.Portal>
@@ -83,22 +95,24 @@
       </Dialog.Root>
       <a
         href={resolve('/(app)/monitors')}
-        class={['rounded-sm text-strong', focusRing]}
+        class={['shrink-0 rounded-sm text-strong lg:hidden', focusRing]}
         aria-label="Taut, inicio"
       >
         <Logo class="w-5" />
       </a>
-      <span class="min-w-0 truncate font-medium text-default">{selectedTenant.current.name}</span>
+      <div class="min-w-0 flex-1 ps-1 lg:mx-auto lg:max-w-5xl lg:px-8">
+        <Breadcrumb {crumbs} />
+      </div>
     </header>
 
     <aside
       aria-label="Navegación"
-      class="sticky top-0 hidden h-screen w-60 border-r border-hairline bg-base lg:block"
+      class="sticky top-0 hidden h-screen w-60 border-r border-hairline bg-base lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:block"
     >
       <Sidebar />
     </aside>
 
-    <main class="mx-auto w-full max-w-5xl px-4 py-8 lg:px-8">
+    <main class="mx-auto w-full max-w-5xl px-4 py-8 lg:col-start-2 lg:px-8">
       <!-- A new tenant remounts the page, so it loads that tenant's data. -->
       {#if !selectedTenant.switching}
         {#key selectedTenant.current.id}

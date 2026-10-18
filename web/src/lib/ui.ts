@@ -108,9 +108,6 @@ export const fieldError = 'mt-1.5 text-xs text-danger';
 
 export const link = `rounded-sm text-link underline decoration-1 underline-offset-2 hover:decoration-2 ${focusRing}`;
 
-/** A back link above a page title: «← Monitores». */
-export const backLink = `inline-flex items-center gap-1 rounded-sm text-sm text-subtle hover:text-default ${focusRing}`;
-
 /** Outer shell of a LayerCard and of plain lists that stand for one. */
 export const card = 'overflow-hidden rounded-lg bg-base ring ring-hairline';
 
@@ -147,10 +144,13 @@ export const dialog = {
   ].join(' '),
 };
 
-/** A link of the sidebar; `bg-tint` and medium weight mark the current page. */
+/**
+ * A link of the sidebar; `bg-tint` and medium weight mark the current page. `px-3 gap-3` puts the
+ * 16px icon on the centre of the sidebar's 24px leading column and the label on its text column.
+ */
 export function navItemClass(current: boolean): string {
   const state = current
     ? 'bg-tint font-medium text-default'
     : 'text-subtle hover:bg-tint hover:text-default';
-  return `flex h-8 items-center gap-2 rounded-md px-2 text-sm ${focusRing} ${state}`;
+  return `flex h-8 items-center gap-3 rounded-md px-3 text-sm ${focusRing} ${state}`;
 }
