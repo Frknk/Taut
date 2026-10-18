@@ -9,6 +9,7 @@
 //!   them for storage.
 //! - [`api_key`] generates and recognizes tenant API keys (`taut_live_…`).
 //! - [`bearer`] reads the `Authorization` header and tells a JWT from an API key.
+//! - [`webhook`] signs outgoing webhooks (`X-Taut-Signature`) and verifies them.
 //!
 //! Nothing here touches a database; the only I/O is the optional JWKS fetch.
 
@@ -18,6 +19,7 @@ pub mod claims;
 pub mod keys;
 pub mod random;
 pub mod verifier;
+pub mod webhook;
 
 pub use claims::{Claims, TokenKind};
 pub use keys::{Jwk, Jwks, KeyPair};

@@ -18,6 +18,8 @@ pub struct Channel {
     pub kind: ChannelKind,
     /// `{"to"}` for email, `{"url"}` for the webhook kinds.
     pub config: Value,
+    /// Key of the `X-Taut-Signature` HMAC; only generic webhooks have one.
+    pub signing_secret: Option<String>,
 }
 
 impl Channel {
@@ -37,7 +39,7 @@ pub async fn active(pool: &PgPool, tenant_id: Uuid) -> Result<Vec<Channel>, sqlx
     sqlx::query_as!(
         Channel,
         r#"
-        SELECT id, tenant_id, name, kind AS "kind: ChannelKind", config
+        SELECT id, tenant_id, name, kind AS "kind: ChannelKind", config, signing_secret
         FROM alert_channels
         WHERE tenant_id = $1 AND active
         ORDER BY created_at
@@ -57,7 +59,7 @@ pub async fn find(
     sqlx::query_as!(
         Channel,
         r#"
-        SELECT id, tenant_id, name, kind AS "kind: ChannelKind", config
+        SELECT id, tenant_id, name, kind AS "kind: ChannelKind", config, signing_secret
         FROM alert_channels
         WHERE tenant_id = $1 AND id = $2
         "#,

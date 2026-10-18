@@ -16,7 +16,7 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `crates/model`       | `taut-model`: tipos de dominio compartidos (`MonitorKind`, `MonitorStatus`, eventos del bus, reglas de red) sin I/O |
 | `crates/bus`         | `taut-bus`: NATS JetStream; `Bus::connect`, `publish` con `trace_id` en cabecera, `consume` para consumidores durables |
 | `crates/net`         | `taut-net`: `guarded_client()`, cliente reqwest que rechaza direcciones internas (checks y webhooks) |
-| `crates/identity`    | `taut-identity`: `KeyPair` (firma Ed25519, JWKS), `Verifier`, `Claims`, tokens opacos y API keys; sin I/O |
+| `crates/identity`    | `taut-identity`: `KeyPair` (firma Ed25519, JWKS), `Verifier`, `Claims`, tokens opacos, API keys y firma de webhooks (`webhook::sign`/`verify`); sin I/O |
 | `services/api`       | `taut-api`: `lib.rs` construye el `Router` (`app()`), `main.rs` lo arranca; tests en `tests/` |
 | `services/auth`      | `taut-auth`: registro, verificación, login, 2FA (`mfa.rs`: TOTP cifrado, códigos de respaldo), sesiones (Redis), reautenticación, recuperación y `/.well-known/jwks.json`; publica `users.*` |
 | `services/scheduler` | `taut-scheduler`: líder por lock en Redis; publica `checks.requested` y evalúa heartbeats |
@@ -75,7 +75,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   en auth las rutas delicadas empiezan con `current.require_recent_auth()?`.
 - **HTTP saliente**: toda petición hecha en nombre de un tenant (chequeos, webhooks) usa
   `taut_net::guarded_client`; nunca un `reqwest::Client` sin protección. Los errores de webhooks
-  se registran con `without_url()`: la URL de Discord o Slack es un secreto.
+  se registran con `without_url()`: la URL de Discord o Slack es un secreto. Los webhooks
+  genéricos salen firmados con `taut_identity::webhook::sign` sobre los bytes exactos del cuerpo
+  (`X-Taut-Signature`); el secreto (`signing_secret`) nunca se devuelve en lecturas ni va a los logs.
 - **Configuración**: solo a través de `taut_config::Settings`. No leer `std::env::var` en los
   servicios; agregar el campo a `Settings`, al `Default` y a `.env.example`.
 - **Logs**: `tracing` (`info!`, `warn!`, `error!` con campos estructurados). Nunca `println!`

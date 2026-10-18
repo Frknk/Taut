@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, tenant_id, name, kind AS \"kind: ChannelKind\", config\n        FROM alert_channels\n        WHERE tenant_id = $1 AND id = $2\n        ",
+  "query": "\n        SELECT id, tenant_id, name, kind AS \"kind: ChannelKind\", config, signing_secret\n        FROM alert_channels\n        WHERE tenant_id = $1 AND id = $2\n        ",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,17 @@
             "name": "config"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "signing_secret",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "alert_channels",
+            "name": "signing_secret"
+          }
+        }
       }
     ],
     "parameters": {
@@ -70,8 +81,9 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "a7d212517db6758d5a4012651128b0806aba158eabcafebc44e9a7a956e99452"
+  "hash": "d0ee0689828253d1035578320466bae95845c7112e64e593f587ca5d90d44c78"
 }

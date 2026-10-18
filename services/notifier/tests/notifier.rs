@@ -5,23 +5,34 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use axum::Router;
+use axum::body::Bytes;
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::routing::post;
 use chrono::Utc;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use taut_bus::Handled;
 use taut_config::Settings;
+use taut_identity::webhook;
 use taut_model::events::{IncidentChanged, TestNotification};
 use taut_notifier::Notifier;
 use taut_notifier::send::Senders;
 use tokio::net::TcpListener;
 use uuid::Uuid;
 
-type Received = Arc<Mutex<Vec<(String, Value)>>>;
+/// One request that reached the receiver.
+#[derive(Debug, Clone)]
+struct Delivery {
+    name: String,
+    signature: Option<String>,
+    raw: Bytes,
+    body: Value,
+}
 
-/// Webhook receiver: `/ok/*` answers 204 and records the body, `/fail` answers 500.
+type Received = Arc<Mutex<Vec<Delivery>>>;
+
+/// Webhook receiver: `/ok/*` answers 204 and records the request, `/fail` answers 500.
 async fn receiver() -> (SocketAddr, Received) {
     let received: Received = Arc::default();
     let app = Router::new()
@@ -30,8 +41,18 @@ async fn receiver() -> (SocketAddr, Received) {
             post(
                 |State(received): State<Received>,
                  axum::extract::Path(name): axum::extract::Path<String>,
-                 axum::Json(body): axum::Json<Value>| async move {
-                    received.lock().unwrap().push((name, body));
+                 headers: HeaderMap,
+                 raw: Bytes| async move {
+                    let signature = headers
+                        .get(webhook::SIGNATURE_HEADER)
+                        .map(|value| value.to_str().unwrap().to_owned());
+                    let body = serde_json::from_slice(&raw).unwrap();
+                    received.lock().unwrap().push(Delivery {
+                        name,
+                        signature,
+                        raw,
+                        body,
+                    });
                     StatusCode::NO_CONTENT
                 },
             ),
@@ -110,6 +131,35 @@ async fn channel(pool: &PgPool, tenant: Uuid, kind: &str, config: Value) -> Uuid
     id
 }
 
+const SECRET: &str = "whsec_test-secret";
+
+/// A generic webhook to `/ok/{name}` signed with [`SECRET`].
+async fn signed_webhook(pool: &PgPool, tenant: Uuid, server: SocketAddr, name: &str) -> Uuid {
+    let id = channel(
+        pool,
+        tenant,
+        "webhook",
+        json!({ "url": format!("http://{server}/ok/{name}") }),
+    )
+    .await;
+    sqlx::query("UPDATE alert_channels SET signing_secret = $2 WHERE id = $1")
+        .bind(id)
+        .bind(SECRET)
+        .execute(pool)
+        .await
+        .unwrap();
+    id
+}
+
+/// Checks the delivery's signature as a receiver would.
+fn assert_signed(delivery: &Delivery) {
+    let header = delivery.signature.as_deref().expect("signature header");
+    assert_eq!(
+        webhook::verify(SECRET, header, &delivery.raw, Utc::now().timestamp()),
+        Ok(())
+    );
+}
+
 fn opened(fixture: &Fixture) -> IncidentChanged {
     IncidentChanged {
         trace_id: "trace".to_owned(),
@@ -152,9 +202,9 @@ async fn webhooks_get_one_message_per_transition(pool: PgPool) {
     assert_eq!(received.len(), 2, "{received:?}");
     let discord = &received
         .iter()
-        .find(|(name, _)| name == "discord")
+        .find(|delivery| delivery.name == "discord")
         .unwrap()
-        .1;
+        .body;
     assert!(
         discord["content"]
             .as_str()
@@ -163,9 +213,9 @@ async fn webhooks_get_one_message_per_transition(pool: PgPool) {
     );
     let webhook = &received
         .iter()
-        .find(|(name, _)| name == "webhook")
+        .find(|delivery| delivery.name == "webhook")
         .unwrap()
-        .1;
+        .body;
     assert_eq!(webhook["event"], "incident.opened");
     assert_eq!(webhook["monitor"]["name"], "API");
 
@@ -287,7 +337,7 @@ async fn test_requests_send_one_message_and_record_the_outcome(pool: PgPool) {
     ));
     let received = received.lock().unwrap().clone();
     assert!(
-        received[0].1["content"]
+        received[0].body["content"]
             .as_str()
             .unwrap()
             .contains("prueba")
@@ -308,4 +358,66 @@ async fn test_requests_send_one_message_and_record_the_outcome(pool: PgPool) {
         notifier(&pool).test(&unknown).await,
         Handled::Drop(_)
     ));
+}
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn webhooks_are_signed_with_the_channel_secret(pool: PgPool) {
+    let fixture = fixture(&pool).await;
+    let (server, received) = receiver().await;
+    signed_webhook(&pool, fixture.tenant, server, "signed").await;
+    channel(
+        &pool,
+        fixture.tenant,
+        "webhook",
+        json!({ "url": format!("http://{server}/ok/unsigned") }),
+    )
+    .await;
+    channel(
+        &pool,
+        fixture.tenant,
+        "discord",
+        json!({ "url": format!("http://{server}/ok/discord") }),
+    )
+    .await;
+
+    assert!(matches!(
+        notifier(&pool).incident(&opened(&fixture)).await,
+        Handled::Done
+    ));
+
+    let received = received.lock().unwrap().clone();
+    assert_eq!(received.len(), 3, "{received:?}");
+    let by_name = |name: &str| received.iter().find(|d| d.name == name).unwrap().clone();
+    let signed = by_name("signed");
+    assert_signed(&signed);
+    assert_eq!(signed.body["event"], "incident.opened");
+    // A tampered body no longer matches.
+    let header = signed.signature.unwrap();
+    assert_eq!(
+        webhook::verify(SECRET, &header, b"{}", Utc::now().timestamp()),
+        Err(webhook::SignatureError::Mismatch)
+    );
+    // Webhooks from before signing existed, and Discord, go out without the header.
+    assert_eq!(by_name("unsigned").signature, None);
+    assert_eq!(by_name("discord").signature, None);
+}
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn test_messages_are_signed_too(pool: PgPool) {
+    let fixture = fixture(&pool).await;
+    let (server, received) = receiver().await;
+    let id = signed_webhook(&pool, fixture.tenant, server, "signed").await;
+    let request = TestNotification {
+        trace_id: "trace".to_owned(),
+        tenant_id: fixture.tenant,
+        channel_id: id,
+    };
+    assert!(matches!(
+        notifier(&pool).test(&request).await,
+        Handled::Done
+    ));
+    let received = received.lock().unwrap().clone();
+    assert_eq!(received.len(), 1);
+    assert_signed(&received[0]);
+    assert_eq!(received[0].body["event"], "test");
 }

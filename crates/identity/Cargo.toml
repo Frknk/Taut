@@ -1,6 +1,6 @@
 [package]
 name = "taut-identity"
-description = "Shared identity primitives: EdDSA access tokens, JWKS, opaque tokens and API keys"
+description = "Shared identity primitives: EdDSA access tokens, JWKS, opaque tokens, API keys and webhook signatures"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,6 +17,7 @@ base64.workspace = true
 chrono.workspace = true
 ed25519-dalek.workspace = true
 getrandom.workspace = true
+hmac.workspace = true
 http.workspace = true
 jsonwebtoken.workspace = true
 reqwest = { workspace = true, optional = true, features = ["json"] }

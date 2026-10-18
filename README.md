@@ -98,8 +98,9 @@ keys, `/v1/tenants` y el tenant les responden `401`/`403`. Revocada, responde `4
 | `GET /v1/monitors/{id}/metrics?range=` | Uptime 24 h / 7 d / 30 d, p50 y p95, serie por intervalos (`24h`, `7d`, `30d`) |
 | `GET /v1/incidents?status=&monitor_id=` | Incidentes (abiertos primero); `status` = `open`, `resolved` o `all` |
 | `GET /v1/incidents/{id}`              | Un incidente con las alertas enviadas por canal            |
-| `GET/POST /v1/alert-channels` · `GET/PUT/DELETE /{id}` | Canales: `email`, `discord`, `slack`, `webhook` |
+| `GET/POST /v1/alert-channels` · `GET/PUT/DELETE /{id}` | Canales: `email`, `discord`, `slack`, `webhook`; un `webhook` nuevo devuelve `signing_secret` una sola vez |
 | `POST /v1/alert-channels/{id}/test`   | Envía un mensaje de prueba por el canal                    |
+| `POST /v1/alert-channels/{id}/rotate-secret` | Nuevo secreto de firma de un `webhook` (owner + reautenticación); el anterior deja de valer |
 | `GET/POST /h/{token}` · `/h/{token}/fail` | Ping público de un heartbeat (sin cabecera de tenant) |
 | `GET /s/{slug}` (status-bff, :8085)   | JSON público de la página de estado; sin sesión            |
 
@@ -124,6 +125,16 @@ Con una API key (créala en el panel o con `POST /v1/api-keys` justo después de
 key=$(curl -s localhost:8080/v1/api-keys -H "authorization: Bearer $token" -H "x-tenant-id: $tenant" \
   -H 'content-type: application/json' -d '{"name":"CI","scope":"write"}' | jq -r .key)
 curl -s localhost:8080/v1/monitors -H "Authorization: Bearer $key"   # taut_live_…
+```
+
+Los webhooks genéricos llegan firmados: `X-Taut-Signature: t=<unix>,v1=<hex>`, donde `v1` es el
+HMAC-SHA256 de `t + "." + cuerpo` con el secreto `whsec_…` del canal. El receptor recalcula la
+firma sobre los bytes exactos que recibió, rechaza `t` con más de 5 minutos de diferencia y
+deduplica por `incident.id` + `event`, porque un reintento llega con otra firma:
+
+```bash
+# t y v1 salen de la cabecera; cuerpo.json son los bytes recibidos, sin reformatear
+{ printf '%s.' "$t"; cat cuerpo.json; } | openssl dgst -sha256 -hmac "$secreto" -r   # = v1
 ```
 
 Antes de abrir un PR: `just check` (formato, clippy, oxlint, svelte-check, tests, cargo-deny,
