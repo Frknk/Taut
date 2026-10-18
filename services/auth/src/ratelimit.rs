@@ -131,13 +131,15 @@ impl Limiter {
     }
 }
 
-/// `rl:login:acct:ana@x.co` → `login:acct`, a label with bounded cardinality.
+/// `rl:login:acct:ana@x.co` → `login:acct`, `rl:email:ana@x.co` → `email`: the key without
+/// its identifier, a label with bounded cardinality that never carries an address or an id.
 fn key_family(key: &str) -> String {
-    key.splitn(4, ':')
-        .skip(1)
-        .take(2)
-        .collect::<Vec<_>>()
-        .join(":")
+    let mut parts = key.split(':').skip(1);
+    let prefix = parts.next().unwrap_or_default();
+    match parts.next() {
+        Some(kind @ ("acct" | "ip")) => format!("{prefix}:{kind}"),
+        _ => prefix.to_owned(),
+    }
 }
 
 #[cfg(test)]
@@ -148,7 +150,9 @@ mod tests {
     fn key_families_drop_the_identifier() {
         assert_eq!(key_family("rl:login:acct:ana@x.co"), "login:acct");
         assert_eq!(key_family("rl:register:ip:10.0.0.1"), "register:ip");
-        assert_eq!(key_family("rl:mfa:0192b4a8"), "mfa:0192b4a8");
+        assert_eq!(key_family("rl:mfa:0192b4a8"), "mfa");
+        assert_eq!(key_family("rl:email:ana@x.co"), "email");
+        assert_eq!(key_family("rl:reset:ip:unknown"), "reset:ip");
     }
 
     #[test]

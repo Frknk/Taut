@@ -12,6 +12,7 @@ pub mod invitations;
 pub mod members;
 pub mod metrics_api;
 pub mod monitors;
+pub mod ratelimit;
 pub mod tenant;
 pub mod tenants;
 pub mod validate;
@@ -28,6 +29,8 @@ use taut_config::Settings;
 use taut_http::{AppError, Probe, ServiceInfo, health, layers, metrics};
 use taut_identity::Verifier;
 
+use crate::ratelimit::TenantLimiter;
+
 /// Name reported in logs, metrics and `/health`.
 pub const SERVICE_NAME: &str = "taut-api";
 
@@ -42,16 +45,19 @@ pub struct AppState {
     pub bus: Bus,
     /// Verifies the access tokens the auth service signs.
     pub verifier: Arc<Verifier>,
+    /// Per-tenant request budgets.
+    pub limiter: TenantLimiter,
 }
 
 /// Builds the complete router: health, metrics, the `/v1` API, heartbeat pings and the
 /// middleware stack. Readiness probes the database and that at least one signing key is
 /// known (fetching the JWKS again if none is): without NATS the panel keeps working and only
-/// heartbeat pings fail.
+/// heartbeat pings fail; without Redis requests go through uncounted.
 pub fn app(
     settings: Arc<Settings>,
     pool: PgPool,
     bus: Bus,
+    limiter: TenantLimiter,
     verifier: Arc<Verifier>,
     metrics_handle: PrometheusHandle,
 ) -> Router {
@@ -74,6 +80,7 @@ pub fn app(
         pool: pool.clone(),
         bus,
         verifier,
+        limiter,
     };
 
     let v1 = Router::new()

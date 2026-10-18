@@ -64,7 +64,9 @@ comprueba que el usuario es miembro y de ahí sale su rol (`owner` todo; `member
 gestiona monitores). Las acciones delicadas (canales de alerta, borrar el tenant y crear API
 keys) exigen además que el usuario haya confirmado su contraseña hace menos de 5 min:
 si no, `403 reauth_required` y el panel pide la contraseña (`POST /v1/auth/reauth`) y reintenta.
-Los errores son siempre `{"error": {"code", "message", "trace_id"}}`.
+Los errores son siempre `{"error": {"code", "message", "trace_id"}}`. Cada tenant tiene un
+presupuesto por minuto (60 peticiones con API keys en el plan gratuito y 600 desde el panel);
+pasado, la api responde `429 too_many_requests` con `Retry-After` en segundos.
 
 Para scripts y CI hay API keys por tenant (`Authorization: Bearer taut_live_…`, sin
 `X-Tenant-Id`: el tenant va en la clave). Las crea un owner en Configuración → API keys y se
