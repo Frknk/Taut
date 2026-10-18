@@ -131,7 +131,7 @@
 </LayerCard>
 
 {#if isOwner}
-  <form class="max-w-2xl" onsubmit={rename} novalidate>
+  <form onsubmit={rename} novalidate>
     <LayerCard title="Cambiar el nombre">
       <div class="space-y-4">
         <div>

@@ -216,7 +216,7 @@
 </Dialog>
 
 {#if isOwner}
-  <form class="max-w-2xl" onsubmit={invite} novalidate>
+  <form onsubmit={invite} novalidate>
     <LayerCard title="Invitar a alguien">
       <div class="space-y-4">
         <div class="grid gap-4 sm:grid-cols-[1fr_12rem]">
