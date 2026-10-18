@@ -188,46 +188,48 @@
   {/snippet}
 </Dialog>
 
-<form class="mt-8 max-w-2xl" onsubmit={create} novalidate>
-  <LayerCard title="Nuevo canal">
-    <div class="space-y-4">
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label class={label} for="channel-type">Tipo</label>
-          <Select
-            id="channel-type"
-            bind:value={values.type}
-            items={kinds.map((kind) => ({ value: kind, label: CHANNEL_LABELS[kind] }))}
-          />
+{#if loaded}
+  <form class="mt-8" onsubmit={create} novalidate>
+    <LayerCard title="Nuevo canal">
+      <div class="space-y-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class={label} for="channel-type">Tipo</label>
+            <Select
+              id="channel-type"
+              bind:value={values.type}
+              items={kinds.map((kind) => ({ value: kind, label: CHANNEL_LABELS[kind] }))}
+            />
+          </div>
+          <div>
+            <label class={label} for="channel-name">Nombre</label>
+            <input
+              id="channel-name"
+              class={input}
+              bind:value={values.name}
+              placeholder="Guardia"
+              aria-invalid={errors.name ? 'true' : undefined}
+            />
+            {#if errors.name}<p class={fieldError}>{errors.name}</p>{/if}
+          </div>
         </div>
         <div>
-          <label class={label} for="channel-name">Nombre</label>
+          <label class={label} for="channel-destination">
+            {values.type === 'email' ? 'Correo' : 'URL del webhook'}
+          </label>
           <input
-            id="channel-name"
-            class={input}
-            bind:value={values.name}
-            placeholder="Guardia"
-            aria-invalid={errors.name ? 'true' : undefined}
+            id="channel-destination"
+            class={[input, 'font-mono']}
+            bind:value={values.destination}
+            placeholder={DESTINATION_HINTS[values.type]}
+            aria-invalid={errors.destination ? 'true' : undefined}
           />
-          {#if errors.name}<p class={fieldError}>{errors.name}</p>{/if}
+          {#if errors.destination}<p class={fieldError}>{errors.destination}</p>{/if}
         </div>
+        <Button type="submit" variant="primary" disabled={saving}>
+          {saving ? 'Guardando…' : 'Agregar canal'}
+        </Button>
       </div>
-      <div>
-        <label class={label} for="channel-destination">
-          {values.type === 'email' ? 'Correo' : 'URL del webhook'}
-        </label>
-        <input
-          id="channel-destination"
-          class={[input, 'font-mono']}
-          bind:value={values.destination}
-          placeholder={DESTINATION_HINTS[values.type]}
-          aria-invalid={errors.destination ? 'true' : undefined}
-        />
-        {#if errors.destination}<p class={fieldError}>{errors.destination}</p>{/if}
-      </div>
-      <Button type="submit" variant="primary" disabled={saving}>
-        {saving ? 'Guardando…' : 'Agregar canal'}
-      </Button>
-    </div>
-  </LayerCard>
-</form>
+    </LayerCard>
+  </form>
+{/if}
