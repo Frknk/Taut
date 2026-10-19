@@ -86,6 +86,25 @@ Con 1 000 VUs y ~1 s por respuesta, la ley de Little da ~1 000 req/s: k6 no pudo
 porque cada VU esperaba su respuesta. Por eso el umbral que falla es `dropped_iterations`, no el
 de errores.
 
+## Capturas
+
+Tablero de k6 con la línea base (izquierda, 500 req/s y p95 pegado a cero) y el sondeo
+(derecha). En el sondeo, k6 llega a sus 1 000 VUs, logra ~950 req/s y la latencia sube a ~1 s.
+Los paneles de resumen corresponden al sondeo; «HTTP request failures» sale vacío porque no hubo
+ningún fallo.
+
+![Tablero de k6 durante status-page y el sondeo](img/2026-10-19-status-page/k6.jpg)
+
+Lado servidor de status-bff. El p95 de `/s/{slug}` medido en el servidor sube a 2,4 s durante el
+sondeo, porque incluye la espera en la cola del runtime. No hubo respuestas 5xx.
+
+![Lado servidor de status-bff](img/2026-10-19-status-page/servicios-http.jpg)
+
+Conexiones de PostgreSQL y chequeos de fondo. Las «idle in transaction» (rojo) solo aparecen en
+el sondeo. Los chequeos siguen a ~5 por segundo, todos con lag bajo 10 s.
+
+![PostgreSQL y chequeos durante status-page](img/2026-10-19-status-page/servicios-postgres.jpg)
+
 ## Cuellos de botella
 
 | Síntoma                                                     | Evidencia                                                                                     | Hipótesis                                                                                                                                                                                                                                                                                                                                                     | Arreglo propuesto                                                                                                               |
