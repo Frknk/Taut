@@ -34,6 +34,7 @@
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import { theme, type Theme } from '#lib/theme.svelte.js';
   import type { Incident, TenantWithRole } from '#lib/types.js';
+  import { pop } from '#lib/motion.js';
   import { badgeClass, focusRing, menu, navItemClass } from '#lib/ui.js';
 
   /** The panel's navigation: tenant switcher, sections, and the user's menu at the bottom. */
@@ -204,7 +205,7 @@
               <link.icon size={16} aria-hidden="true" />
               <span class="flex-1">{link.label}</span>
               {#if link.href === resolve('/(app)/incidents') && openIncidents > 0}
-                <span class={badgeClass('danger')}>
+                <span class={badgeClass('danger')} in:pop>
                   {openIncidents}<span class="sr-only">
                     {openIncidents === 1 ? 'abierto' : 'abiertos'}</span
                   >

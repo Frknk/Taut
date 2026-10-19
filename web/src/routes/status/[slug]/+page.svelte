@@ -9,6 +9,7 @@
   import { STATUS_URL } from '#lib/api.js';
   import { UPTIME_LEVELS, formatPercent } from '#lib/charts.js';
   import { formatDateTime, formatSeconds } from '#lib/format.js';
+  import { appear } from '#lib/motion.js';
   import type { MonitorStatus, StatusPage } from '#lib/types.js';
   import { card, link, table } from '#lib/ui.js';
 
@@ -74,10 +75,13 @@
     {:else if status}
       {@const banner = BANNERS[status.status]}
       <h1 class="text-2xl font-semibold text-strong">{status.tenant.name}</h1>
-      <Banner tone={banner.tone} large class="mt-4">{banner.text}</Banner>
+      <!-- A new overall state mounts a new banner, which rises in with the new tone. -->
+      {#key status.status}
+        <Banner tone={banner.tone} large class="mt-4">{banner.text}</Banner>
+      {/key}
 
       {#if openIncidents.length > 0}
-        <section class={[card, 'mt-6 p-5']}>
+        <section class={[card, 'mt-6 p-5']} in:appear>
           <h2 class="font-semibold text-danger">Incidentes activos</h2>
           <ul class="mt-2 space-y-1 text-default">
             {#each openIncidents as incident (incident.monitor_name + incident.started_at)}
@@ -136,9 +140,11 @@
           </div>
           {#if showFailures}
             {#if failureDays.length === 0}
-              <p class="text-xs text-subtle">Ningún día con fallas en los últimos 90 días.</p>
+              <p class="text-xs text-subtle" in:appear>
+                Ningún día con fallas en los últimos 90 días.
+              </p>
             {:else}
-              <div class="overflow-x-auto">
+              <div class="overflow-x-auto" in:appear>
                 <table class={[table.root, 'tabular-nums']}>
                   <thead>
                     <tr>

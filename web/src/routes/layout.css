@@ -129,6 +129,216 @@
   --color-info-tint: var(--info-tint);
 }
 
+/*
+ * Motion (ADR 0007, «Movimiento»). Strong ease-out curves for things that enter or leave,
+ * ease-in-out for things that move while on screen, and short durations: the panel must feel
+ * fast. Only opacity, scale, translate and rotate are animated, except the accordion height.
+ * Under prefers-reduced-motion the same names become plain fades (see the block below).
+ */
+@theme {
+  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-in-out: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --animate-fade-in: fade-in 150ms var(--ease-out);
+  --animate-fade-out: fade-out 100ms var(--ease-out) forwards;
+  --animate-pop-in: pop-in 200ms var(--ease-out);
+  --animate-pop-out: pop-out 120ms var(--ease-out) forwards;
+  --animate-menu-in: menu-in 150ms var(--ease-out);
+  --animate-rise-in: rise-in 200ms var(--ease-out);
+  --animate-tooltip-in: tooltip-in 125ms var(--ease-out);
+  --animate-slide-in-left: slide-in-left 300ms var(--ease-drawer);
+  --animate-slide-out-left: slide-out-left 200ms var(--ease-out) forwards;
+  --animate-expand: expand 200ms var(--ease-out);
+  --animate-collapse: collapse 150ms var(--ease-out);
+  --animate-ping-once: ping-once 600ms var(--ease-out);
+  --animate-breathe: breathe 1.6s var(--ease-in-out) infinite alternate;
+  --animate-draw: draw 400ms var(--ease-out) backwards;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      scale: 0.96;
+    }
+  }
+  @keyframes pop-out {
+    to {
+      opacity: 0;
+      scale: 0.96;
+    }
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      scale: 0.97;
+    }
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      translate: 0 4px;
+    }
+  }
+  /* Starts 2px towards its trigger: set --shift-x/--shift-y per data-side. */
+  @keyframes tooltip-in {
+    from {
+      opacity: 0;
+      translate: var(--shift-x, 0) var(--shift-y, 0);
+    }
+  }
+  @keyframes slide-in-left {
+    from {
+      translate: -100% 0;
+    }
+  }
+  @keyframes slide-out-left {
+    to {
+      translate: -100% 0;
+    }
+  }
+  /* Accordion and collapsible content: bits-ui measures the open height for each. */
+  @keyframes expand {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--bits-accordion-content-height, var(--bits-collapsible-content-height));
+    }
+  }
+  @keyframes collapse {
+    from {
+      height: var(--bits-accordion-content-height, var(--bits-collapsible-content-height));
+    }
+    to {
+      height: 0;
+    }
+  }
+  @keyframes ping-once {
+    from {
+      scale: 0.6;
+      opacity: 0.4;
+    }
+  }
+  @keyframes breathe {
+    to {
+      opacity: 0.45;
+    }
+  }
+  /* For paths with pathLength="1" and stroke-dasharray: 1. */
+  @keyframes draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+  }
+}
+
+/* Reduced motion keeps the fades that explain a change and drops every movement. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes pop-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes tooltip-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes slide-out-left {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes expand {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes collapse {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes ping-once {
+    from {
+      opacity: 0.4;
+    }
+  }
+  @keyframes breathe {
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes draw {
+    from {
+      opacity: 0;
+    }
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}
+
+/* Press feedback for buttons and button-like controls: felt more than seen. */
+@utility press {
+  transition: scale 150ms var(--ease-out);
+
+  &:active:not(:disabled) {
+    scale: 0.97;
+
+    @media (prefers-reduced-motion: reduce) {
+      scale: 1;
+    }
+  }
+}
+
+/* Panel navigation: a quick crossfade of the page body only (onNavigate in (app)/+layout). */
+::view-transition-old(content) {
+  animation: fade-out 100ms var(--ease-out) forwards;
+}
+::view-transition-new(content) {
+  animation: fade-in 150ms var(--ease-out);
+}
+/* The rest of the page (sidebar, top bar) and the body's size change stay instant. */
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-group(content) {
+  animation: none;
+}
+
 @layer base {
   body {
     @apply bg-canvas text-sm text-default antialiased;

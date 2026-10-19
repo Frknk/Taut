@@ -26,8 +26,9 @@
   const Icon = $derived(ICONS[tone]);
 </script>
 
+<!-- It rises into place when it appears: a notice or an error after an action. -->
 <div
-  class={[bannerClass(tone, large), className]}
+  class={[bannerClass(tone, large), 'animate-rise-in', className]}
   role={tone === 'danger' ? 'alert' : tone === 'success' ? 'status' : undefined}
 >
   <span class="flex h-lh shrink-0 items-center"

@@ -6,6 +6,7 @@
 
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import Step from '#lib/components/Step.svelte';
   import { ApiError, describeError, request } from '#lib/api.js';
   import { formatDateTime, ROLE_LABELS } from '#lib/format.js';
   import { session } from '#lib/session.svelte.js';
@@ -70,53 +71,62 @@
 </svelte:head>
 
 {#if loadError}
-  <div>
-    <h1 class="text-2xl font-semibold text-strong">Invitación no disponible</h1>
-  </div>
-  <Banner tone="warning">{loadError}</Banner>
-  <p class="text-sm text-subtle">
-    <a class={link} href={resolve('/')}>Ir a tus organizaciones</a>
-  </p>
-{:else if invitation}
-  <div>
-    <h1 class="text-2xl font-semibold text-strong">Te invitaron a {invitation.tenant_name}</h1>
-    <p class="mt-2 text-subtle">
-      Entrarás como <strong class="font-medium text-default"
-        >{ROLE_LABELS[invitation.role].toLowerCase()}</strong
-      >
-      con la cuenta
-      <strong class="font-medium text-default">{invitation.email}</strong>. La invitación vale hasta
-      el {formatDateTime(invitation.expires_at)}.
-    </p>
-  </div>
-
-  {#if error}<Banner tone="danger">{error}</Banner>{/if}
-
-  {#if session.status === 'booting'}
-    <p class="text-subtle">Cargando…</p>
-  {:else if session.status === 'anonymous'}
-    <div class="space-y-3">
-      <Button variant="primary" class="w-full" href={withNext(resolve('/(auth)/login'))}>
-        Entrar para aceptar
-      </Button>
-      <Button class="w-full" href={withNext(resolve('/(auth)/register'))}>Crear una cuenta</Button>
+  <Step>
+    <div>
+      <h1 class="text-2xl font-semibold text-strong">Invitación no disponible</h1>
     </div>
+    <Banner tone="warning">{loadError}</Banner>
     <p class="text-sm text-subtle">
-      Si creas la cuenta, usa {invitation.email}, confirma el correo y vuelve a abrir este enlace.
+      <a class={link} href={resolve('/')}>Ir a tus organizaciones</a>
     </p>
-  {:else if alreadyMember}
-    <Banner tone="info">Ya eres miembro de esta organización.</Banner>
-    <Button variant="primary" class="w-full" href={resolve('/')}>Ir a tus organizaciones</Button>
-  {:else if isForMe}
-    <Button variant="primary" class="w-full" onclick={accept} disabled={accepting}>
-      {accepting ? 'Aceptando…' : `Aceptar y entrar a ${invitation.tenant_name}`}
-    </Button>
-  {:else}
-    <Banner tone="warning">
-      Entraste como {signedInAs}, pero la invitación es para {invitation.email}.
-    </Banner>
-    <Button variant="primary" class="w-full" onclick={switchAccount}>Entrar con otra cuenta</Button>
-  {/if}
+  </Step>
+{:else if invitation}
+  <Step>
+    <div>
+      <h1 class="text-2xl font-semibold text-strong">Te invitaron a {invitation.tenant_name}</h1>
+      <p class="mt-2 text-subtle">
+        Entrarás como <strong class="font-medium text-default"
+          >{ROLE_LABELS[invitation.role].toLowerCase()}</strong
+        >
+        con la cuenta
+        <strong class="font-medium text-default">{invitation.email}</strong>. La invitación vale
+        hasta el {formatDateTime(invitation.expires_at)}.
+      </p>
+    </div>
+
+    {#if error}<Banner tone="danger">{error}</Banner>{/if}
+
+    {#if session.status === 'booting'}
+      <p class="text-subtle">Cargando…</p>
+    {:else if session.status === 'anonymous'}
+      <div class="space-y-3">
+        <Button variant="primary" class="w-full" href={withNext(resolve('/(auth)/login'))}>
+          Entrar para aceptar
+        </Button>
+        <Button class="w-full" href={withNext(resolve('/(auth)/register'))}>Crear una cuenta</Button
+        >
+      </div>
+      <p class="text-sm text-subtle">
+        Si creas la cuenta, usa {invitation.email}, confirma el correo y vuelve a abrir este enlace.
+      </p>
+    {:else if alreadyMember}
+      <Banner tone="info">Ya eres miembro de esta organización.</Banner>
+      <Button variant="primary" class="w-full" href={resolve('/')}>Ir a tus organizaciones</Button>
+    {:else if isForMe}
+      <Button variant="primary" class="w-full" onclick={accept} disabled={accepting}>
+        {accepting ? 'Aceptando…' : `Aceptar y entrar a ${invitation.tenant_name}`}
+      </Button>
+    {:else}
+      <Banner tone="warning">
+        Entraste como {signedInAs}, pero la invitación es para {invitation.email}.
+      </Banner>
+      <Button variant="primary" class="w-full" onclick={switchAccount}
+        >Entrar con otra cuenta</Button
+      >
+    {/if}
+  </Step>
 {:else}
-  <p class="text-subtle">Cargando la invitación…</p>
+  <Step>
+    <p class="text-subtle">Cargando la invitación…</p>
+  </Step>
 {/if}

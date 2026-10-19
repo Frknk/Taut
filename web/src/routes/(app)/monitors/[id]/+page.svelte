@@ -6,6 +6,7 @@
 
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import CopyLabel from '#lib/components/CopyLabel.svelte';
   import Dialog from '#lib/components/Dialog.svelte';
   import IncidentList from '#lib/components/IncidentList.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
@@ -14,6 +15,7 @@
   import Tooltip from '#lib/components/Tooltip.svelte';
   import { API_URL, describeError, request } from '#lib/api.js';
   import { KIND_LABELS, formatDateTime, formatSeconds, timeAgo } from '#lib/format.js';
+  import { appear } from '#lib/motion.js';
   import { useBreadcrumbName } from '#lib/breadcrumb.svelte.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { CheckResult, Incident, Monitor } from '#lib/types.js';
@@ -180,7 +182,7 @@
     <LayerCard title="URL de ping" class="mt-6">
       {#snippet actions()}
         <Button variant="ghost" size="sm" onclick={copyPingUrl}>
-          {copied ? 'Copiada' : 'Copiar URL'}
+          <CopyLabel {copied} label="Copiar URL" done="Copiada" />
         </Button>
       {/snippet}
       <p class="text-subtle">
@@ -202,7 +204,7 @@
   {/if}
 
   {#if incidents.length > 0}
-    <section class="mt-6">
+    <section class="mt-6" in:appear>
       <h2 class="text-base font-semibold text-strong">Incidentes</h2>
       <div class="mt-2">
         <IncidentList {incidents} {tenantId} showMonitor={false} />

@@ -61,7 +61,7 @@
       {/if}
 
       {#if metrics}
-        <div class={['mt-3', loading && 'opacity-60']}>
+        <div class={['mt-3 transition-opacity duration-150', loading && 'opacity-60']}>
           <LayerCard flush>
             <div class="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]">
               {#each RANGES as option (option.value)}

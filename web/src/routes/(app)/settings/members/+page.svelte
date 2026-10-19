@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { flip } from 'svelte/animate';
 
   import Badge from '#lib/components/Badge.svelte';
   import Banner from '#lib/components/Banner.svelte';
@@ -16,6 +17,7 @@
     validateInvite,
     type InviteErrors,
   } from '#lib/invite-form.js';
+  import { FLIP, leave } from '#lib/motion.js';
   import { session } from '#lib/session.svelte.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { Invitation, Member, Role } from '#lib/types.js';
@@ -160,7 +162,7 @@
     <tbody>
       {#each members as member (member.user_id)}
         {@const isMe = member.user_id === session.user?.id}
-        <tr class={table.row}>
+        <tr class={table.row} animate:flip={FLIP} out:leave>
           <td class={[table.td, 'font-medium text-strong']}>
             {member.name}
             {#if isMe}<span class="font-normal text-subtle">(tú)</span>{/if}
@@ -268,7 +270,7 @@
         </thead>
         <tbody>
           {#each invitations as invitation (invitation.id)}
-            <tr class={table.row}>
+            <tr class={table.row} animate:flip={FLIP} out:leave>
               <td class={[table.td, 'font-medium text-strong']}>{invitation.email}</td>
               <td class={table.td}>
                 <Badge tone="outline">{ROLE_LABELS[invitation.role]}</Badge>

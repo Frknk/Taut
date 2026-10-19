@@ -40,6 +40,32 @@ Las guías `kumo-design` de Cloudflare aplican a todo el frontend; el resumen op
 `collapse-content-size`, `layer-card-nesting` y `dialog-rendering`. Excepciones documentadas: el
 texto `text-xs` de badges, ayudas y botones pequeños, y el banner grande de la página pública.
 
+### Movimiento
+
+El movimiento sigue el criterio del curso *Animations on the Web* (skill `animate` del repo):
+se anima solo lo que tiene un propósito (respuesta a una acción, un cambio de estado, evitar un
+salto brusco) y según la frecuencia de uso.
+
+- **Sin librerías.** Tokens y keyframes en `web/src/routes/layout.css` (`--ease-out`,
+  `--ease-in-out`, `--ease-drawer` y utilidades `animate-*`), la utilidad `press` para botones y
+  las transiciones de Svelte en `web/src/lib/motion.ts` (`step`, `pop`, `appear`, `leave`,
+  `FLIP`).
+- **Curvas y duraciones.** `ease-out` fuerte para lo que entra o sale, `ease-in-out` para lo que
+  se mueve en pantalla, nunca `ease-in`. Menos de 300 ms (el drawer usa 300 ms con la curva de
+  iOS); las salidas son más cortas que las entradas. Nada aparece desde `scale(0)`: se parte de
+  0,96–0,97 con opacidad.
+- **Overlays de bits-ui.** Se animan con `data-[state=open|closed]`: bits-ui espera a que la
+  animación termine antes de desmontar, sin `forceMount`. Menús y selects crecen desde su
+  disparador (`--bits-floating-transform-origin`); los diálogos desde el centro.
+- **Qué no se anima.** Hovers de color (regla `hover-color-transitions`), la navegación del
+  sidebar, el contenido de las tabs, los tooltips y el cursor de los gráficos (siguen al
+  puntero), contadores y refrescos del polling. Entre páginas del panel solo hay un crossfade
+  de 150 ms del contenido (`onNavigate` + View Transitions).
+- **Movimiento reducido.** Con `prefers-reduced-motion` los mismos nombres de keyframes y las
+  transiciones de `motion.ts` se vuelven fundidos de opacidad, y desaparecen los movimientos, la
+  respiración del logo y las View Transitions.
+- **Tests.** `expectAccessible()` espera a que terminen las animaciones antes de pasar axe.
+
 ## Alternativas consideradas
 
 - **Usar Kumo directamente:** es una librería de React; el panel es Svelte.

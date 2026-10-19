@@ -7,6 +7,8 @@ const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 /** Fails with one line per axe violation found under `root` (the whole document by default). */
 export async function expectAccessible(root: Element = document.body): Promise<void> {
+  // Contrast is checked at rest: a panel halfway through its fade-in would fail it.
+  await Promise.all(document.getAnimations().map((animation) => animation.finished));
   const { violations } = await axe.run(root, {
     runOnly: { type: 'tag', values: TAGS },
     resultTypes: ['violations'],

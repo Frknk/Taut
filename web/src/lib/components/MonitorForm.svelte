@@ -87,7 +87,7 @@
         <RadioGroup.Item
           value={kind}
           class={[
-            'flex h-9 cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium ring',
+            'press flex h-9 cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium ring',
             'bg-control text-default ring-line hover:bg-tint',
             'data-[state=checked]:bg-brand data-[state=checked]:text-on-brand data-[state=checked]:ring-brand',
             'data-disabled:cursor-not-allowed data-[state=unchecked]:data-disabled:text-inactive data-[state=unchecked]:data-disabled:hover:bg-control',
@@ -187,37 +187,43 @@
       >
         <CaretDownIcon
           size={14}
-          class="-rotate-90 text-subtle group-data-[state=open]:rotate-0"
+          class="-rotate-90 text-subtle transition-[rotate] duration-200 ease-in-out group-data-[state=open]:rotate-0"
           aria-hidden="true"
         />
         Confirmación y recuperación
       </Collapsible.Trigger>
-      <Collapsible.Content class="mt-4 grid gap-6 sm:grid-cols-2">
-        <div>
-          <label class={label} for="confirmation">Periodo de confirmación (s)</label>
-          <input
-            id="confirmation"
-            type="number"
-            min="0"
-            class={input}
-            bind:value={values.confirmation_period_s}
-          />
-          <p class={hint}>Cuánto debe durar la falla antes de abrir un incidente.</p>
-          {#if errors.confirmation_period_s}
-            <p class={fieldError}>{errors.confirmation_period_s}</p>
-          {/if}
-        </div>
-        <div>
-          <label class={label} for="recovery">Periodo de recuperación (s)</label>
-          <input
-            id="recovery"
-            type="number"
-            min="0"
-            class={input}
-            bind:value={values.recovery_period_s}
-          />
-          <p class={hint}>Cuánto debe estar sano antes de cerrar el incidente.</p>
-          {#if errors.recovery_period_s}<p class={fieldError}>{errors.recovery_period_s}</p>{/if}
+      <!-- The height animation clips its content: the 4px side padding keeps the inputs' focus
+           ring inside the clip, and the negative margin keeps the fields where they were. -->
+      <Collapsible.Content
+        class="-mx-1 overflow-hidden px-1 data-[state=closed]:animate-collapse data-[state=open]:animate-expand"
+      >
+        <div class="grid gap-6 pt-4 pb-0.5 sm:grid-cols-2">
+          <div>
+            <label class={label} for="confirmation">Periodo de confirmación (s)</label>
+            <input
+              id="confirmation"
+              type="number"
+              min="0"
+              class={input}
+              bind:value={values.confirmation_period_s}
+            />
+            <p class={hint}>Cuánto debe durar la falla antes de abrir un incidente.</p>
+            {#if errors.confirmation_period_s}
+              <p class={fieldError}>{errors.confirmation_period_s}</p>
+            {/if}
+          </div>
+          <div>
+            <label class={label} for="recovery">Periodo de recuperación (s)</label>
+            <input
+              id="recovery"
+              type="number"
+              min="0"
+              class={input}
+              bind:value={values.recovery_period_s}
+            />
+            <p class={hint}>Cuánto debe estar sano antes de cerrar el incidente.</p>
+            {#if errors.recovery_period_s}<p class={fieldError}>{errors.recovery_period_s}</p>{/if}
+          </div>
         </div>
       </Collapsible.Content>
     </Collapsible.Root>

@@ -3,6 +3,7 @@
 
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import Step from '#lib/components/Step.svelte';
   import { authRequest, describeError } from '#lib/api.js';
   import { looksLikeEmail } from '#lib/auth-forms.js';
   import { fieldError, input, label, link } from '#lib/ui.js';
@@ -44,28 +45,32 @@
 {#if error}<Banner tone="danger">{error}</Banner>{/if}
 
 {#if sent}
-  <Banner tone="success">
-    Listo. Si <strong>{email.trim()}</strong> tiene cuenta, el correo está en camino.
-  </Banner>
+  <Step>
+    <Banner tone="success">
+      Listo. Si <strong>{email.trim()}</strong> tiene cuenta, el correo está en camino.
+    </Banner>
+  </Step>
 {:else}
-  <form class="space-y-4" onsubmit={submit} novalidate>
-    <div>
-      <label class={label} for="email">Correo</label>
-      <input
-        id="email"
-        class={input}
-        type="email"
-        autocomplete="email"
-        bind:value={email}
-        aria-invalid={fieldMessage ? true : undefined}
-        required
-      />
-      {#if fieldMessage}<p class={fieldError}>{fieldMessage}</p>{/if}
-    </div>
-    <Button type="submit" variant="primary" class="w-full" disabled={busy}>
-      {busy ? 'Enviando…' : 'Enviar enlace'}
-    </Button>
-  </form>
+  <Step>
+    <form class="space-y-4" onsubmit={submit} novalidate>
+      <div>
+        <label class={label} for="email">Correo</label>
+        <input
+          id="email"
+          class={input}
+          type="email"
+          autocomplete="email"
+          bind:value={email}
+          aria-invalid={fieldMessage ? true : undefined}
+          required
+        />
+        {#if fieldMessage}<p class={fieldError}>{fieldMessage}</p>{/if}
+      </div>
+      <Button type="submit" variant="primary" class="w-full" disabled={busy}>
+        {busy ? 'Enviando…' : 'Enviar enlace'}
+      </Button>
+    </form>
+  </Step>
 {/if}
 
 <p class="text-sm text-subtle">

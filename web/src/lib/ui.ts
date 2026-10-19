@@ -17,7 +17,7 @@ export const focusRing =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 const BUTTON_BASE = [
-  'inline-flex shrink-0 cursor-pointer items-center justify-center font-medium whitespace-nowrap select-none',
+  'press inline-flex shrink-0 cursor-pointer items-center justify-center font-medium whitespace-nowrap select-none',
   focusRing,
   'disabled:cursor-not-allowed disabled:bg-tint disabled:text-inactive disabled:shadow-none disabled:ring-0',
 ].join(' ');
@@ -104,7 +104,8 @@ export const input = `mt-1.5 ${inputBox}`;
 
 export const help = 'mt-1.5 text-xs text-subtle';
 
-export const fieldError = 'mt-1.5 text-xs text-danger';
+/** A field's error: it fades in when it appears, so the form does not jump at the eye. */
+export const fieldError = 'mt-1.5 animate-fade-in text-xs text-danger';
 
 export const link = `rounded-sm text-link underline decoration-1 underline-offset-2 hover:decoration-2 ${focusRing}`;
 
@@ -122,11 +123,14 @@ export const table = {
 /**
  * Floating list recipe, for menus and the options of a select: the panel (at least as wide as
  * its trigger), an item, a group heading and a separator. bits-ui marks the item under the
- * keyboard or the pointer with `data-highlighted`.
+ * keyboard or the pointer with `data-highlighted`. The panel grows out of its trigger and fades
+ * away; bits-ui waits for the animation before it unmounts.
  */
 export const menu = {
-  panel:
+  panel: [
     'z-50 max-h-(--bits-floating-available-height) min-w-(--bits-floating-anchor-width) overflow-y-auto rounded-lg bg-base p-1 shadow-lg ring ring-line focus-visible:outline-none',
+    'origin-(--bits-floating-transform-origin) data-[state=open]:animate-menu-in data-[state=closed]:animate-fade-out',
+  ].join(' '),
   item: [
     'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-default outline-none',
     'data-highlighted:bg-tint data-disabled:cursor-default data-disabled:text-subtle',
@@ -135,12 +139,17 @@ export const menu = {
   separator: 'my-1 h-px bg-hairline',
 };
 
-/** Modal dialog recipe: the scrim behind it and the centred panel. */
+/**
+ * Modal dialog recipe: the scrim behind it and the centred panel. The panel scales from its centre
+ * (the `scale` property, so the centring `translate` stays put) and leaves faster than it came.
+ */
 export const dialog = {
-  overlay: 'fixed inset-0 z-50 bg-scrim',
+  overlay:
+    'fixed inset-0 z-50 bg-scrim data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',
   content: [
     'fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(100%-2rem,440px)] -translate-1/2 overflow-y-auto',
     'rounded-xl bg-base px-6 py-5 text-sm text-default shadow-lg ring ring-line focus-visible:outline-none',
+    'data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out',
   ].join(' '),
 };
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { afterNavigate, goto } from '$app/navigation';
+  import { afterNavigate, goto, onNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { Dialog } from 'bits-ui';
@@ -13,6 +13,7 @@
   import Sidebar from '#lib/components/Sidebar.svelte';
   import { crumbsFor } from '#lib/breadcrumb.js';
   import { breadcrumb } from '#lib/breadcrumb.svelte.js';
+  import { prefersReducedMotion } from '#lib/motion.js';
   import { session } from '#lib/session.svelte.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import { buttonClass, focusRing } from '#lib/ui.js';
@@ -41,6 +42,19 @@
   // Below `lg` the sidebar is a drawer over the content, opened from the top bar. bits-ui
   // traps the focus, closes it with Escape or a click outside and gives the focus back.
   let drawerOpen = $state(false);
+
+  // Moving between sections crossfades the page body (the `content` view transition in
+  // layout.css); the sidebar and the top bar stay still. A new query on the same page does not.
+  onNavigate((navigation) => {
+    if (!document.startViewTransition || prefersReducedMotion()) return;
+    if (navigation.from?.route.id === navigation.to?.route.id) return;
+    return new Promise((ready) => {
+      document.startViewTransition(async () => {
+        ready();
+        await navigation.complete;
+      });
+    });
+  });
 
   afterNavigate(() => {
     drawerOpen = false;
@@ -74,11 +88,13 @@
           <ListIcon size={18} aria-hidden="true" />
         </Dialog.Trigger>
         <Dialog.Portal>
-          <Dialog.Overlay class="fixed inset-0 z-40 bg-scrim lg:hidden" />
+          <Dialog.Overlay
+            class="fixed inset-0 z-40 bg-scrim data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in lg:hidden"
+          />
           <Dialog.Content
             class={[
               'fixed inset-y-0 left-0 z-40 w-60 border-r border-hairline bg-base shadow-lg lg:hidden',
-              'transition-[translate] duration-200 starting:-translate-x-full focus-visible:outline-none',
+              'data-[state=closed]:animate-slide-out-left data-[state=open]:animate-slide-in-left focus-visible:outline-none',
             ]}
           >
             <Dialog.Title class="sr-only">Navegación</Dialog.Title>
@@ -112,11 +128,15 @@
       <Sidebar />
     </aside>
 
-    <main class="mx-auto w-full max-w-5xl px-4 py-8 lg:col-start-2 lg:px-8">
-      <!-- A new tenant remounts the page, so it loads that tenant's data. -->
+    <main
+      class="mx-auto w-full max-w-5xl px-4 py-8 [view-transition-name:content] lg:col-start-2 lg:px-8"
+    >
+      <!-- A new tenant remounts the page, so it loads that tenant's data, and fades it in. -->
       {#if !selectedTenant.switching}
         {#key selectedTenant.current.id}
-          {@render children()}
+          <div class="animate-fade-in">
+            {@render children()}
+          </div>
         {/key}
       {/if}
     </main>

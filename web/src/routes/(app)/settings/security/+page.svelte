@@ -5,7 +5,9 @@
   import Badge from '#lib/components/Badge.svelte';
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import CopyLabel from '#lib/components/CopyLabel.svelte';
   import Dialog from '#lib/components/Dialog.svelte';
+  import DrawnCheck from '#lib/components/DrawnCheck.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
   import { ApiError, authRequest, describeError } from '#lib/api.js';
   import type { AuthErrors } from '#lib/auth-forms.js';
@@ -17,6 +19,7 @@
     mfaBody,
     type ReauthValues,
   } from '#lib/mfa-form.js';
+  import { step } from '#lib/motion.js';
   import { session } from '#lib/session.svelte.js';
   import type { BackupCodes, MfaEnrollment, MfaStatus } from '#lib/types.js';
   import { fieldError, help, input, label } from '#lib/ui.js';
@@ -33,6 +36,8 @@
 
   // Backup codes just generated: shown once, then gone.
   let codes = $state<string[] | null>(null);
+  /** Set by a confirmation in this visit: the enabled state then draws its check once. */
+  let justEnabled = $state(false);
   let copied = $state(false);
 
   // Turning 2FA off: password and code in a dialog.
@@ -91,6 +96,7 @@
       enrollment = null;
       codes = result.backup_codes;
       copied = false;
+      justEnabled = true;
       notice = 'Verificación en dos pasos activada. Guarda estos códigos de respaldo.';
       await Promise.all([load(), session.refresh()]);
     } catch (err) {
@@ -194,7 +200,8 @@
   {#if !status}
     <p class="text-sm text-subtle" role="status">Cargando…</p>
   {:else if status.enabled}
-    <div class="space-y-4 text-sm">
+    <div class="space-y-4 text-sm" in:step>
+      {#if justEnabled}<DrawnCheck class="size-8 text-success" />{/if}
       <p class="text-default">
         Al entrar se pide, además de la contraseña, el código de tu app de autenticación.
         {#if status.enabled_at}
@@ -216,7 +223,7 @@
       </div>
     </div>
   {:else if enrollment}
-    <div class="grid gap-6 sm:grid-cols-[auto_1fr]">
+    <div class="grid gap-6 sm:grid-cols-[auto_1fr]" in:step>
       <div
         class="size-44 shrink-0 overflow-hidden rounded-lg ring ring-hairline [&>svg]:size-full"
         aria-hidden="true"
@@ -256,7 +263,7 @@
       </form>
     </div>
   {:else}
-    <div class="space-y-4 text-sm">
+    <div class="space-y-4 text-sm" in:step>
       <p class="text-default">
         Protege tu cuenta con un segundo paso al entrar: un código temporal de una app de
         autenticación en tu teléfono. Recibirás también códigos de respaldo por si lo pierdes.
@@ -272,7 +279,7 @@
   <LayerCard title="Códigos de respaldo">
     {#snippet actions()}
       <Button size="sm" variant="ghost" onclick={copyCodes}>
-        {copied ? 'Copiados' : 'Copiar'}
+        <CopyLabel {copied} label="Copiar" done="Copiados" />
       </Button>
       <Button size="sm" variant="ghost" onclick={() => (codes = null)}>Ya los guardé</Button>
     {/snippet}
