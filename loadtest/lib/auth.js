@@ -52,6 +52,33 @@ function tenantIdOf(session) {
   return tenant.id;
 }
 
+/**
+ * Creates an API key for the session's tenant: { id, key }. The api asks for a login of less
+ * than 5 minutes for this, so call it right after `login()`. Revoke it with `revokeApiKey` in
+ * teardown: a tenant holds at most 20 active keys.
+ */
+export function createApiKey(session, name, scope = 'read') {
+  const res = http.post(`${API_URL}/v1/api-keys`, JSON.stringify({ name, scope }), {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      'X-Tenant-Id': session.tenantId,
+      'Content-Type': 'application/json',
+    },
+    tags: { name: 'POST /v1/api-keys' },
+  });
+  if (res.status !== 201) fail(`creating an API key for ${session.slug} answered ${res.status}`);
+  const body = res.json();
+  return { id: body.id, key: body.key };
+}
+
+/** Revokes an API key created by `createApiKey`. */
+export function revokeApiKey(session, id) {
+  http.del(`${API_URL}/v1/api-keys/${id}`, null, {
+    headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-Id': session.tenantId },
+    tags: { name: 'DELETE /v1/api-keys/:id' },
+  });
+}
+
 const renewed = {};
 
 /**

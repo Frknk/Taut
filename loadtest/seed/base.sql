@@ -24,7 +24,15 @@ FROM generate_series(1, :status_tenants) AS n
 UNION ALL
 SELECT gen_random_uuid(), format('lt-p-%s', lpad(n::text, 2, '0')), 'panel',
        :panel_monitors, :panel_days, :panel_step_min
-FROM generate_series(1, :panel_tenants) AS n;
+FROM generate_series(1, :panel_tenants) AS n
+UNION ALL
+-- Security scenarios (rate-limit.js, isolation.js): a pair for the rate limit and four
+-- attacker/victim pairs, with a day of history. Their monitors carry the slug in the name, so
+-- a leak between tenants shows up as a foreign name.
+SELECT gen_random_uuid(), slug, 'security', 3, 1, 5
+FROM unnest(ARRAY['lt-rl-a', 'lt-rl-b',
+                  'lt-i-a1', 'lt-i-b1', 'lt-i-a2', 'lt-i-b2',
+                  'lt-i-a3', 'lt-i-b3', 'lt-i-a4', 'lt-i-b4']) AS slug;
 
 INSERT INTO tenants (id, slug, name)
 SELECT id, slug, format('Carga %s', slug) FROM lt_tenants;
@@ -45,12 +53,14 @@ JOIN users AS u ON u.email = t.slug || '@loadtest.taut.test';
 
 -- HTTP monitors against the echo server, created as if 90 days ago so the history fits.
 CREATE TEMP TABLE lt_monitors ON COMMIT DROP AS
-SELECT gen_random_uuid() AS id, t.id AS tenant_id, m AS n, t.days, t.step_min
+SELECT gen_random_uuid() AS id, t.id AS tenant_id, t.slug, t.role, m AS n, t.days, t.step_min
 FROM lt_tenants AS t
 CROSS JOIN LATERAL generate_series(1, t.monitors) AS m;
 
 INSERT INTO monitors (id, tenant_id, name, kind, target, interval_s, timeout_s, created_at, updated_at)
-SELECT id, tenant_id, format('Servicio %s', n), 'http', :'echo_url', step_min * 60, 10,
+SELECT id, tenant_id,
+       CASE WHEN role = 'security' THEN format('%s servicio %s', slug, n) ELSE format('Servicio %s', n) END,
+       'http', :'echo_url', step_min * 60, 10,
        now() - INTERVAL '90 days' + n * INTERVAL '1 second', now()
 FROM lt_monitors;
 
@@ -90,7 +100,9 @@ CROSS JOIN LATERAL (VALUES
 COMMIT;
 
 SELECT role, count(*) AS tenants, sum(monitors) AS monitors FROM (
-    SELECT CASE WHEN slug LIKE 'lt-s-%' THEN 'status' ELSE 'panel' END AS role,
+    SELECT CASE WHEN slug LIKE 'lt-s-%' THEN 'status'
+                WHEN slug LIKE 'lt-p-%' THEN 'panel'
+                ELSE 'security' END AS role,
            (SELECT count(*) FROM monitors WHERE tenant_id = t.id) AS monitors
     FROM tenants AS t WHERE slug LIKE 'lt-%'
 ) AS seeded GROUP BY role ORDER BY role;

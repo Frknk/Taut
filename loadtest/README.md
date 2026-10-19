@@ -32,11 +32,27 @@ Lo que va después de `just loadtest <escenario>` pasa a k6, por ejemplo
 
 ## Escenarios
 
-| Escenario     | Qué mide                                                                                    | Carga por defecto                                                                 | Umbrales                                                             |
-| ------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `smoke`       | Que el stack, la semilla y los scripts funcionan                                            | 1 VU, 3 iteraciones                                                               | todos los checks y ninguna petición fallida                          |
-| `api-crud`    | El panel: lista, detalle, checks, métricas e incidentes, más crear, editar, pausar y borrar | 1 min de calentamiento a 5 it/s; 5 min a 25 it/s de lectura y 1 it/s de escritura | p95 < 300 ms (global y por ruta), p99 < 1 s, errores < 1 %, cero 429 |
-| `status-page` | Páginas de estado públicas, sin caché                                                       | 30 s de rampa y 5 min a 500 req/s                                                 | p95 < 300 ms, p99 < 1 s, errores < 1 %                               |
+| Escenario     | Qué mide                                                                                    | Carga por defecto                                                                               | Umbrales                                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `smoke`       | Que el stack, la semilla y los scripts funcionan                                            | 1 VU, 3 iteraciones                                                                             | todos los checks y ninguna petición fallida                                                                              |
+| `api-crud`    | El panel: lista, detalle, checks, métricas e incidentes, más crear, editar, pausar y borrar | 1 min de calentamiento a 5 it/s; 5 min a 25 it/s de lectura y 1 it/s de escritura               | p95 < 300 ms (global y por ruta), p99 < 1 s, errores < 1 %, cero 429                                                     |
+| `status-page` | Páginas de estado públicas, sin caché                                                       | 30 s de rampa y 5 min a 500 req/s                                                               | p95 < 300 ms, p99 < 1 s, errores < 1 %                                                                                   |
+| `rate-limit`  | El presupuesto por tenant: 429 con `Retry-After` al agotarlo, sin afectar a otros           | 15 req/s de panel y 2 req/s de API key sobre `lt-rl-a`, 2 req/s de control; 3 ventanas de 1 min | 600 (panel) y 60 (API key) OK por ventana ±2, `Retry-After` correcto, cero 429 en el control, cero errores del limitador |
+| `isolation`   | Que ningún tenant llegue a datos de otro bajo carga (RLS, ADR 0010)                         | 20 it/s de ataque (14 caminos en rueda) y 8 it/s de uso normal de las víctimas, 3 min           | cero fugas (aborta en la primera) y cero respuestas inesperadas                                                          |
+
+`status-page` tiene además tres perfiles (`-e PROFILE=…`) que buscan dónde y cómo se degrada la
+página. Sus umbrales dicen qué escalón o fase cumplió el SLO, así que un umbral fallido ahí es un
+resultado y no una prueba rota:
+
+| Perfil       | Carga                                                                              | Qué responde                            |
+| ------------ | ---------------------------------------------------------------------------------- | --------------------------------------- |
+| `baseline`   | El de la tabla de arriba (por defecto)                                             | ¿Cumple el SLO a la carga normal?       |
+| `stress`     | Escalones de 2 min: 100, 250, 500, 750, 1 000, 1 250 y 1 500 req/s                 | ¿En qué escalón deja de cumplir el SLO? |
+| `spike`      | 1 min a 50 req/s, 1 min a 2 000, 2 min a 50                                        | ¿Se recupera sola después del pico?     |
+| `breakpoint` | Rampa de 0 a 3 000 req/s en 15 min; se corta con p95 > 1 s o más de 5 % de errores | ¿Cuál es la tasa máxima sostenible?     |
+
+`isolation -e SELFTEST=1` apunta cada atacante a su propio tenant: tiene que fallar, y prueba
+que el detector de fugas funciona.
 
 Los escenarios usan un **modelo abierto** (`constant-arrival-rate`): k6 lanza un número fijo de
 iteraciones por segundo, haya respondido o no el sistema. Si Taut se pone lento la carga no baja:
@@ -45,14 +61,16 @@ la fase `steady`, no el calentamiento.
 
 Variables de los escenarios:
 
-| Variable                                         | Escenario                | Por defecto    | Para qué                                                                                                      |
-| ------------------------------------------------ | ------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------- |
-| `READ_RATE`, `WRITE_RATE`                        | api-crud                 | 25, 1          | Iteraciones por segundo; el script se niega a pasar del 80 % del presupuesto de 600 peticiones/min por tenant |
-| `RATE`                                           | status-page              | 500            | Peticiones por segundo en la fase estable                                                                     |
-| `SLUGS`                                          | status-page              | `spread`       | `spread` reparte entre las 20 páginas; `hot` las manda todas a una                                            |
-| `DURATION`                                       | api-crud, status-page    | `5m`           | Duración de la fase estable                                                                                   |
-| `BASE_URL` o `API_URL`, `AUTH_URL`, `STATUS_URL` | todos                    | los de compose | Contra qué entorno corre                                                                                      |
-| `ECHO_URL`                                       | api-crud, smoke, semilla | `http://echo/` | Destino de los monitores                                                                                      |
+| Variable                                         | Escenario                        | Por defecto              | Para qué                                                                                                      |
+| ------------------------------------------------ | -------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `READ_RATE`, `WRITE_RATE`                        | api-crud                         | 25, 1                    | Iteraciones por segundo; el script se niega a pasar del 80 % del presupuesto de 600 peticiones/min por tenant |
+| `RATE`                                           | status-page                      | 500                      | Peticiones por segundo en la fase estable                                                                     |
+| `SLUGS`                                          | status-page                      | `spread`                 | `spread` reparte entre las 20 páginas; `hot` las manda todas a una                                            |
+| `PROFILE`, `STEP_S`, `MAX_VUS`                   | status-page                      | `baseline`, 120, 2000    | Perfil de carga, duración de cada escalón de `stress` y VUs máximos de k6                                     |
+| `ATTACK_RATE`, `VICTIM_RATE`, `SELFTEST`         | isolation                        | 20, 8, —                 | Iteraciones por segundo de atacantes y víctimas; `SELFTEST=1` para el autotest                                |
+| `DURATION`                                       | api-crud, status-page, isolation | `5m` (`3m` en isolation) | Duración de la fase estable                                                                                   |
+| `BASE_URL` o `API_URL`, `AUTH_URL`, `STATUS_URL` | todos                            | los de compose           | Contra qué entorno corre                                                                                      |
+| `ECHO_URL`                                       | api-crud, smoke, semilla         | `http://echo/`           | Destino de los monitores                                                                                      |
 
 ## Datos de prueba
 
@@ -61,10 +79,11 @@ registro no permite crear rápido: registrarse exige verificar el correo y auth 
 registros por IP y hora. Todo lleva el prefijo `lt-` en el slug y el dominio
 `@loadtest.taut.test` en el correo, y `just loadtest-clean` lo borra.
 
-| Grupo               | Tenants | Monitores               | Historia        | Para                |
-| ------------------- | ------- | ----------------------- | --------------- | ------------------- |
-| `lt-s-01`…`lt-s-20` | 20      | 10 cada uno, cada 5 min | 89 días a 5 min | `status-page`       |
-| `lt-p-01`…`lt-p-50` | 50      | 5 cada uno, cada 1 min  | 30 días a 1 min | `api-crud`, `smoke` |
+| Grupo                                     | Tenants | Monitores                                        | Historia        | Para                      |
+| ----------------------------------------- | ------- | ------------------------------------------------ | --------------- | ------------------------- |
+| `lt-s-01`…`lt-s-20`                       | 20      | 10 cada uno, cada 5 min                          | 89 días a 5 min | `status-page`             |
+| `lt-p-01`…`lt-p-50`                       | 50      | 5 cada uno, cada 1 min                           | 30 días a 1 min | `api-crud`, `smoke`       |
+| `lt-rl-a`, `lt-rl-b`, `lt-i-a1`…`lt-i-b4` | 10      | 3 cada uno, cada 5 min, con el slug en el nombre | 1 día a 5 min   | `rate-limit`, `isolation` |
 
 Son unos 16 millones de filas en `check_results` (~2,5 GB). Cada monitor tiene además tres
 incidentes resueltos, uno en la última semana. Los monitores apuntan al servidor eco y siguen
@@ -87,14 +106,18 @@ en cada iteración sería medir auth. Nunca mandes una contraseña errónea: aut
   base tiene que poder compararse con la de la semana 13.
 - Anota la máquina y los recursos de la VM de OrbStack en el reporte: k6 y Taut comparten CPU.
 - Corre `smoke` antes de cada prueba pesada y no uses el panel mientras tanto.
+- En macOS, corre las pruebas largas con `caffeinate -i just loadtest …`. Si el Mac entra en
+  reposo a mitad de la corrida, los contenedores se congelan y esa corrida no sirve (pasó con el
+  primer `stress` del 19-10: hubo que repetirlo).
 
 ## Estructura
 
 ```
 lib/config.js       variables de entorno, tamaños de la semilla y nombres (lt-s-NN, lt-p-NN)
-lib/auth.js         login de los usuarios sembrados y renovación del token
+lib/auth.js         login de los usuarios sembrados, renovación del token y API keys
 lib/http.js         peticiones a la api con Bearer y X-Tenant-Id; contador rate_limited
 lib/checks.js       umbrales de la fase estable
+lib/prom.js         consultas a Prometheus (contadores del servidor que deciden un umbral)
 scenarios/*.js      un archivo por escenario
 seed/base.sql       semilla; clean.sql la borra; refresh.sql actualiza agregados y estadísticas
 ```
@@ -105,8 +128,6 @@ crear una serie de Prometheus por monitor. `just loadtest-lint` revisa los scrip
 
 ## Pendiente
 
-- Fase 2: `rate-limit` (429 y `Retry-After` al pasar el presupuesto), `isolation` (ningún tenant
-  ve datos de otro bajo carga) y los perfiles `stress`, `spike` y `breakpoint` de `status-page`.
 - Fase 3: `checker-soak`, 2 000 monitores a 30 s durante 30 min, con `uptime_check_lag_seconds`
   bajo 10 s; la parte del HPA espera a Kubernetes.
 - Semana 13: repetir `status-page` con la caché de Redis y comparar con la línea base.
