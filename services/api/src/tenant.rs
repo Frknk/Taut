@@ -25,6 +25,7 @@ use taut_identity::bearer::{self, Credential};
 use uuid::Uuid;
 
 use crate::AppState;
+use crate::ratelimit::Bucket;
 
 /// Commercial plan of a tenant; sets its quotas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -54,6 +55,21 @@ impl Plan {
     pub const fn heartbeat_quota(self) -> i64 {
         match self {
             Self::Free => 10,
+        }
+    }
+
+    /// Requests per minute the tenant's API keys may make, together (docs/taut.md).
+    pub const fn api_key_requests_per_minute(self) -> u64 {
+        match self {
+            Self::Free => 60,
+        }
+    }
+
+    /// Requests per minute the panel may make for the tenant, all members and tabs together:
+    /// a monitor's page alone polls about 20 times a minute.
+    pub const fn panel_requests_per_minute(self) -> u64 {
+        match self {
+            Self::Free => 600,
         }
     }
 }
@@ -285,7 +301,8 @@ impl FromRequestParts<AppState> for CurrentUser {
 /// answer never tells which). An API key answers `401` when unknown or revoked, `403` when
 /// the header names another tenant, the route is not in [`API_KEY_ROUTES`] or a `read` key
 /// tries anything but `GET`. On success the tenant id (and the key id) is recorded on the
-/// request span.
+/// request span and the request counts against the tenant's budget (API keys or panel, see
+/// [`crate::ratelimit`]): `429` once it is spent.
 #[derive(Debug, Clone)]
 pub struct CurrentTenant {
     /// The tenant.
@@ -311,6 +328,14 @@ impl FromRequestParts<AppState> for CurrentTenant {
                 message: "you are not a member of this tenant".to_owned(),
             })?;
         tracing::Span::current().record("tenant_id", tracing::field::display(found.tenant.id));
+        state
+            .limiter
+            .hit(
+                found.tenant.id,
+                Bucket::Panel,
+                found.tenant.plan.panel_requests_per_minute(),
+            )
+            .await?;
         Ok(Self {
             tenant: found.tenant,
             actor: Actor::User {
@@ -372,6 +397,14 @@ async fn from_api_key(
     if scope == Scope::Read && !matches!(parts.method, Method::GET | Method::HEAD) {
         return Err(AppError::Forbidden("this api key is read-only".to_owned()));
     }
+    state
+        .limiter
+        .hit(
+            row.id,
+            Bucket::ApiKey,
+            row.plan.api_key_requests_per_minute(),
+        )
+        .await?;
 
     let due = row.last_used_at.is_none_or(|at| {
         Utc::now().signed_duration_since(at).num_seconds() >= LAST_USED_RESOLUTION_SECS

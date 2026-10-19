@@ -188,6 +188,9 @@ fn cors(settings: &HttpSettings) -> CorsLayer {
             header::AUTHORIZATION,
             HeaderName::from_static(TENANT_ID_HEADER),
         ])
+        // Cross-origin, the browser hides every response header not listed here: the panel
+        // reads `Retry-After` to say how long a `429` lasts.
+        .expose_headers([header::RETRY_AFTER])
         .max_age(Duration::from_secs(600))
 }
 

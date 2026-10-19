@@ -61,7 +61,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   Las acciones delicadas (canales, borrar el tenant, API keys) añaden `actor.require_recent_auth()?`
   (step-up: `403 reauth_required` si el último login o reautenticación tiene más de 5 min; el
   panel lo resuelve solo con `ReauthDialog`). Las rutas que no son de un tenant (`/v1/tenants`)
-  reciben `CurrentUser`, que rechaza las API keys con `401`.
+  reciben `CurrentUser`, que rechaza las API keys con `401`. `CurrentTenant` además cuenta la
+  petición contra el presupuesto del tenant (`services/api/src/ratelimit.rs`, por plan: API keys
+  y panel por separado) y responde `429` al agotarlo; no hace falta nada en el handler.
 - **API keys**: `CurrentTenant` también acepta `Bearer taut_live_…` (`Actor::ApiKey`). Las claves
   solo llegan a las rutas de `API_KEY_ROUTES` en `services/api/src/tenant.rs` (monitores e
   incidentes); una ruta nueva queda cerrada a ellas hasta que se agregue ahí. Si el handler

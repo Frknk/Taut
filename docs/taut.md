@@ -184,7 +184,7 @@ retención de 90 días y agregados continuos para `uptime_daily`.*
 | status:{slug}       | JSON de la página de estado pública | 30 s             |
 | monitor:{id}:last   | Últimos 50 resultados               | 5 min            |
 | lock:scheduler      | Lock de líder del scheduler         | 10 s, renovado   |
-| rl:{tenant}:{min}   | Contador de rate limit              | 60 s             |
+| rl:{tenant}:{min}, rl:{tenant}:panel:{min} | Peticiones del tenant en el minuto: API keys y panel | 60 s |
 | session:{hash}      | Sesión del refresh token (su SHA-256); sid:{sid} y rotated:{hash} la acompañan | 7 d |
 | rl:login:acct:{email}, rl:login:ip:{ip} | Intentos de login fallidos      | 15 min           |
 
@@ -334,7 +334,10 @@ con el slug del tenant y nunca expone targets internos ni IPs.
 
 - Contraseñas con Argon2id; límite de 5 intentos fallidos por 15 min por cuenta y 20 por IP
   (Redis). Registro y recuperación nunca revelan si un correo tiene cuenta.
-- Rate limit por tenant en el gateway: 60 req/min en el plan gratuito.
+- Rate limit por tenant en la api (`CurrentTenant`, ventana fija de un minuto en Redis): 60 req/min
+  para las API keys en el plan gratuito y un presupuesto aparte de 600 req/min para el panel,
+  porque cada pestaña abierta consulta cada 10 s. Pasado el límite, `429` con `Retry-After`; si
+  Redis no responde, la petición pasa sin contar. Los pings de heartbeat no cuentan.
 - Validación de targets: los monitores no pueden apuntar a rangos privados (10/8, 172.16/12,
   192.168/16, 169.254/16) ni a localhost; evita usar el sistema para escanear la red interna del
   clúster.

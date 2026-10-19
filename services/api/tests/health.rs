@@ -121,3 +121,26 @@ async fn metrics_expose_http_counters() {
         "missing histogram in:\n{body}"
     );
 }
+
+#[tokio::test]
+async fn cors_exposes_retry_after() {
+    // Cross-origin, the panel only sees the headers listed here: `Retry-After` tells it how
+    // long a `429` lasts.
+    let request = http::Request::get("/health")
+        .header("origin", "http://localhost:5173")
+        .body(axum::body::Body::empty())
+        .unwrap();
+    let response = common::app_without_database()
+        .await
+        .oneshot(request)
+        .await
+        .unwrap();
+    let exposed = response
+        .headers()
+        .get("access-control-expose-headers")
+        .expect("header present")
+        .to_str()
+        .unwrap()
+        .to_ascii_lowercase();
+    assert!(exposed.contains("retry-after"), "{exposed}");
+}

@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use taut_api::ratelimit::TenantLimiter;
 use taut_bus::Bus;
 use taut_config::Settings;
 use taut_identity::Verifier;
@@ -30,12 +31,14 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let bus = Bus::connect(&settings.nats, taut_api::SERVICE_NAME).await?;
+    let limiter = TenantLimiter::lazy(&settings.redis.url)?;
     let verifier = Arc::new(load_verifier(&settings).await);
 
     let app = taut_api::app(
         Arc::clone(&settings),
         pool,
         bus,
+        limiter,
         verifier,
         telemetry.metrics().clone(),
     );

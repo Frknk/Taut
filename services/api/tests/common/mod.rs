@@ -18,6 +18,7 @@ use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+use taut_api::ratelimit::TenantLimiter;
 use taut_bus::Bus;
 use taut_config::Settings;
 use taut_identity::{Claims, KeyPair, TokenKind, Verifier};
@@ -73,14 +74,23 @@ pub async fn app_without_database() -> Router {
     let bus = Bus::lazy("nats://127.0.0.1:1")
         .await
         .expect("a lazy bus never fails to build");
-    build(settings, pool, bus, &KeyPair::generate())
+    build(settings, pool, bus, closed_redis(), &KeyPair::generate())
 }
 
-/// App backed by the given pool and the NATS of `just up`, with a signed-in user.
+/// App backed by the given pool and the NATS and Redis of `just up`, with a signed-in user.
 pub async fn app_with(settings: Arc<Settings>, pool: PgPool) -> TestApp {
+    app_with_limiter(settings, pool, limiter()).await
+}
+
+/// Like [`app_with`], with the given rate limiter.
+pub async fn app_with_limiter(
+    settings: Arc<Settings>,
+    pool: PgPool,
+    limiter: TenantLimiter,
+) -> TestApp {
     let keys = KeyPair::generate();
     let bus = bus().await;
-    let router = build(settings, pool.clone(), bus, &keys);
+    let router = build(settings, pool.clone(), bus, limiter, &keys);
     let user_id = insert_user(&pool, "owner@test.taut").await;
     TestApp {
         router,
@@ -104,11 +114,39 @@ pub async fn bus() -> Bus {
         .expect("nats is up (just up)")
 }
 
-fn build(settings: Arc<Settings>, pool: PgPool, bus: Bus, keys: &KeyPair) -> Router {
+/// Rate limiter on the Redis of `just up` (`REDIS_URL` from the environment or `.env`).
+pub fn limiter() -> TenantLimiter {
+    TenantLimiter::lazy(&redis_url()).expect("a lazy redis client never fails to build")
+}
+
+/// Rate limiter pointed at a closed port: every request goes through uncounted.
+pub fn closed_redis() -> TenantLimiter {
+    TenantLimiter::lazy("redis://127.0.0.1:1").expect("a lazy redis client never fails to build")
+}
+
+/// URL of the Redis of `just up`.
+pub fn redis_url() -> String {
+    Settings::load().expect("settings load").redis.url
+}
+
+fn build(
+    settings: Arc<Settings>,
+    pool: PgPool,
+    bus: Bus,
+    limiter: TenantLimiter,
+    keys: &KeyPair,
+) -> Router {
     let telemetry = taut_telemetry::init(taut_api::SERVICE_NAME, &settings.telemetry)
         .expect("telemetry installs once per process");
     let verifier = Arc::new(Verifier::from_jwks(&keys.jwks(), ISSUER));
-    taut_api::app(settings, pool, bus, verifier, telemetry.metrics().clone())
+    taut_api::app(
+        settings,
+        pool,
+        bus,
+        limiter,
+        verifier,
+        telemetry.metrics().clone(),
+    )
 }
 
 /// Inserts a verified user and returns its id.
