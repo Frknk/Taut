@@ -17,14 +17,21 @@ cada una, responden 500 req/s con un p95 de 6 ms, sin errores. Un sondeo explora
 con Redis de la semana 13 debería hacerse a 500 req/s (no cambia nada) y también cerca del techo,
 a 900 req/s, donde la caché sí debería notarse.
 
+> **Actualización (fase 2, mismo día):** el diagnóstico del
+> [reporte de límites](2026-10-19-status-page-limites.md) descarta que el techo lo ponga la CPU
+> del Mac (quedó un 35–40 % libre a 1 200 req/s) o el pool de status-bff (tenía conexiones libres).
+> status-bff es el proceso más ocupado, pero algo dentro de él limita el trabajo; queda por
+> perfilar. Las conexiones «idle in transaction» sí se explican como tareas que esperan turno.
+
 ## Máquina
 
-| Campo          | Valor                                                   |
-| -------------- | ------------------------------------------------------- |
-| Equipo         | Apple M4, 10 núcleos, 16 GB                             |
-| SO             | macOS 27.0.1                                            |
-| Docker         | OrbStack 2.2.4 (Docker 29.8.2), VM con 10 CPU y 7,8 GiB |
-| Dónde corre k6 | contenedor `grafana/k6:2.3.0` en la misma VM que Taut   |
+| Campo          | Valor                                                                         |
+| -------------- | ----------------------------------------------------------------------------- |
+| Equipo         | Apple M4, 10 núcleos, 16 GB                                                   |
+| SO             | macOS 27.0.1                                                                  |
+| Docker         | OrbStack 2.2.4 (Docker 29.8.2), VM con 10 CPU y 7,8 GiB                       |
+| Energía        | A batería, con el modo de bajo consumo de macOS activo (se supo en la fase 2) |
+| Dónde corre k6 | contenedor `grafana/k6:2.3.0` en la misma VM que Taut                         |
 
 ## Configuración
 

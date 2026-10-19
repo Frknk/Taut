@@ -259,6 +259,7 @@ services:
       AUTH_URL: http://auth:8080
       STATUS_URL: http://status-bff:8080
       ECHO_URL: http://echo/
+      PROM_URL: http://prometheus:9090
       SERVICE_URLS: >-
         api=http://api:8080,auth=http://auth:8080,scheduler=http://scheduler:8080,checker=http://checker:8080,incidents=http://incidents:8080,notifier=http://notifier:8080,status-bff=http://status-bff:8080
 

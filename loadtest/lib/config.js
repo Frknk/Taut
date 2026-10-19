@@ -82,5 +82,20 @@ export function ownerEmail(slug) {
   return `${slug}@${EMAIL_DOMAIN}`;
 }
 
+/** Prometheus, for scenarios that check server-side counters (rate-limit, checker-soak). */
+export const PROM_URL = env.PROM_URL || 'http://localhost:9090';
+
+/** Tenants of the rate-limit scenario: A is flooded, B is the control (loadtest/seed/base.sql). */
+export const RATE_LIMIT_SLUGS = { flooded: 'lt-rl-a', control: 'lt-rl-b' };
+
+/** Attacker/victim pairs of the isolation scenario: lt-i-a1 tries to reach lt-i-b1, and so on. */
+export const ISOLATION_PAIRS = [1, 2, 3, 4].map((n) => ({
+  attacker: `lt-i-a${n}`,
+  victim: `lt-i-b${n}`,
+}));
+
+/** Free-plan budget of API-key requests per tenant and minute (services/api/src/tenant.rs). */
+export const API_KEY_BUDGET_PER_MINUTE = 60;
+
 /** Prefix of the monitors the tests create and delete; teardown removes leftovers by it. */
 export const TEMP_MONITOR_PREFIX = 'lt-tmp-';

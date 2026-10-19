@@ -165,14 +165,18 @@ loadtest scenario *args:
     set -euo pipefail
     testid="$(date -u +%Y%m%dT%H%M%SZ)-{{scenario}}"
     mkdir -p "loadtest/results/$testid"
+    # Los perfiles stress, spike y breakpoint fallan umbrales a propósito: el código de salida
+    # de k6 se devuelve al final, después de decir dónde quedaron los resultados.
+    status=0
     docker compose --profile k6 run --rm \
       -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT="results/$testid/report.html" \
       k6 run --out experimental-prometheus-rw \
       --tag testid="$testid" --tag commit="$(git rev-parse --short HEAD)" \
       --summary-trend-stats "avg,min,med,p(90),p(95),p(99),max" \
       --summary-export "results/$testid/summary.json" \
-      {{lt_k6_env}} {{args}} "scenarios/{{scenario}}.js"
-    echo "Resultados en loadtest/results/$testid (testid=$testid en Grafana)"
+      {{lt_k6_env}} {{args}} "scenarios/{{scenario}}.js" || status=$?
+    echo "Resultados en loadtest/results/$testid (testid=$testid en Grafana); k6 salió con $status"
+    exit "$status"
 
 # Guarda el resumen de una corrida para el reporte, sin setup_data (lleva los tokens del login)
 loadtest-keep testid:
