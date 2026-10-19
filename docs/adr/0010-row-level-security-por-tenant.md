@@ -48,12 +48,13 @@ superusuario y dueño de las tablas, y ese rol se salta RLS aunque se use `FORCE
 
 - Protege de errores de código, no de una inyección. La sesión sigue siendo del dueño, así que
   `RESET ROLE` o `set_config` vuelven a abrirlo todo. Todas las queries son macros con parámetros.
-- Cada transacción hace un viaje extra a la base para fijar el rol y el tenant. Con PgBouncer en
-  modo transacción sigue funcionando, porque ambos valores son `LOCAL`.
-- La migración necesita `CREATEROLE`, o el rol creado de antemano. Los roles son del clúster, así
-  que la migración tolera que ya exista y que otra base de test lo cree al mismo tiempo.
-- Una tabla de tenant nueva lleva `GRANT`, `ENABLE ROW LEVEL SECURITY` y su política en la misma
-  migración. `crates/db/tests/rls.rs` falla si falta alguno.
-- TimescaleDB copia los permisos a los chunks, pero no las políticas: una query que nombre un
-  chunk directamente se salta RLS (timescale/timescaledb#7830); el código nunca lo hace. Crear o
-  recrear un continuous aggregate sobre `check_results` exige desactivar RLS en esa migración.
+- Cada transacción hace un viaje extra a la base; una petición del panel abre dos (membresía y
+  handler). Con PgBouncer en modo transacción `begin_tenant` sigue valiendo (todo es `LOCAL`), pero
+  el rol de arranque del pool (`-c role=taut_app`) no llega porque PgBouncer no reenvía `options`:
+  antes de ponerlo delante, `taut_app` necesita un login propio.
+- La migración necesita `CREATEROLE` o el rol creado de antemano, y tolera que ya exista (los roles
+  son del clúster y las bases de test migran en paralelo).
+- Una tabla de tenant nueva lleva `GRANT`, RLS y su política en la misma migración (lo exige
+  `crates/db/tests/rls.rs`). TimescaleDB copia los permisos a los chunks, pero no las políticas:
+  una query que nombre un chunk directamente se salta RLS (timescale/timescaledb#7830); el código
+  nunca lo hace. Recrear un continuous aggregate sobre `check_results` exige desactivar RLS antes.

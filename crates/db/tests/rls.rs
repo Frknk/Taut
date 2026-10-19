@@ -268,7 +268,11 @@ async fn every_tenant_table_has_row_level_security(pool: PgPool) {
                EXISTS (SELECT 1 FROM pg_policies p
                        WHERE p.schemaname = 'public' AND p.tablename = c.relname
                          AND p.policyname = 'tenant_isolation'),
-               has_table_privilege('taut_app', c.oid, 'SELECT, INSERT, UPDATE, DELETE')
+               -- One call per privilege: with a list, has_table_privilege is true if any is held.
+               has_table_privilege('taut_app', c.oid, 'SELECT')
+                 AND has_table_privilege('taut_app', c.oid, 'INSERT')
+                 AND has_table_privilege('taut_app', c.oid, 'UPDATE')
+                 AND has_table_privilege('taut_app', c.oid, 'DELETE')
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
@@ -290,7 +294,10 @@ async fn every_tenant_table_has_row_level_security(pool: PgPool) {
     for (name, rls, policy, granted) in &tables {
         assert!(rls, "{name} has row-level security off");
         assert!(policy, "{name} has no tenant_isolation policy");
-        assert!(granted, "{name} is not granted to taut_app");
+        assert!(
+            granted,
+            "{name} lacks some of SELECT, INSERT, UPDATE, DELETE for taut_app"
+        );
     }
 }
 
