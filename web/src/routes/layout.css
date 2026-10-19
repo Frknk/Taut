@@ -149,8 +149,8 @@
   --animate-tooltip-in: tooltip-in 125ms var(--ease-out);
   --animate-slide-in-left: slide-in-left 300ms var(--ease-drawer);
   --animate-slide-out-left: slide-out-left 200ms var(--ease-out) forwards;
-  --animate-accordion-down: accordion-down 200ms var(--ease-out);
-  --animate-accordion-up: accordion-up 150ms var(--ease-out);
+  --animate-expand: expand 200ms var(--ease-out);
+  --animate-collapse: collapse 150ms var(--ease-out);
   --animate-ping-once: ping-once 600ms var(--ease-out);
   --animate-breathe: breathe 1.6s var(--ease-in-out) infinite alternate;
   --animate-draw: draw 400ms var(--ease-out) backwards;
@@ -206,17 +206,18 @@
       translate: -100% 0;
     }
   }
-  @keyframes accordion-down {
+  /* Accordion and collapsible content: bits-ui measures the open height for each. */
+  @keyframes expand {
     from {
       height: 0;
     }
     to {
-      height: var(--bits-accordion-content-height);
+      height: var(--bits-accordion-content-height, var(--bits-collapsible-content-height));
     }
   }
-  @keyframes accordion-up {
+  @keyframes collapse {
     from {
-      height: var(--bits-accordion-content-height);
+      height: var(--bits-accordion-content-height, var(--bits-collapsible-content-height));
     }
     to {
       height: 0;
@@ -278,12 +279,12 @@
       opacity: 0;
     }
   }
-  @keyframes accordion-down {
+  @keyframes expand {
     from {
       opacity: 0;
     }
   }
-  @keyframes accordion-up {
+  @keyframes collapse {
     to {
       opacity: 0;
     }

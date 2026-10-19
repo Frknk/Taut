@@ -95,7 +95,7 @@
                 id="incident-{incident.id}-panel"
                 role="region"
                 aria-labelledby="incident-{incident.id}"
-                class="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+                class="overflow-hidden data-[state=closed]:animate-collapse data-[state=open]:animate-expand"
               >
                 <!-- The padded box sits inside: the height animation needs a box without padding. -->
                 <div class="mt-3 rounded-md bg-recessed px-3 py-2 text-xs text-subtle">
