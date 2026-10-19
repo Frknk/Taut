@@ -172,7 +172,19 @@ export interface AlertChannel {
   active: boolean;
   last_delivery_at: string | null;
   last_delivery_error: string | null;
+  /** Generic webhooks only: whether deliveries carry `X-Taut-Signature`. */
+  signing_secret_set: boolean;
   created_at: string;
+}
+
+/** A channel after `POST` or `PUT`, with the signing secret when the write generated one. */
+export interface ChannelWithSecret extends AlertChannel {
+  signing_secret?: string;
+}
+
+/** Answer of `POST /v1/alert-channels/{id}/rotate-secret`: the new secret, shown once. */
+export interface RotatedSecret {
+  signing_secret: string;
 }
 
 /** Body of `POST /v1/alert-channels` and `PUT /v1/alert-channels/{id}`. */

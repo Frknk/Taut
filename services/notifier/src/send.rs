@@ -1,12 +1,17 @@
 //! Delivery through each channel kind: SMTP for email, an HTTP POST for the webhook kinds.
+//! Generic webhooks with a secret are signed (`X-Taut-Signature`, see [`taut_identity::webhook`]);
+//! Discord and Slack do not check signatures, so they get none.
 
 use std::time::Duration;
 
+use chrono::Utc;
 use lettre::message::Mailbox;
 use lettre::message::header::ContentType;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+use reqwest::header::CONTENT_TYPE;
 use serde_json::Value;
 use taut_config::NotifierSettings;
+use taut_identity::webhook;
 use taut_model::ChannelKind;
 
 use crate::channels::Channel;
@@ -74,10 +79,16 @@ impl Senders {
 
     async fn post(&self, channel: &Channel, body: &Value) -> Result<(), String> {
         let url = channel.url().ok_or("webhook channel without url")?;
-        let response = self
-            .http
-            .post(url)
-            .json(body)
+        // Serialized once: the signature covers these exact bytes.
+        let body =
+            serde_json::to_vec(body).map_err(|err| format!("cannot encode the body: {err}"))?;
+        let mut request = self.http.post(url).header(CONTENT_TYPE, "application/json");
+        if let (ChannelKind::Webhook, Some(secret)) = (channel.kind, &channel.signing_secret) {
+            let signature = webhook::sign(secret, Utc::now().timestamp(), &body);
+            request = request.header(webhook::SIGNATURE_HEADER, signature);
+        }
+        let response = request
+            .body(body)
             .send()
             .await
             .map_err(|err| format!("webhook: {}", err.without_url()))?;

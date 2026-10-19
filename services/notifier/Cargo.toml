@@ -22,6 +22,7 @@ taut-bus.workspace = true
 taut-config.workspace = true
 taut-db.workspace = true
 taut-http.workspace = true
+taut-identity.workspace = true
 taut-model.workspace = true
 taut-net.workspace = true
 taut-telemetry.workspace = true

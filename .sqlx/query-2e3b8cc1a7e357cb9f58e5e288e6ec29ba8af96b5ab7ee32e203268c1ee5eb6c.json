@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, tenant_id, name, kind AS \"kind: ChannelKind\", config, active,\n               last_delivery_at, last_delivery_error, created_at\n        FROM alert_channels\n        WHERE tenant_id = $1 AND id = $2\n        ",
+  "query": "\n        SELECT id, tenant_id, name, kind AS \"kind: ChannelKind\", config, active,\n               last_delivery_at, last_delivery_error,\n               signing_secret IS NOT NULL AS \"signing_secret_set!\", created_at\n        FROM alert_channels\n        WHERE tenant_id = $1\n        ORDER BY created_at\n        ",
   "describe": {
     "columns": [
       {
@@ -93,6 +93,12 @@
       },
       {
         "ordinal": 8,
+        "name": "signing_secret_set!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -105,7 +111,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid"
       ]
     },
@@ -118,8 +123,9 @@
       false,
       true,
       true,
+      null,
       false
     ]
   },
-  "hash": "5e66dc6882abfbcdfe73137747d0e77919c850d3e3e69093f9574b6dc6cb9900"
+  "hash": "2e3b8cc1a7e357cb9f58e5e288e6ec29ba8af96b5ab7ee32e203268c1ee5eb6c"
 }

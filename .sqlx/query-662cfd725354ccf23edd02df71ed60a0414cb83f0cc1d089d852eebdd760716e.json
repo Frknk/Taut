@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, tenant_id, name, kind AS \"kind: ChannelKind\", config, active,\n               last_delivery_at, last_delivery_error, created_at\n        FROM alert_channels\n        WHERE tenant_id = $1\n        ORDER BY created_at\n        ",
+  "query": "\n        SELECT id, tenant_id, name, kind AS \"kind: ChannelKind\", config, signing_secret\n        FROM alert_channels\n        WHERE tenant_id = $1 AND active\n        ORDER BY created_at\n        ",
   "describe": {
     "columns": [
       {
@@ -60,45 +60,12 @@
       },
       {
         "ordinal": 5,
-        "name": "active",
-        "type_info": "Bool",
-        "origin": {
-          "Table": {
-            "table": "alert_channels",
-            "name": "active"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
-        "name": "last_delivery_at",
-        "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "alert_channels",
-            "name": "last_delivery_at"
-          }
-        }
-      },
-      {
-        "ordinal": 7,
-        "name": "last_delivery_error",
+        "name": "signing_secret",
         "type_info": "Text",
         "origin": {
           "Table": {
             "table": "alert_channels",
-            "name": "last_delivery_error"
-          }
-        }
-      },
-      {
-        "ordinal": 8,
-        "name": "created_at",
-        "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "alert_channels",
-            "name": "created_at"
+            "name": "signing_secret"
           }
         }
       }
@@ -114,11 +81,8 @@
       false,
       false,
       false,
-      false,
-      true,
-      true,
-      false
+      true
     ]
   },
-  "hash": "324a08d5a200958e10be5d3d43fe06e3f3a3fa2996ec1a51085d255c4191353c"
+  "hash": "662cfd725354ccf23edd02df71ed60a0414cb83f0cc1d089d852eebdd760716e"
 }

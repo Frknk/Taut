@@ -154,7 +154,7 @@ veces (caché y locks). Esto cubre la Unidad 1 (SQL y NoSQL) y la Unidad 4 (Redi
 | invitations    | id, tenant_id, email, role, token_hash, expires_at, accepted_at                    | Enlace de 7 días; una pendiente por correo y tenant |
 | monitors       | id, tenant_id, type, target, interval_s, timeout_s, expected_status, keyword, active | type ∈ http, tcp, ping, dns, keyword            |
 | incidents      | id, tenant_id, monitor_id, started_at, resolved_at, cause                          | Abierto = resolved_at IS NULL                   |
-| alert_channels | id, tenant_id, kind, config_json, secret                                           | kind ∈ email, telegram, discord, webhook        |
+| alert_channels | id, tenant_id, kind, config, signing_secret                                        | kind ∈ email, webhook, discord, slack; signing_secret solo en webhook |
 | uptime_daily   | monitor_id, day, checks, failures, avg_latency_ms                                  | Proyección CQRS, se reconstruye desde los resultados crudos |
 
 Todas las tablas con datos de negocio llevan tenant_id y una política de Row-Level Security
@@ -323,7 +323,7 @@ sesiones 27 y 28 del sílabo.
 | Usuario, sesión larga      | Refresh token opaco en cookie HttpOnly, su SHA-256 en Redis (session:{hash}), rotación en cada uso; reutilizarlo revoca la sesión | 7 días | Solo el auth service; revocable                                                   |
 | Segundo factor             | TOTP RFC 6238, secreto cifrado en users.totp_secret, 8 códigos de respaldo | —           | Auth service en el login y al cambiar canales de alerta                                   |
 | Integración (CI del cliente) | API key taut_live_…, hash en BD, scope de solo lectura o escritura   | Hasta revocar   | La api, cabecera Authorization: Bearer                                                    |
-| Webhook saliente           | Cabecera X-Taut-Signature: t=<ts>,v1=<HMAC-SHA256(secret, ts.body)>    | Ventana de 5 min | El cliente la verifica; evita replay                                                     |
+| Webhook saliente           | Cabecera X-Taut-Signature: t=<ts>,v1=<HMAC-SHA256(secret, ts.body)> en hexadecimal; secreto whsec_… por canal, se muestra al crearlo o rotarlo | Ventana de 5 min | El cliente la verifica; evita replay. La entrega es al menos una vez: deduplicar por incident.id + event |
 
 **Autorización.** Dos roles por tenant, en `memberships` (un usuario puede estar en varios
 tenants): owner (gestiona usuarios, canales, API keys, el tenant y facturación futura) y member

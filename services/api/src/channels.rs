@@ -5,6 +5,11 @@
 //!
 //! Channels decide where alerts (and their monitor names and causes) go, so every change
 //! is a sensitive action: owners only, with a recent authentication (step-up).
+//!
+//! Generic webhooks get a signing secret (`whsec_…`) for the `X-Taut-Signature` HMAC. It is
+//! returned once, when created (or when a channel becomes a webhook), and again only by
+//! `POST /v1/alert-channels/{id}/rotate-secret`, which replaces it; reads only say whether
+//! there is one.
 
 // Axum handlers receive their state by value even when they only borrow it.
 #![allow(clippy::needless_pass_by_value)]
@@ -18,6 +23,7 @@ use serde::Serialize;
 use serde_json::Value;
 use sqlx::PgPool;
 use taut_http::{AppError, Json, Path, current_trace_id};
+use taut_identity::webhook;
 use taut_model::ChannelKind;
 use taut_model::events::{TestNotification, subjects};
 use uuid::Uuid;
@@ -38,6 +44,7 @@ pub fn router() -> Router<AppState> {
             get(show).put(update).delete(remove),
         )
         .route("/v1/alert-channels/{id}/test", post(test))
+        .route("/v1/alert-channels/{id}/rotate-secret", post(rotate_secret))
 }
 
 /// An alert channel as the API returns it.
@@ -60,8 +67,34 @@ pub struct AlertChannel {
     pub last_delivery_at: Option<DateTime<Utc>>,
     /// Its error, if it failed.
     pub last_delivery_error: Option<String>,
+    /// Whether webhooks go out signed; the secret itself is never read back.
+    pub signing_secret_set: bool,
     /// Creation time.
     pub created_at: DateTime<Utc>,
+}
+
+/// A channel after a write, with the signing secret when the write generated one: the only
+/// time it is shown besides a rotation.
+#[derive(Debug, Clone, Serialize)]
+pub struct ChannelWithSecret {
+    /// The channel.
+    #[serde(flatten)]
+    pub channel: AlertChannel,
+    /// The new `whsec_…` secret, absent when none was generated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signing_secret: Option<String>,
+}
+
+/// Body of a rotation: the new secret, shown once.
+#[derive(Debug, Clone, Serialize)]
+pub struct RotatedSecret {
+    /// The new `whsec_…` secret; the previous one stops working at once.
+    pub signing_secret: String,
+}
+
+/// A fresh secret when `kind` gets signed deliveries.
+fn secret_for(kind: ChannelKind) -> Option<String> {
+    (kind == ChannelKind::Webhook).then(webhook::generate_secret)
 }
 
 fn not_found() -> AppError {
@@ -73,7 +106,8 @@ async fn find(pool: &PgPool, tenant_id: Uuid, id: Uuid) -> Result<Option<AlertCh
         AlertChannel,
         r#"
         SELECT id, tenant_id, name, kind AS "kind: ChannelKind", config, active,
-               last_delivery_at, last_delivery_error, created_at
+               last_delivery_at, last_delivery_error,
+               signing_secret IS NOT NULL AS "signing_secret_set!", created_at
         FROM alert_channels
         WHERE tenant_id = $1 AND id = $2
         "#,
@@ -93,7 +127,8 @@ async fn list(
         AlertChannel,
         r#"
         SELECT id, tenant_id, name, kind AS "kind: ChannelKind", config, active,
-               last_delivery_at, last_delivery_error, created_at
+               last_delivery_at, last_delivery_error,
+               signing_secret IS NOT NULL AS "signing_secret_set!", created_at
         FROM alert_channels
         WHERE tenant_id = $1
         ORDER BY created_at
@@ -120,7 +155,7 @@ async fn create(
     State(state): State<AppState>,
     CurrentTenant { tenant, actor }: CurrentTenant,
     Json(input): Json<ChannelInput>,
-) -> Result<(StatusCode, Json<AlertChannel>), AppError> {
+) -> Result<(StatusCode, Json<ChannelWithSecret>), AppError> {
     actor.require(Permission::Channels)?;
     actor.require_recent_auth()?;
     let spec = validate::channel(&input, state.settings.checks.allow_private_targets)
@@ -141,15 +176,17 @@ async fn create(
         )));
     }
     let id = Uuid::now_v7();
+    let signing_secret = secret_for(spec.kind);
     sqlx::query!(
-        "INSERT INTO alert_channels (id, tenant_id, name, kind, config, active)
-         VALUES ($1, $2, $3, $4, $5, $6)",
+        "INSERT INTO alert_channels (id, tenant_id, name, kind, config, active, signing_secret)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)",
         id,
         tenant.id,
         spec.name,
         spec.kind.as_str(),
         spec.config,
         spec.active,
+        signing_secret,
     )
     .execute(&mut *tx)
     .await?;
@@ -158,7 +195,13 @@ async fn create(
     let channel = find(&state.pool, tenant.id, id)
         .await?
         .ok_or_else(not_found)?;
-    Ok((StatusCode::CREATED, Json(channel)))
+    Ok((
+        StatusCode::CREATED,
+        Json(ChannelWithSecret {
+            channel,
+            signing_secret,
+        }),
+    ))
 }
 
 async fn update(
@@ -166,31 +209,47 @@ async fn update(
     CurrentTenant { tenant, actor }: CurrentTenant,
     Path(id): Path<Uuid>,
     Json(input): Json<ChannelInput>,
-) -> Result<Json<AlertChannel>, AppError> {
+) -> Result<Json<ChannelWithSecret>, AppError> {
     actor.require(Permission::Channels)?;
     actor.require_recent_auth()?;
     let spec = validate::channel(&input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
-    let updated = sqlx::query!(
-        "UPDATE alert_channels SET name = $3, kind = $4, config = $5, active = $6
-         WHERE tenant_id = $1 AND id = $2",
+    // A webhook keeps its secret, or its lack of one: a webhook from before signing stays
+    // unsigned until rotated, since the panel's mute button sends this same PUT and would never
+    // show a secret generated here. A channel that becomes a webhook gets a new secret, and one
+    // that stops being one loses it. In SET, `kind` and `signing_secret` are the old values.
+    let candidate = secret_for(spec.kind);
+    let generated = sqlx::query_scalar!(
+        r#"
+        UPDATE alert_channels
+        SET name = $3, kind = $4, config = $5, active = $6,
+            signing_secret = CASE
+                WHEN $4 <> 'webhook' THEN NULL
+                WHEN kind = 'webhook' THEN signing_secret
+                ELSE $7
+            END
+        WHERE tenant_id = $1 AND id = $2
+        RETURNING coalesce(signing_secret = $7, false) AS "generated!"
+        "#,
         tenant.id,
         id,
         spec.name,
         spec.kind.as_str(),
         spec.config,
         spec.active,
+        candidate,
     )
-    .execute(&state.pool)
-    .await?;
-    if updated.rows_affected() == 0 {
-        return Err(not_found());
-    }
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(not_found)?;
     tracing::info!(channel_id = %id, "alert channel updated");
-    find(&state.pool, tenant.id, id)
+    let channel = find(&state.pool, tenant.id, id)
         .await?
-        .map(Json)
-        .ok_or_else(not_found)
+        .ok_or_else(not_found)?;
+    Ok(Json(ChannelWithSecret {
+        channel,
+        signing_secret: candidate.filter(|_| generated),
+    }))
 }
 
 async fn remove(
@@ -243,4 +302,35 @@ async fn test(
             AppError::Unavailable("the test could not be queued; retry".to_owned())
         })?;
     Ok((StatusCode::ACCEPTED, Json(TestQueued { status: "queued" })))
+}
+
+async fn rotate_secret(
+    State(state): State<AppState>,
+    CurrentTenant { tenant, actor }: CurrentTenant,
+    Path(id): Path<Uuid>,
+) -> Result<Json<RotatedSecret>, AppError> {
+    actor.require(Permission::Channels)?;
+    actor.require_recent_auth()?;
+    let secret = webhook::generate_secret();
+    let rotated = sqlx::query!(
+        "UPDATE alert_channels SET signing_secret = $3
+         WHERE tenant_id = $1 AND id = $2 AND kind = 'webhook'",
+        tenant.id,
+        id,
+        secret,
+    )
+    .execute(&state.pool)
+    .await?;
+    if rotated.rows_affected() == 0 {
+        return Err(match find(&state.pool, tenant.id, id).await? {
+            Some(_) => {
+                AppError::BadRequest("only generic webhooks have a signing secret".to_owned())
+            }
+            None => not_found(),
+        });
+    }
+    tracing::info!(channel_id = %id, "webhook signing secret rotated");
+    Ok(Json(RotatedSecret {
+        signing_secret: secret,
+    }))
 }

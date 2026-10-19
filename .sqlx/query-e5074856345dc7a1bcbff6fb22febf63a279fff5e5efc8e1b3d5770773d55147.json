@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE alert_channels\n        SET name = $3, kind = $4, config = $5, active = $6,\n            signing_secret = CASE\n                WHEN $4 <> 'webhook' THEN NULL\n                WHEN kind = 'webhook' THEN signing_secret\n                ELSE $7\n            END\n        WHERE tenant_id = $1 AND id = $2\n        RETURNING coalesce(signing_secret = $7, false) AS \"generated!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "generated!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e5074856345dc7a1bcbff6fb22febf63a279fff5e5efc8e1b3d5770773d55147"
+}

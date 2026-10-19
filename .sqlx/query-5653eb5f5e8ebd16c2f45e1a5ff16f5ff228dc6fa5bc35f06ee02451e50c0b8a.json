@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE alert_channels SET signing_secret = $3\n         WHERE tenant_id = $1 AND id = $2 AND kind = 'webhook'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5653eb5f5e8ebd16c2f45e1a5ff16f5ff228dc6fa5bc35f06ee02451e50c0b8a"
+}
