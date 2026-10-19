@@ -310,17 +310,26 @@ impl Settings {
             .map_err(|err| ConfigError(Box::new(err)))
     }
 
+    /// Environment variable with the commit the binary was built from.
+    const COMMIT_VAR: &'static str = "TAUT_APP__COMMIT";
+
     /// The layered configuration sources, lowest priority first. Exposed for tests.
     pub fn figment() -> Figment {
-        Figment::from(Serialized::defaults(Self::default()))
+        let figment = Figment::from(Serialized::defaults(Self::default()))
             .merge(
                 Env::raw()
                     .only(&["DATABASE_URL"])
                     .map(|_| "database.url".into()),
             )
             .merge(Env::raw().only(&["REDIS_URL"]).map(|_| "redis.url".into()))
-            .merge(Env::raw().only(&["NATS_URL"]).map(|_| "nats.url".into()))
-            .merge(Env::prefixed("TAUT_").split("__"))
+            .merge(Env::raw().only(&["NATS_URL"]).map(|_| "nats.url".into()));
+        let figment = figment.merge(Env::prefixed("TAUT_").split("__"));
+        // The env provider parses values, so a short commit SHA made only of digits (`5500391`)
+        // would become a number and one like `12e4567` a float: read it back as the exact text.
+        match std::env::var(Self::COMMIT_VAR) {
+            Ok(commit) => figment.merge(Serialized::default("app.commit", commit)),
+            Err(_) => figment,
+        }
     }
 }
 
@@ -348,6 +357,18 @@ mod tests {
             assert!(!settings.checks.allow_private_targets);
             Ok(())
         });
+    }
+
+    #[test]
+    fn commit_is_read_as_text_even_when_it_looks_like_a_number() {
+        for sha in ["5500391", "0012345", "12e4567", "53f0873"] {
+            Jail::expect_with(|jail| {
+                jail.clear_env();
+                jail.set_env("TAUT_APP__COMMIT", sha);
+                assert_eq!(extract()?.app.commit, sha);
+                Ok(())
+            });
+        }
     }
 
     #[test]
