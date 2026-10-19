@@ -123,7 +123,9 @@ async fn status_page(
     ))
 }
 
-/// Assembles the page of `slug` as of `now`; `None` when no tenant has that slug.
+/// Assembles the page of `slug` as of `now`; `None` when no tenant has that slug. The slug is
+/// looked up across tenants (it is what names one); everything else is read in a transaction
+/// of that tenant, so row-level security keeps the page to its own monitors and incidents.
 pub async fn build(
     pool: &PgPool,
     slug: &str,
@@ -139,6 +141,7 @@ pub async fn build(
         return Ok(None);
     };
 
+    let mut tx = taut_db::begin_tenant(pool, tenant.id).await?;
     let monitors = sqlx::query_as!(
         MonitorRow,
         r#"
@@ -152,7 +155,7 @@ pub async fn build(
         "#,
         tenant.id
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await?;
 
     let today = now.date_naive();
@@ -160,17 +163,17 @@ pub async fn build(
         .checked_sub_days(Days::new(u64::from(page::DAYS) - 1))
         .unwrap_or(today);
     let first_instant = first.and_time(chrono::NaiveTime::MIN).and_utc();
+    // The continuous aggregate has no row-level security of its own; this function reads it
+    // for the transaction's tenant only.
     let days = sqlx::query!(
         r#"
         SELECT monitor_id AS "monitor_id!", day AS "day!", checks AS "checks!",
                failures AS "failures!"
-        FROM uptime_daily
-        WHERE tenant_id = $1 AND day >= $2
+        FROM uptime_daily_of_current_tenant($1)
         "#,
-        tenant.id,
         first_instant
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await?;
 
     let incidents = sqlx::query_as!(
@@ -190,8 +193,9 @@ pub async fn build(
         RECENT_INCIDENT_DAYS,
         now
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
 
     let statuses: Vec<MonitorStatus> = monitors.iter().map(|monitor| monitor.status).collect();
     let monitors = monitors

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT EXISTS (\n            SELECT 1 FROM notification_deliveries\n            WHERE tenant_id = $1 AND incident_id = $2 AND channel_id = $3 AND event = $4\n              AND status = 'sent'\n        ) AS \"sent!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sent!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a93cd0a382b60f14b82c8cdc7d24ae6c35a4f68de6df6fd8335a4944365f6763"
+}

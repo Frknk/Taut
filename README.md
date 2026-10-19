@@ -16,8 +16,10 @@ heartbeat con pausa y cuotas; chequeos programados sobre NATS y guardados en Tim
 incidentes con periodos de confirmación y recuperación; alertas por correo, Discord, Slack y
 webhook; página de estado pública con 90 días de historia; gráficos de latencia y uptime.
 Semana 13–14 en curso: cuentas de usuario con verificación de correo, sesiones y organizaciones
-con roles (este PR); después 2FA, invitaciones y API keys. Pendiente: el despliegue (PaaS,
-Terraform y Kubernetes, semanas 5–8) y las pruebas de carga.
+con roles (este PR); después 2FA, invitaciones y API keys. Seguridad transversal: webhooks
+firmados con HMAC-SHA256, presupuesto de peticiones por tenant en Redis y Row-Level Security en
+PostgreSQL con un rol sin privilegios ([ADR 0010](docs/adr/0010-row-level-security-por-tenant.md)).
+Pendiente: el despliegue (PaaS, Terraform y Kubernetes, semanas 5–8) y las pruebas de carga.
 
 ## Requisitos
 

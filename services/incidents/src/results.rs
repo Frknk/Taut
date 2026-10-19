@@ -3,11 +3,13 @@
 use sqlx::{PgConnection, PgPool};
 use taut_model::events::CheckCompleted;
 
-/// Stores `result`. Returns `false` when it was already stored (redelivery) or its monitor no
-/// longer exists.
+/// Stores `result`, in a transaction of its tenant. Returns `false` when it was already stored
+/// (redelivery) or its monitor no longer exists.
 pub async fn record(pool: &PgPool, result: &CheckCompleted) -> Result<bool, sqlx::Error> {
-    let mut connection = pool.acquire().await?;
-    insert(&mut connection, result).await
+    let mut tx = taut_db::begin_tenant(pool, result.tenant_id).await?;
+    let inserted = insert(&mut tx, result).await?;
+    tx.commit().await?;
+    Ok(inserted)
 }
 
 /// Like [`record`], inside the caller's transaction.

@@ -121,11 +121,14 @@ pub struct TenantWithRole {
 }
 
 /// Looks a tenant up by id, with the role of `user_id` in it; `None` unless they are a member.
+/// Runs in a transaction of that tenant, so row-level security alone already keeps every
+/// other tenant out.
 pub async fn find_for_member(
     pool: &PgPool,
     tenant_id: Uuid,
     user_id: Uuid,
 ) -> Result<Option<TenantWithRole>, sqlx::Error> {
+    let mut tx = taut_db::begin_tenant(pool, tenant_id).await?;
     let row = sqlx::query!(
         r#"
         SELECT t.id, t.slug, t.name, t.plan AS "plan: Plan", t.created_at, m.role AS "role: Role"
@@ -136,8 +139,9 @@ pub async fn find_for_member(
         tenant_id,
         user_id,
     )
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(row.map(|row| TenantWithRole {
         tenant: Tenant {
             id: row.id,
@@ -368,6 +372,8 @@ async fn from_api_key(
 ) -> Result<CurrentTenant, AppError> {
     let hash = api_key::lookup_hash(key)
         .ok_or_else(|| AppError::Unauthorized("invalid api key".to_owned()))?;
+    // The key is what names the tenant: the lookup spans every tenant (owner rights).
+    let mut tx = state.system_tx().await?;
     let row = sqlx::query!(
         r#"
         SELECT k.id AS key_id, k.scope, k.last_used_at,
@@ -378,9 +384,10 @@ async fn from_api_key(
         "#,
         hash,
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(|| AppError::Unauthorized("invalid or revoked api key".to_owned()))?;
+    tx.commit().await?;
     let span = tracing::Span::current();
     span.record("tenant_id", tracing::field::display(row.id));
     span.record("api_key_id", tracing::field::display(row.key_id));
@@ -410,7 +417,7 @@ async fn from_api_key(
         Utc::now().signed_duration_since(at).num_seconds() >= LAST_USED_RESOLUTION_SECS
     });
     if due {
-        touch(state.pool.clone(), row.key_id);
+        touch(state.pool.clone(), row.id, row.key_id);
     }
 
     Ok(CurrentTenant {
@@ -430,17 +437,23 @@ async fn from_api_key(
 
 /// Writes `last_used_at` in the background: the request never waits for it, and the
 /// condition keeps concurrent requests from writing more than once a minute.
-fn touch(pool: PgPool, key_id: Uuid) {
+fn touch(pool: PgPool, tenant_id: Uuid, key_id: Uuid) {
     tokio::spawn(async move {
-        let result = sqlx::query!(
-            r#"
-            UPDATE api_keys SET last_used_at = now()
-            WHERE id = $1
-              AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')
-            "#,
-            key_id,
-        )
-        .execute(&pool)
+        let result = async {
+            let mut tx = taut_db::begin_tenant(&pool, tenant_id).await?;
+            sqlx::query!(
+                r#"
+                UPDATE api_keys SET last_used_at = now()
+                WHERE tenant_id = $1 AND id = $2
+                  AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')
+                "#,
+                tenant_id,
+                key_id,
+            )
+            .execute(&mut *tx)
+            .await?;
+            tx.commit().await
+        }
         .await;
         if let Err(err) = result {
             tracing::warn!(api_key_id = %key_id, error = %err, "could not record api key use");

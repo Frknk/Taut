@@ -94,9 +94,7 @@ impl Notifier {
         let message = render::incident(event, &self.panel_url);
         let mut failed = 0;
         for channel in &channels {
-            match channels::already_sent(&self.pool, event.incident_id, channel.id, transition)
-                .await
-            {
+            match channels::already_sent(&self.pool, event.incident_id, channel, transition).await {
                 Ok(true) => continue,
                 Ok(false) => {}
                 Err(err) => return Handled::Retry(err.to_string()),
@@ -137,7 +135,7 @@ impl Notifier {
             .await;
         if let Err(err) = channels::record_last_delivery(
             &self.pool,
-            channel.id,
+            &channel,
             result.as_ref().err().map(String::as_str),
         )
         .await

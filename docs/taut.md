@@ -158,7 +158,10 @@ veces (caché y locks). Esto cubre la Unidad 1 (SQL y NoSQL) y la Unidad 4 (Redi
 | uptime_daily   | monitor_id, day, checks, failures, avg_latency_ms                                  | Proyección CQRS, se reconstruye desde los resultados crudos |
 
 Todas las tablas con datos de negocio llevan tenant_id y una política de Row-Level Security
-(`SET app.tenant_id`) para que un error de código no filtre datos entre tenants.
+(`tenant_isolation`, sobre `app.tenant_id`) para que un error de código no filtre datos entre
+tenants: los servicios actúan como el rol `taut_app` dentro de una transacción del tenant
+([ADR 0010](adr/0010-row-level-security-por-tenant.md)). El continuous aggregate `uptime_daily`
+no admite RLS y se lee con `uptime_daily_of_current_tenant(since)`.
 
 **Resultados crudos (append-only)**
 
@@ -195,8 +198,9 @@ está la decisión de cada uno y por qué.
 
 **Multi-tenant (sem. 9).** Modelo *shared database, shared schema*: una sola BD, columna tenant_id
 en cada tabla, aislamiento por Row-Level Security en PostgreSQL (también en la hypertable de
-resultados). El tenant viaja en la cabecera X-Tenant-Id, el middleware comprueba que el usuario
-del JWT es miembro y lo inyecta en cada consulta; ningún handler lo recibe como parámetro del
+resultados, [ADR 0010](adr/0010-row-level-security-por-tenant.md)). El tenant viaja en la
+cabecera X-Tenant-Id, el extractor `CurrentTenant` comprueba que el usuario del JWT es miembro y
+cada handler abre una transacción de ese tenant; ningún handler lo recibe como parámetro del
 cliente ([ADR 0008](adr/0008-auth-service-eddsa-memberships.md)). Es el modelo más barato de operar y el que mejor se
 demuestra en una demo con dos tenants.
 

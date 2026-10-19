@@ -137,7 +137,8 @@ async fn metrics(
     Path(id): Path<Uuid>,
     Query(query): Query<MetricsQuery>,
 ) -> Result<Json<Metrics>, AppError> {
-    if monitors::find(&state.pool, tenant.id, id).await?.is_none() {
+    let mut tx = state.tenant_tx(tenant.id).await?;
+    if monitors::find(&mut tx, tenant.id, id).await?.is_none() {
         return Err(AppError::NotFound("monitor not found".to_owned()));
     }
     let range = query.range;
@@ -163,7 +164,7 @@ async fn metrics(
         tenant.id,
         window_s,
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&mut *tx)
     .await?;
 
     let latency = sqlx::query_as!(
@@ -180,7 +181,7 @@ async fn metrics(
         tenant.id,
         window_s,
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&mut *tx)
     .await?;
 
     let series = sqlx::query_as!(
@@ -202,8 +203,9 @@ async fn metrics(
         bucket_s,
         window_s,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
 
     Ok(Json(Metrics {
         range: range.name(),
