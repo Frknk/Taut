@@ -60,7 +60,7 @@
 <LayerCard title="Contraseña">
   {#if error}<Banner tone="danger" class="mb-4">{error}</Banner>{/if}
   {#if notice}<Banner tone="success" class="mb-4">{notice}</Banner>{/if}
-  <form class="max-w-md space-y-4" onsubmit={changePassword} novalidate>
+  <form class="space-y-4" onsubmit={changePassword} novalidate>
     <div>
       <label class={label} for="current">Contraseña actual</label>
       <input
