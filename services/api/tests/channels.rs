@@ -283,3 +283,45 @@ async fn changing_the_kind_drops_or_creates_the_secret(pool: PgPool) {
         .expect("new secret shown");
     assert_ne!(secret, created["signing_secret"].as_str().unwrap());
 }
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn updating_an_unsigned_webhook_keeps_it_unsigned(pool: PgPool) {
+    let app = common::app(pool).await;
+    let tenant = common::create_tenant(&app, "acme").await;
+    let (_, created) = common::send(
+        &app,
+        Method::POST,
+        "/v1/alert-channels",
+        Some(&tenant),
+        Some(json!({ "name": "Hook", "type": "webhook", "config": { "url": "https://hooks.acme.test/taut" } })),
+    )
+    .await;
+    let id = created["id"].as_str().unwrap();
+    // A webhook created before signing existed.
+    sqlx::query("UPDATE alert_channels SET signing_secret = NULL WHERE id = $1::uuid")
+        .bind(id)
+        .execute(&app.pool)
+        .await
+        .unwrap();
+
+    // Muting it from the panel sends the whole channel back; no secret appears behind the
+    // owner's back.
+    let (status, muted) = common::send(
+        &app,
+        Method::PUT,
+        &format!("/v1/alert-channels/{id}"),
+        Some(&tenant),
+        Some(json!({ "name": "Hook", "type": "webhook", "config": { "url": "https://hooks.acme.test/taut" }, "active": false })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{muted}");
+    assert_eq!(muted["signing_secret_set"], false);
+    assert!(muted.get("signing_secret").is_none(), "{muted}");
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT signing_secret FROM alert_channels WHERE id = $1::uuid")
+            .bind(id)
+            .fetch_one(&app.pool)
+            .await
+            .unwrap();
+    assert_eq!(stored, None);
+}

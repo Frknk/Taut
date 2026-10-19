@@ -214,14 +214,20 @@ async fn update(
     actor.require_recent_auth()?;
     let spec = validate::channel(&input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
-    // A webhook keeps its secret; a channel that becomes one gets a new secret and one that
-    // stops being one loses it.
+    // A webhook keeps its secret, or its lack of one: a webhook from before signing stays
+    // unsigned until rotated, since the panel's mute button sends this same PUT and would never
+    // show a secret generated here. A channel that becomes a webhook gets a new secret, and one
+    // that stops being one loses it. In SET, `kind` and `signing_secret` are the old values.
     let candidate = secret_for(spec.kind);
     let generated = sqlx::query_scalar!(
         r#"
         UPDATE alert_channels
         SET name = $3, kind = $4, config = $5, active = $6,
-            signing_secret = CASE WHEN $4 = 'webhook' THEN coalesce(signing_secret, $7) END
+            signing_secret = CASE
+                WHEN $4 <> 'webhook' THEN NULL
+                WHEN kind = 'webhook' THEN signing_secret
+                ELSE $7
+            END
         WHERE tenant_id = $1 AND id = $2
         RETURNING coalesce(signing_secret = $7, false) AS "generated!"
         "#,

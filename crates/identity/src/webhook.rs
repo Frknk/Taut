@@ -64,7 +64,8 @@ pub fn verify(secret: &str, header: &str, body: &[u8], now: i64) -> Result<(), S
     if candidates.is_empty() {
         return Err(SignatureError::Malformed);
     }
-    if (now - timestamp).abs() > TOLERANCE_SECS {
+    // abs_diff: a forged `t` near i64::MIN must not overflow.
+    if now.abs_diff(timestamp) > TOLERANCE_SECS.unsigned_abs() {
         return Err(SignatureError::Expired);
     }
     let expected = digest(secret, timestamp, body);
@@ -136,6 +137,18 @@ mod tests {
             verify("whsec_test", &header, BODY, 1_700_000_301),
             Err(SignatureError::Expired)
         );
+    }
+
+    #[test]
+    fn extreme_timestamps_are_expired_not_a_panic() {
+        for t in [i64::MIN, i64::MAX] {
+            let header = format!("t={t},v1=00");
+            assert_eq!(
+                verify("whsec_test", &header, BODY, 1_700_000_000),
+                Err(SignatureError::Expired),
+                "{t}"
+            );
+        }
     }
 
     #[test]
