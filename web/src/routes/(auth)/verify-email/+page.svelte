@@ -5,6 +5,7 @@
 
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import Step from '#lib/components/Step.svelte';
   import { authRequest, describeError } from '#lib/api.js';
   import { link } from '#lib/ui.js';
 
@@ -33,22 +34,30 @@
 </svelte:head>
 
 {#if outcome === 'checking'}
-  <p class="text-subtle" role="status">Confirmando tu correo…</p>
+  <Step>
+    <p class="text-subtle" role="status">Confirmando tu correo…</p>
+  </Step>
 {:else if outcome === 'ok'}
-  <div>
-    <h1 class="text-2xl font-semibold text-strong">Correo confirmado</h1>
-    <p class="mt-2 text-subtle">Tu cuenta está lista. Entra para crear tu primera organización.</p>
-  </div>
-  <Button variant="primary" class="w-full" href={resolve('/(auth)/login')}>Entrar</Button>
+  <Step>
+    <div>
+      <h1 class="text-2xl font-semibold text-strong">Correo confirmado</h1>
+      <p class="mt-2 text-subtle">
+        Tu cuenta está lista. Entra para crear tu primera organización.
+      </p>
+    </div>
+    <Button variant="primary" class="w-full" href={resolve('/(auth)/login')}>Entrar</Button>
+  </Step>
 {:else}
-  <div>
-    <h1 class="text-2xl font-semibold text-strong">No pudimos confirmar el correo</h1>
-    <p class="mt-2 text-subtle">
-      El enlace es inválido, venció o ya se usó. Desde la pantalla de entrar puedes pedir otro.
+  <Step>
+    <div>
+      <h1 class="text-2xl font-semibold text-strong">No pudimos confirmar el correo</h1>
+      <p class="mt-2 text-subtle">
+        El enlace es inválido, venció o ya se usó. Desde la pantalla de entrar puedes pedir otro.
+      </p>
+    </div>
+    <Banner tone="danger">{error}</Banner>
+    <p class="text-sm text-subtle">
+      <a class={link} href={resolve('/(auth)/login')}>Ir a entrar</a>
     </p>
-  </div>
-  <Banner tone="danger">{error}</Banner>
-  <p class="text-sm text-subtle">
-    <a class={link} href={resolve('/(auth)/login')}>Ir a entrar</a>
-  </p>
+  </Step>
 {/if}

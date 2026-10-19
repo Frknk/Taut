@@ -18,6 +18,7 @@
     mfaBody,
     type ReauthValues,
   } from '#lib/mfa-form.js';
+  import { step } from '#lib/motion.js';
   import { session } from '#lib/session.svelte.js';
   import type { BackupCodes, MfaEnrollment, MfaStatus } from '#lib/types.js';
   import { fieldError, help, input, label } from '#lib/ui.js';
@@ -195,7 +196,7 @@
   {#if !status}
     <p class="text-sm text-subtle" role="status">Cargando…</p>
   {:else if status.enabled}
-    <div class="space-y-4 text-sm">
+    <div class="space-y-4 text-sm" in:step>
       <p class="text-default">
         Al entrar se pide, además de la contraseña, el código de tu app de autenticación.
         {#if status.enabled_at}
@@ -217,7 +218,7 @@
       </div>
     </div>
   {:else if enrollment}
-    <div class="grid gap-6 sm:grid-cols-[auto_1fr]">
+    <div class="grid gap-6 sm:grid-cols-[auto_1fr]" in:step>
       <div
         class="size-44 shrink-0 overflow-hidden rounded-lg ring ring-hairline [&>svg]:size-full"
         aria-hidden="true"
@@ -257,7 +258,7 @@
       </form>
     </div>
   {:else}
-    <div class="space-y-4 text-sm">
+    <div class="space-y-4 text-sm" in:step>
       <p class="text-default">
         Protege tu cuenta con un segundo paso al entrar: un código temporal de una app de
         autenticación en tu teléfono. Recibirás también códigos de respaldo por si lo pierdes.

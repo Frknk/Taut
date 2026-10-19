@@ -21,6 +21,7 @@
     type ApiKeyErrors,
   } from '#lib/api-key-form.js';
   import { formatDateTime, timeAgo } from '#lib/format.js';
+  import { step } from '#lib/motion.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { ApiKey, ApiKeyScope, CreatedApiKey } from '#lib/types.js';
   import { fieldError, help, input, label, table } from '#lib/ui.js';
@@ -222,7 +223,7 @@
     : 'Te pediremos la contraseña si hace más de 5 minutos que entraste.'}
 >
   {#if created}
-    <div class="space-y-4 text-sm">
+    <div class="space-y-4 text-sm" in:step>
       {#if copyFailed}
         <Banner tone="warning">
           El navegador no dejó copiar. Haz clic en el texto para seleccionarlo y cópialo a mano.

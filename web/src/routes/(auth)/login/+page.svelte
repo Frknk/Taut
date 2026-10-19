@@ -5,6 +5,7 @@
 
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import Step from '#lib/components/Step.svelte';
   import { ApiError, authRequest, describeError } from '#lib/api.js';
   import { validateLogin, type AuthErrors, type LoginValues } from '#lib/auth-forms.js';
   import { codeError } from '#lib/mfa-form.js';
@@ -97,100 +98,104 @@
 </svelte:head>
 
 {#if mfaToken}
-  <div>
-    <h1 class="text-2xl font-semibold text-strong">Verificación en dos pasos</h1>
-    <p class="mt-1 text-subtle">
-      Escribe el código de tu app de autenticación para <strong class="font-medium text-default"
-        >{values.email}</strong
-      >.
-    </p>
-  </div>
-
-  <form class="space-y-4" onsubmit={verify} novalidate>
+  <Step>
     <div>
-      <label class={label} for="code">Código de verificación</label>
-      <input
-        id="code"
-        class={[input, 'font-mono']}
-        inputmode="numeric"
-        autocomplete="one-time-code"
-        bind:value={code}
-        aria-invalid={mfaError ? true : undefined}
-        aria-describedby="code-help"
-        required
-      />
-      {#if mfaError}
-        <p class={fieldError}>{mfaError}</p>
-      {:else}
-        <p id="code-help" class={help}>
-          ¿Sin el teléfono? Escribe uno de tus códigos de respaldo (abcd-efgh).
-        </p>
-      {/if}
+      <h1 class="text-2xl font-semibold text-strong">Verificación en dos pasos</h1>
+      <p class="mt-1 text-subtle">
+        Escribe el código de tu app de autenticación para <strong class="font-medium text-default"
+          >{values.email}</strong
+        >.
+      </p>
     </div>
-    <Button type="submit" variant="primary" class="w-full" disabled={busy}>
-      {busy ? 'Comprobando…' : 'Verificar'}
-    </Button>
-  </form>
 
-  <p class="text-sm text-subtle">
-    <button type="button" class={link} onclick={restart}>Volver a empezar</button>
-  </p>
-{:else}
-  <div>
-    <h1 class="text-2xl font-semibold text-strong">Entrar</h1>
-    <p class="mt-1 text-subtle">Monitoreo de disponibilidad para tu equipo.</p>
-  </div>
-
-  {#if error}
-    <Banner tone="danger">{error}</Banner>
-  {/if}
-  {#if unverified}
-    <Banner tone="warning">
-      Confirma tu correo antes de entrar: busca el mensaje de Taut en tu bandeja.
-      {#if resent}
-        Te enviamos otro enlace.
-      {:else}
-        <button type="button" class={link} onclick={resend}>Reenviar el correo</button>
-      {/if}
-    </Banner>
-  {/if}
-
-  <form class="space-y-4" onsubmit={submit} novalidate>
-    <div>
-      <label class={label} for="email">Correo</label>
-      <input
-        id="email"
-        class={input}
-        type="email"
-        autocomplete="email"
-        bind:value={values.email}
-        aria-invalid={errors.email ? true : undefined}
-        required
-      />
-      {#if errors.email}<p class={fieldError}>{errors.email}</p>{/if}
-    </div>
-    <div>
-      <div class="flex items-baseline justify-between">
-        <label class={label} for="password">Contraseña</label>
-        <a class={[link, 'text-xs']} href={resolve('/(auth)/forgot-password')}>¿La olvidaste?</a>
+    <form class="space-y-4" onsubmit={verify} novalidate>
+      <div>
+        <label class={label} for="code">Código de verificación</label>
+        <input
+          id="code"
+          class={[input, 'font-mono']}
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          bind:value={code}
+          aria-invalid={mfaError ? true : undefined}
+          aria-describedby="code-help"
+          required
+        />
+        {#if mfaError}
+          <p class={fieldError}>{mfaError}</p>
+        {:else}
+          <p id="code-help" class={help}>
+            ¿Sin el teléfono? Escribe uno de tus códigos de respaldo (abcd-efgh).
+          </p>
+        {/if}
       </div>
-      <input
-        id="password"
-        class={input}
-        type="password"
-        autocomplete="current-password"
-        bind:value={values.password}
-        aria-invalid={errors.password ? true : undefined}
-        required
-      />
-      {#if errors.password}<p class={fieldError}>{errors.password}</p>{/if}
-    </div>
-    <Button type="submit" variant="primary" class="w-full" disabled={busy}>
-      {busy ? 'Entrando…' : 'Entrar'}
-    </Button>
-  </form>
+      <Button type="submit" variant="primary" class="w-full" disabled={busy}>
+        {busy ? 'Comprobando…' : 'Verificar'}
+      </Button>
+    </form>
 
-  <p class="text-sm text-subtle">
-    ¿No tienes cuenta? <a class={link} href={resolve('/(auth)/register')}>Regístrate</a>
-  </p>
+    <p class="text-sm text-subtle">
+      <button type="button" class={link} onclick={restart}>Volver a empezar</button>
+    </p>
+  </Step>
+{:else}
+  <Step back>
+    <div>
+      <h1 class="text-2xl font-semibold text-strong">Entrar</h1>
+      <p class="mt-1 text-subtle">Monitoreo de disponibilidad para tu equipo.</p>
+    </div>
+
+    {#if error}
+      <Banner tone="danger">{error}</Banner>
+    {/if}
+    {#if unverified}
+      <Banner tone="warning">
+        Confirma tu correo antes de entrar: busca el mensaje de Taut en tu bandeja.
+        {#if resent}
+          Te enviamos otro enlace.
+        {:else}
+          <button type="button" class={link} onclick={resend}>Reenviar el correo</button>
+        {/if}
+      </Banner>
+    {/if}
+
+    <form class="space-y-4" onsubmit={submit} novalidate>
+      <div>
+        <label class={label} for="email">Correo</label>
+        <input
+          id="email"
+          class={input}
+          type="email"
+          autocomplete="email"
+          bind:value={values.email}
+          aria-invalid={errors.email ? true : undefined}
+          required
+        />
+        {#if errors.email}<p class={fieldError}>{errors.email}</p>{/if}
+      </div>
+      <div>
+        <div class="flex items-baseline justify-between">
+          <label class={label} for="password">Contraseña</label>
+          <a class={[link, 'text-xs']} href={resolve('/(auth)/forgot-password')}>¿La olvidaste?</a>
+        </div>
+        <input
+          id="password"
+          class={input}
+          type="password"
+          autocomplete="current-password"
+          bind:value={values.password}
+          aria-invalid={errors.password ? true : undefined}
+          required
+        />
+        {#if errors.password}<p class={fieldError}>{errors.password}</p>{/if}
+      </div>
+      <Button type="submit" variant="primary" class="w-full" disabled={busy}>
+        {busy ? 'Entrando…' : 'Entrar'}
+      </Button>
+    </form>
+
+    <p class="text-sm text-subtle">
+      ¿No tienes cuenta? <a class={link} href={resolve('/(auth)/register')}>Regístrate</a>
+    </p>
+  </Step>
 {/if}
