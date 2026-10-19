@@ -5,6 +5,7 @@
 
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import DrawnCheck from '#lib/components/DrawnCheck.svelte';
   import Step from '#lib/components/Step.svelte';
   import { authRequest, describeError } from '#lib/api.js';
   import { link } from '#lib/ui.js';
@@ -40,6 +41,7 @@
 {:else if outcome === 'ok'}
   <Step>
     <div>
+      <DrawnCheck class="mb-4 size-10 text-success" />
       <h1 class="text-2xl font-semibold text-strong">Correo confirmado</h1>
       <p class="mt-2 text-subtle">
         Tu cuenta está lista. Entra para crear tu primera organización.

@@ -7,6 +7,7 @@
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
   import Empty from '#lib/components/Empty.svelte';
+  import Loading from '#lib/components/Loading.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import TenantForm from '#lib/components/TenantForm.svelte';
   import { describeError } from '#lib/api.js';
@@ -55,9 +56,7 @@
 </svelte:head>
 
 {#if !loaded}
-  <div class="flex min-h-screen items-center justify-center text-sm text-subtle" role="status">
-    Cargando…
-  </div>
+  <Loading />
 {:else}
   <main class="flex min-h-screen items-center justify-center p-6">
     <section class="w-full max-w-md space-y-6 rounded-xl bg-base px-8 py-7 ring ring-hairline">

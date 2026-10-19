@@ -7,6 +7,7 @@
   import Button from '#lib/components/Button.svelte';
   import CopyLabel from '#lib/components/CopyLabel.svelte';
   import Dialog from '#lib/components/Dialog.svelte';
+  import DrawnCheck from '#lib/components/DrawnCheck.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
   import { ApiError, authRequest, describeError } from '#lib/api.js';
   import type { AuthErrors } from '#lib/auth-forms.js';
@@ -35,6 +36,8 @@
 
   // Backup codes just generated: shown once, then gone.
   let codes = $state<string[] | null>(null);
+  /** Set by a confirmation in this visit: the enabled state then draws its check once. */
+  let justEnabled = $state(false);
   let copied = $state(false);
 
   // Turning 2FA off: password and code in a dialog.
@@ -93,6 +96,7 @@
       enrollment = null;
       codes = result.backup_codes;
       copied = false;
+      justEnabled = true;
       notice = 'Verificación en dos pasos activada. Guarda estos códigos de respaldo.';
       await Promise.all([load(), session.refresh()]);
     } catch (err) {
@@ -197,6 +201,7 @@
     <p class="text-sm text-subtle" role="status">Cargando…</p>
   {:else if status.enabled}
     <div class="space-y-4 text-sm" in:step>
+      {#if justEnabled}<DrawnCheck class="size-8 text-success" />{/if}
       <p class="text-default">
         Al entrar se pide, además de la contraseña, el código de tu app de autenticación.
         {#if status.enabled_at}

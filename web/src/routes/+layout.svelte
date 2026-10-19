@@ -5,6 +5,7 @@
   import { Tooltip } from 'bits-ui';
   import { onMount } from 'svelte';
   import favicon from '#lib/assets/favicon.svg';
+  import Loading from '#lib/components/Loading.svelte';
   import { session } from '#lib/session.svelte.js';
   import type { LayoutProps } from './$types';
 
@@ -21,9 +22,7 @@
 <!-- One provider: moving between tooltips skips the delay. -->
 <Tooltip.Provider delayDuration={300}>
   {#if session.status === 'booting'}
-    <div class="flex min-h-screen items-center justify-center text-sm text-subtle" role="status">
-      Cargando…
-    </div>
+    <Loading />
   {:else}
     {@render children()}
   {/if}
