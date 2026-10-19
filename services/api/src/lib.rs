@@ -23,11 +23,12 @@ use axum::routing::get;
 use axum::{Json, Router};
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::Serialize;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use taut_bus::Bus;
 use taut_config::Settings;
 use taut_http::{AppError, Probe, ServiceInfo, health, layers, metrics};
 use taut_identity::Verifier;
+use uuid::Uuid;
 
 use crate::ratelimit::TenantLimiter;
 
@@ -39,7 +40,8 @@ pub const SERVICE_NAME: &str = "taut-api";
 pub struct AppState {
     /// Loaded configuration.
     pub settings: Arc<Settings>,
-    /// PostgreSQL pool.
+    /// PostgreSQL pool acting as the app role ([`taut_db::restricted`]): outside a
+    /// [`tenant_tx`](Self::tenant_tx) its queries see no tenant data.
     pub pool: PgPool,
     /// NATS JetStream.
     pub bus: Bus,
@@ -49,13 +51,32 @@ pub struct AppState {
     pub limiter: TenantLimiter,
 }
 
+impl AppState {
+    /// A transaction of `tenant_id`: row-level security lets through only its rows. Every
+    /// handler that reads or writes tenant data runs in one.
+    pub async fn tenant_tx(
+        &self,
+        tenant_id: Uuid,
+    ) -> Result<Transaction<'static, Postgres>, sqlx::Error> {
+        taut_db::begin_tenant(&self.pool, tenant_id).await
+    }
+
+    /// A transaction with the owner's rights, across tenants. Only for the lookups that find
+    /// the tenant (API key, heartbeat token, invitation link) or list a user's tenants
+    /// (ADR 0010).
+    pub async fn system_tx(&self) -> Result<Transaction<'static, Postgres>, sqlx::Error> {
+        taut_db::begin_system(&self.pool).await
+    }
+}
+
 /// Builds the complete router: health, metrics, the `/v1` API, heartbeat pings and the
 /// middleware stack. Readiness probes the database and that at least one signing key is
 /// known (fetching the JWKS again if none is): without NATS the panel keeps working and only
-/// heartbeat pings fail; without Redis requests go through uncounted.
+/// heartbeat pings fail; without Redis requests go through uncounted. `owner` is the pool of
+/// the tables' owner; the handlers get one restricted to the app role on the same database.
 pub fn app(
     settings: Arc<Settings>,
-    pool: PgPool,
+    owner: &PgPool,
     bus: Bus,
     limiter: TenantLimiter,
     verifier: Arc<Verifier>,
@@ -75,6 +96,7 @@ pub fn app(
             }
         }
     });
+    let pool = taut_db::restricted(owner);
     let state = AppState {
         settings,
         pool: pool.clone(),

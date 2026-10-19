@@ -15,7 +15,7 @@ use axum::http::StatusCode;
 use axum::routing::{get, post};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use sqlx::PgConnection;
 use taut_http::{AppError, Json, Path, Query, current_trace_id};
 use taut_model::events::{MonitorChanged, subjects};
 use taut_model::{MonitorKind, MonitorStatus};
@@ -89,7 +89,11 @@ fn not_found() -> AppError {
 }
 
 /// Reads one monitor of `tenant_id`.
-pub async fn find(pool: &PgPool, tenant_id: Uuid, id: Uuid) -> Result<Option<Monitor>, AppError> {
+pub async fn find(
+    conn: &mut PgConnection,
+    tenant_id: Uuid,
+    id: Uuid,
+) -> Result<Option<Monitor>, AppError> {
     let monitor = sqlx::query_as!(
         Monitor,
         r#"
@@ -112,7 +116,7 @@ pub async fn find(pool: &PgPool, tenant_id: Uuid, id: Uuid) -> Result<Option<Mon
         tenant_id,
         id,
     )
-    .fetch_optional(pool)
+    .fetch_optional(conn)
     .await?;
     Ok(monitor)
 }
@@ -121,6 +125,7 @@ async fn list(
     State(state): State<AppState>,
     CurrentTenant { tenant, .. }: CurrentTenant,
 ) -> Result<Json<Vec<Monitor>>, AppError> {
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let monitors = sqlx::query_as!(
         Monitor,
         r#"
@@ -143,8 +148,9 @@ async fn list(
         "#,
         tenant.id,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(Json(monitors))
 }
 
@@ -153,10 +159,10 @@ async fn show(
     CurrentTenant { tenant, .. }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Monitor>, AppError> {
-    find(&state.pool, tenant.id, id)
-        .await?
-        .map(Json)
-        .ok_or_else(not_found)
+    let mut tx = state.tenant_tx(tenant.id).await?;
+    let monitor = find(&mut tx, tenant.id, id).await?.ok_or_else(not_found)?;
+    tx.commit().await?;
+    Ok(Json(monitor))
 }
 
 async fn create(
@@ -169,7 +175,7 @@ async fn create(
         .map_err(AppError::BadRequest)?;
     let heartbeat = spec.kind == MonitorKind::Heartbeat;
 
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     // Locking the tenant row serializes concurrent creations, so two requests cannot both
     // pass the quota check below.
     sqlx::query!("SELECT id FROM tenants WHERE id = $1 FOR UPDATE", tenant.id)
@@ -220,13 +226,11 @@ async fn create(
     )
     .execute(&mut *tx)
     .await?;
+    let monitor = find(&mut tx, tenant.id, id).await?.ok_or_else(not_found)?;
     tx.commit().await?;
 
     tracing::info!(monitor_id = %id, kind = %spec.kind, "monitor created");
     announce(&state, subjects::MONITORS_CREATED, tenant.id, id);
-    let monitor = find(&state.pool, tenant.id, id)
-        .await?
-        .ok_or_else(not_found)?;
     Ok((StatusCode::CREATED, Json(monitor)))
 }
 
@@ -239,9 +243,8 @@ async fn update(
     actor.require(Permission::Monitors)?;
     let spec = validate::monitor(input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
-    let current = find(&state.pool, tenant.id, id)
-        .await?
-        .ok_or_else(not_found)?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
+    let current = find(&mut tx, tenant.id, id).await?.ok_or_else(not_found)?;
     if current.kind != spec.kind {
         return Err(AppError::BadRequest(
             "type cannot be changed; create a new monitor instead".to_owned(),
@@ -268,18 +271,17 @@ async fn update(
         spec.recovery_period_s,
         spec.grace_period_s,
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
     if updated.rows_affected() == 0 {
         return Err(not_found());
     }
+    let monitor = find(&mut tx, tenant.id, id).await?.ok_or_else(not_found)?;
+    tx.commit().await?;
 
     tracing::info!(monitor_id = %id, "monitor updated");
     announce(&state, subjects::MONITORS_UPDATED, tenant.id, id);
-    find(&state.pool, tenant.id, id)
-        .await?
-        .map(Json)
-        .ok_or_else(not_found)
+    Ok(Json(monitor))
 }
 
 async fn remove(
@@ -288,7 +290,7 @@ async fn remove(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
     actor.require(Permission::Monitors)?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let deleted = sqlx::query!(
         "DELETE FROM monitors WHERE tenant_id = $1 AND id = $2",
         tenant.id,
@@ -300,9 +302,13 @@ async fn remove(
         return Err(not_found());
     }
     // check_results has no foreign key (it is a hypertable), so its rows go explicitly.
-    sqlx::query!("DELETE FROM check_results WHERE monitor_id = $1", id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query!(
+        "DELETE FROM check_results WHERE tenant_id = $1 AND monitor_id = $2",
+        tenant.id,
+        id
+    )
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     tracing::info!(monitor_id = %id, "monitor deleted");
     announce(&state, subjects::MONITORS_DELETED, tenant.id, id);
@@ -333,23 +339,23 @@ async fn set_active(
     id: Uuid,
     active: bool,
 ) -> Result<Json<Monitor>, AppError> {
+    let mut tx = state.tenant_tx(tenant_id).await?;
     let updated = sqlx::query!(
         "UPDATE monitors SET active = $3, updated_at = now() WHERE tenant_id = $1 AND id = $2",
         tenant_id,
         id,
         active,
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
     if updated.rows_affected() == 0 {
         return Err(not_found());
     }
+    let monitor = find(&mut tx, tenant_id, id).await?.ok_or_else(not_found)?;
+    tx.commit().await?;
     tracing::info!(monitor_id = %id, active, "monitor active flag changed");
     announce(state, subjects::MONITORS_UPDATED, tenant_id, id);
-    find(&state.pool, tenant_id, id)
-        .await?
-        .map(Json)
-        .ok_or_else(not_found)
+    Ok(Json(monitor))
 }
 
 /// Publishes a `monitors.*` event in the background. A lost event only delays the change
@@ -402,7 +408,8 @@ async fn checks(
     Path(id): Path<Uuid>,
     Query(query): Query<ChecksQuery>,
 ) -> Result<Json<Vec<CheckResult>>, AppError> {
-    if find(&state.pool, tenant.id, id).await?.is_none() {
+    let mut tx = state.tenant_tx(tenant.id).await?;
+    if find(&mut tx, tenant.id, id).await?.is_none() {
         return Err(not_found());
     }
     let limit = query.limit.unwrap_or(DEFAULT_CHECKS).clamp(1, MAX_CHECKS);
@@ -419,7 +426,8 @@ async fn checks(
         tenant.id,
         limit,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(Json(results))
 }

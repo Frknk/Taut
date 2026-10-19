@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM check_results WHERE tenant_id = $1 AND monitor_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e6e69d9ea65a29bc7e215bde7c73a183a3f20d4eacee0ed1c929ee9498b7e1c1"
+}

@@ -46,14 +46,16 @@ async fn create(
         ));
     }
 
-    let mut tx = state.pool.begin().await?;
+    // The id comes first so the inserts already run as the new tenant.
+    let id = Uuid::now_v7();
+    let mut tx = state.tenant_tx(id).await?;
     let tenant = sqlx::query_as!(
         Tenant,
         r#"
         INSERT INTO tenants (id, slug, name) VALUES ($1, $2, $3)
         RETURNING id, slug, name, plan AS "plan: Plan", created_at
         "#,
-        Uuid::now_v7(),
+        id,
         slug,
         name,
     )
@@ -92,6 +94,8 @@ async fn list(
     State(state): State<AppState>,
     user: CurrentUser,
 ) -> Result<Json<Vec<TenantWithRole>>, AppError> {
+    // A user's tenants span several tenants by definition (owner rights).
+    let mut tx = state.system_tx().await?;
     let rows = sqlx::query!(
         r#"
         SELECT t.id, t.slug, t.name, t.plan AS "plan: Plan", t.created_at, m.role AS "role: Role"
@@ -102,8 +106,9 @@ async fn list(
         "#,
         user.user_id,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(Json(
         rows.into_iter()
             .map(|row| TenantWithRole {

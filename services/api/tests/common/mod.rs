@@ -74,7 +74,7 @@ pub async fn app_without_database() -> Router {
     let bus = Bus::lazy("nats://127.0.0.1:1")
         .await
         .expect("a lazy bus never fails to build");
-    build(settings, pool, bus, closed_redis(), &KeyPair::generate())
+    build(settings, &pool, bus, closed_redis(), &KeyPair::generate())
 }
 
 /// App backed by the given pool and the NATS and Redis of `just up`, with a signed-in user.
@@ -90,7 +90,7 @@ pub async fn app_with_limiter(
 ) -> TestApp {
     let keys = KeyPair::generate();
     let bus = bus().await;
-    let router = build(settings, pool.clone(), bus, limiter, &keys);
+    let router = build(settings, &pool, bus, limiter, &keys);
     let user_id = insert_user(&pool, "owner@test.taut").await;
     TestApp {
         router,
@@ -131,7 +131,7 @@ pub fn redis_url() -> String {
 
 fn build(
     settings: Arc<Settings>,
-    pool: PgPool,
+    pool: &PgPool,
     bus: Bus,
     limiter: TenantLimiter,
     keys: &KeyPair,

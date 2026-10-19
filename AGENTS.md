@@ -11,7 +11,7 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | -------------------- | ---------------------------------------------------------------------------------------- |
 | `crates/config`      | `taut-config`: `Settings` desde variables `TAUT_*` (`__` anida) y `.env` fuera de prod  |
 | `crates/telemetry`   | `taut-telemetry`: `init()` instala logs JSON con `trace_id` y el recorder de Prometheus |
-| `crates/db`          | `taut-db`: `connect`, `migrate` (migraciones embebidas de `migrations/`), `ping`        |
+| `crates/db`          | `taut-db`: `connect`, `migrate` (migraciones embebidas de `migrations/`), `ping`, y RLS: `restricted`, `begin_tenant`, `begin_system` |
 | `crates/http`        | `taut-http`: `AppError`, extractores `Json`/`Path`/`Query`, routers de `/health`, `/ready`, `/metrics`, `layers::apply`, `serve` |
 | `crates/model`       | `taut-model`: tipos de dominio compartidos (`MonitorKind`, `MonitorStatus`, eventos del bus, reglas de red) sin I/O |
 | `crates/bus`         | `taut-bus`: NATS JetStream; `Bus::connect`, `publish` con `trace_id` en cabecera, `consume` para consumidores durables |
@@ -56,7 +56,13 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   también responda con el JSON de error.
 - **Tenant y permisos**: los handlers de negocio reciben `CurrentTenant { tenant, actor }` y
   filtran toda query por `tenant_id`; nunca aceptan el tenant como parámetro del cuerpo o de la
-  ruta (viaja en `X-Tenant-Id` y la api comprueba la membresía). Todo handler que escribe empieza
+  ruta (viaja en `X-Tenant-Id` y la api comprueba la membresía). Toda query de un handler corre
+  en `let mut tx = state.tenant_tx(tenant.id).await?` y termina con `tx.commit()`: el pool de la
+  api es el rol `taut_app` y, fuera de esa transacción, Row-Level Security no le deja ver nada
+  ([ADR 0010](docs/adr/0010-row-level-security-por-tenant.md)). `state.system_tx()` se salta RLS y
+  solo se usa donde el tenant aún no se conoce (API key, heartbeat, enlace de invitación, lista de
+  tenants del usuario). Los workers que trabajan para un tenant usan `taut_db::begin_tenant`; las
+  funciones auxiliares reciben `&mut PgConnection`. Todo handler que escribe empieza
   con `actor.require(Permission::…)?` (`Monitors` para members, `Channels` y `Tenant` solo owners).
   Las acciones delicadas (canales, borrar el tenant, API keys) añaden `actor.require_recent_auth()?`
   (step-up: `403 reauth_required` si el último login o reautenticación tiene más de 5 min; el
@@ -88,7 +94,11 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   unidad al final (`_seconds`, `_total`).
 - **Base de datos**: migraciones solo con `just migrate-add`, siempre compatibles hacia atrás.
   Toda tabla de negocio lleva `tenant_id`; las únicas excepciones son las de identidad (`users`,
-  `user_tokens`), que pertenecen a una persona y no a un tenant. Tests de integración con
+  `user_tokens`), que pertenecen a una persona y no a un tenant. Una tabla de tenant nueva lleva,
+  en la misma migración, `GRANT … TO taut_app`, `ENABLE ROW LEVEL SECURITY` y la política
+  `tenant_isolation` (`crates/db/tests/rls.rs` falla si falta). Escribe el SQL completo antes de
+  guardar el archivo si `just dev` está corriendo: la api migra al arrancar y aplicaría la
+  plantilla vacía de `migrate-add`. Tests de integración con
   `#[sqlx::test(migrator = "taut_db::MIGRATOR")]`; los de la api firman tokens con un `KeyPair`
   de prueba (`services/api/tests/common`), nunca hablan con auth.
 - **Lints**: el workspace activa `clippy::pedantic` y `missing_docs`; documenta todo lo público y

@@ -150,7 +150,7 @@ async fn create(
     let user_id = actor.user_id()?;
     let email = normalize_email(&input.email)?;
 
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     make_room(&mut tx, tenant.id, &email).await?;
     let inviter = sqlx::query_scalar!("SELECT name FROM users WHERE id = $1", user_id)
         .fetch_one(&mut *tx)
@@ -225,6 +225,7 @@ async fn list(
     CurrentTenant { tenant, actor }: CurrentTenant,
 ) -> Result<Json<Vec<Invitation>>, AppError> {
     actor.require(Permission::Tenant)?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let invitations = sqlx::query_as!(
         Invitation,
         r#"
@@ -237,8 +238,9 @@ async fn list(
         "#,
         tenant.id,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(Json(invitations))
 }
 
@@ -248,16 +250,18 @@ async fn revoke(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
     actor.require(Permission::Tenant)?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let deleted = sqlx::query!(
         "DELETE FROM invitations WHERE tenant_id = $1 AND id = $2 AND accepted_at IS NULL",
         tenant.id,
         id,
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
     if deleted.rows_affected() == 0 {
         return Err(not_found());
     }
+    tx.commit().await?;
     tracing::info!(invitation_id = %id, "invitation revoked");
     Ok(StatusCode::NO_CONTENT)
 }
@@ -280,6 +284,8 @@ async fn preview(
     State(state): State<AppState>,
     Path(token): Path<String>,
 ) -> Result<Json<InvitationPreview>, AppError> {
+    // The link is what names the tenant: owner rights, across tenants.
+    let mut tx = state.system_tx().await?;
     let row = sqlx::query!(
         r#"
         SELECT t.name AS tenant_name, i.email, i.role AS "role: Role", i.expires_at, i.accepted_at
@@ -289,9 +295,10 @@ async fn preview(
         "#,
         random::sha256_hex(&token),
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(not_found)?;
+    tx.commit().await?;
     check_usable(row.accepted_at, row.expires_at)?;
     Ok(Json(InvitationPreview {
         tenant_name: row.tenant_name,
@@ -306,7 +313,8 @@ async fn accept(
     user: CurrentUser,
     Path(token): Path<String>,
 ) -> Result<Json<TenantWithRole>, AppError> {
-    let mut tx = state.pool.begin().await?;
+    // The link is what names the tenant, and the user joins it from outside: owner rights.
+    let mut tx = state.system_tx().await?;
     let invitation = sqlx::query!(
         r#"
         SELECT id, tenant_id, email, role AS "role: Role", expires_at, accepted_at

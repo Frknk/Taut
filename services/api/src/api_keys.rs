@@ -78,6 +78,7 @@ async fn list(
     CurrentTenant { tenant, actor }: CurrentTenant,
 ) -> Result<Json<Vec<ApiKey>>, AppError> {
     actor.require(Permission::Tenant)?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let rows = sqlx::query!(
         r#"
         SELECT id, name, prefix, scope, created_at, last_used_at, revoked_at
@@ -87,8 +88,9 @@ async fn list(
         "#,
         tenant.id,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     let keys = rows
         .into_iter()
         .map(|row| {
@@ -121,7 +123,7 @@ async fn create(
         )));
     }
 
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     sqlx::query!("SELECT id FROM tenants WHERE id = $1 FOR UPDATE", tenant.id)
         .fetch_one(&mut *tx)
         .await?;
@@ -180,6 +182,7 @@ async fn revoke(
 ) -> Result<StatusCode, AppError> {
     actor.require(Permission::Tenant)?;
     // Revoking twice keeps the first date.
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let revoked = sqlx::query_scalar!(
         r#"
         UPDATE api_keys SET revoked_at = coalesce(revoked_at, now())
@@ -189,11 +192,12 @@ async fn revoke(
         tenant.id,
         id,
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?;
     if revoked.is_none() {
         return Err(AppError::NotFound("api key not found".to_owned()));
     }
+    tx.commit().await?;
     tracing::info!(api_key_id = %id, "api key revoked");
     Ok(StatusCode::NO_CONTENT)
 }

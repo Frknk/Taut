@@ -45,6 +45,8 @@ async fn fail(
 }
 
 async fn record(state: &AppState, token: &str, ok: bool) -> Result<Json<PingResponse>, AppError> {
+    // The token is what names the monitor and its tenant: owner rights, across tenants.
+    let mut tx = state.system_tx().await?;
     let pinged = sqlx::query!(
         r#"
         UPDATE monitors SET last_ping_at = now()
@@ -53,20 +55,22 @@ async fn record(state: &AppState, token: &str, ok: bool) -> Result<Json<PingResp
         "#,
         token
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?;
     let Some(monitor) = pinged else {
         let active = sqlx::query_scalar!(
             "SELECT active FROM monitors WHERE heartbeat_token = $1",
             token
         )
-        .fetch_optional(&state.pool)
+        .fetch_optional(&mut *tx)
         .await?;
+        tx.commit().await?;
         return match active {
             Some(false) => Ok(Json(PingResponse { status: "paused" })),
             _ => Err(AppError::NotFound("unknown heartbeat".to_owned())),
         };
     };
+    tx.commit().await?;
 
     let result = CheckCompleted {
         trace_id: current_trace_id().unwrap_or_else(|| ulid::Ulid::generate().to_string()),

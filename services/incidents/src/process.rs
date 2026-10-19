@@ -34,9 +34,10 @@ pub struct Applied {
     pub event: Option<(&'static str, IncidentChanged)>,
 }
 
-/// Applies `result`; see the module documentation.
+/// Applies `result`; see the module documentation. The transaction acts for the result's
+/// tenant, so row-level security keeps every other tenant's rows out of reach.
 pub async fn apply_result(pool: &PgPool, result: &CheckCompleted) -> Result<Applied, sqlx::Error> {
-    let mut tx = pool.begin().await?;
+    let mut tx = taut_db::begin_tenant(pool, result.tenant_id).await?;
     let monitor = sqlx::query_as!(
         MonitorRow,
         r#"

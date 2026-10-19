@@ -105,7 +105,7 @@ async fn role_of(
 
 /// Deletes the membership of `user_id` unless they are the last owner.
 async fn drop_membership(state: &AppState, tenant_id: Uuid, user_id: Uuid) -> Result<(), AppError> {
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.tenant_tx(tenant_id).await?;
     let sole_owner = last_owner(&mut tx, tenant_id).await?;
     role_of(&mut tx, tenant_id, user_id)
         .await?
@@ -128,6 +128,7 @@ async fn list(
     State(state): State<AppState>,
     CurrentTenant { tenant, .. }: CurrentTenant,
 ) -> Result<Json<Vec<Member>>, AppError> {
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let members = sqlx::query_as!(
         Member,
         r#"
@@ -139,8 +140,9 @@ async fn list(
         "#,
         tenant.id,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(Json(members))
 }
 
@@ -151,7 +153,7 @@ async fn change_role(
     Json(input): Json<RoleChange>,
 ) -> Result<Json<Member>, AppError> {
     actor.require(Permission::Tenant)?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let sole_owner = last_owner(&mut tx, tenant.id).await?;
     let current = role_of(&mut tx, tenant.id, user_id)
         .await?
@@ -212,6 +214,7 @@ async fn rename(
 ) -> Result<Json<Tenant>, AppError> {
     actor.require(Permission::Tenant)?;
     let name = tenants::validated_name(&input.name)?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let renamed = sqlx::query_as!(
         Tenant,
         r#"
@@ -221,8 +224,9 @@ async fn rename(
         tenant.id,
         name,
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&mut *tx)
     .await?;
+    tx.commit().await?;
     tracing::info!("tenant renamed");
     Ok(Json(renamed))
 }
@@ -233,7 +237,7 @@ async fn delete_tenant(
 ) -> Result<StatusCode, AppError> {
     actor.require(Permission::Tenant)?;
     actor.require_recent_auth()?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     sqlx::query!("SELECT id FROM tenants WHERE id = $1 FOR UPDATE", tenant.id)
         .fetch_one(&mut *tx)
         .await?;

@@ -21,7 +21,7 @@ use axum::routing::{get, post};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::Value;
-use sqlx::PgPool;
+use sqlx::PgConnection;
 use taut_http::{AppError, Json, Path, current_trace_id};
 use taut_identity::webhook;
 use taut_model::ChannelKind;
@@ -101,7 +101,11 @@ fn not_found() -> AppError {
     AppError::NotFound("alert channel not found".to_owned())
 }
 
-async fn find(pool: &PgPool, tenant_id: Uuid, id: Uuid) -> Result<Option<AlertChannel>, AppError> {
+async fn find(
+    conn: &mut PgConnection,
+    tenant_id: Uuid,
+    id: Uuid,
+) -> Result<Option<AlertChannel>, AppError> {
     let channel = sqlx::query_as!(
         AlertChannel,
         r#"
@@ -114,7 +118,7 @@ async fn find(pool: &PgPool, tenant_id: Uuid, id: Uuid) -> Result<Option<AlertCh
         tenant_id,
         id,
     )
-    .fetch_optional(pool)
+    .fetch_optional(conn)
     .await?;
     Ok(channel)
 }
@@ -123,6 +127,7 @@ async fn list(
     State(state): State<AppState>,
     CurrentTenant { tenant, .. }: CurrentTenant,
 ) -> Result<Json<Vec<AlertChannel>>, AppError> {
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let channels = sqlx::query_as!(
         AlertChannel,
         r#"
@@ -135,8 +140,9 @@ async fn list(
         "#,
         tenant.id,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(Json(channels))
 }
 
@@ -145,10 +151,10 @@ async fn show(
     CurrentTenant { tenant, .. }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<Json<AlertChannel>, AppError> {
-    find(&state.pool, tenant.id, id)
-        .await?
-        .map(Json)
-        .ok_or_else(not_found)
+    let mut tx = state.tenant_tx(tenant.id).await?;
+    let channel = find(&mut tx, tenant.id, id).await?.ok_or_else(not_found)?;
+    tx.commit().await?;
+    Ok(Json(channel))
 }
 
 async fn create(
@@ -160,7 +166,7 @@ async fn create(
     actor.require_recent_auth()?;
     let spec = validate::channel(&input, state.settings.checks.allow_private_targets)
         .map_err(AppError::BadRequest)?;
-    let mut tx = state.pool.begin().await?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     sqlx::query!("SELECT id FROM tenants WHERE id = $1 FOR UPDATE", tenant.id)
         .fetch_one(&mut *tx)
         .await?;
@@ -190,11 +196,9 @@ async fn create(
     )
     .execute(&mut *tx)
     .await?;
+    let channel = find(&mut tx, tenant.id, id).await?.ok_or_else(not_found)?;
     tx.commit().await?;
     tracing::info!(channel_id = %id, kind = %spec.kind, "alert channel created");
-    let channel = find(&state.pool, tenant.id, id)
-        .await?
-        .ok_or_else(not_found)?;
     Ok((
         StatusCode::CREATED,
         Json(ChannelWithSecret {
@@ -219,6 +223,7 @@ async fn update(
     // show a secret generated here. A channel that becomes a webhook gets a new secret, and one
     // that stops being one loses it. In SET, `kind` and `signing_secret` are the old values.
     let candidate = secret_for(spec.kind);
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let generated = sqlx::query_scalar!(
         r#"
         UPDATE alert_channels
@@ -239,13 +244,12 @@ async fn update(
         spec.active,
         candidate,
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(not_found)?;
+    let channel = find(&mut tx, tenant.id, id).await?.ok_or_else(not_found)?;
+    tx.commit().await?;
     tracing::info!(channel_id = %id, "alert channel updated");
-    let channel = find(&state.pool, tenant.id, id)
-        .await?
-        .ok_or_else(not_found)?;
     Ok(Json(ChannelWithSecret {
         channel,
         signing_secret: candidate.filter(|_| generated),
@@ -259,16 +263,18 @@ async fn remove(
 ) -> Result<StatusCode, AppError> {
     actor.require(Permission::Channels)?;
     actor.require_recent_auth()?;
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let deleted = sqlx::query!(
         "DELETE FROM alert_channels WHERE tenant_id = $1 AND id = $2",
         tenant.id,
         id
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
     if deleted.rows_affected() == 0 {
         return Err(not_found());
     }
+    tx.commit().await?;
     tracing::info!(channel_id = %id, "alert channel deleted");
     Ok(StatusCode::NO_CONTENT)
 }
@@ -285,7 +291,10 @@ async fn test(
 ) -> Result<(StatusCode, Json<TestQueued>), AppError> {
     actor.require(Permission::Channels)?;
     actor.require_recent_auth()?;
-    if find(&state.pool, tenant.id, id).await?.is_none() {
+    let mut tx = state.tenant_tx(tenant.id).await?;
+    let exists = find(&mut tx, tenant.id, id).await?.is_some();
+    tx.commit().await?;
+    if !exists {
         return Err(not_found());
     }
     let request = TestNotification {
@@ -312,6 +321,7 @@ async fn rotate_secret(
     actor.require(Permission::Channels)?;
     actor.require_recent_auth()?;
     let secret = webhook::generate_secret();
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let rotated = sqlx::query!(
         "UPDATE alert_channels SET signing_secret = $3
          WHERE tenant_id = $1 AND id = $2 AND kind = 'webhook'",
@@ -319,16 +329,17 @@ async fn rotate_secret(
         id,
         secret,
     )
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
     if rotated.rows_affected() == 0 {
-        return Err(match find(&state.pool, tenant.id, id).await? {
+        return Err(match find(&mut tx, tenant.id, id).await? {
             Some(_) => {
                 AppError::BadRequest("only generic webhooks have a signing secret".to_owned())
             }
             None => not_found(),
         });
     }
+    tx.commit().await?;
     tracing::info!(channel_id = %id, "webhook signing secret rotated");
     Ok(Json(RotatedSecret {
         signing_secret: secret,

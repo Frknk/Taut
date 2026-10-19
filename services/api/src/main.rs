@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = taut_api::app(
         Arc::clone(&settings),
-        pool,
+        &pool,
         bus,
         limiter,
         verifier,

@@ -102,6 +102,7 @@ async fn list(
         StatusFilter::All => (true, true),
     };
     let limit = query.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let incidents = sqlx::query_as!(
         Incident,
         r#"
@@ -122,8 +123,9 @@ async fn list(
         resolved,
         limit,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(Json(incidents))
 }
 
@@ -132,6 +134,7 @@ async fn show(
     CurrentTenant { tenant, .. }: CurrentTenant,
     Path(id): Path<Uuid>,
 ) -> Result<Json<IncidentDetail>, AppError> {
+    let mut tx = state.tenant_tx(tenant.id).await?;
     let incident = sqlx::query_as!(
         Incident,
         r#"
@@ -145,7 +148,7 @@ async fn show(
         tenant.id,
         id,
     )
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(|| AppError::NotFound("incident not found".to_owned()))?;
     let deliveries = sqlx::query_as!(
@@ -155,13 +158,15 @@ async fn show(
                d.event, d.status, d.attempts, d.last_error, d.updated_at
         FROM notification_deliveries d
         JOIN alert_channels c ON c.id = d.channel_id
-        WHERE d.incident_id = $1
+        WHERE d.tenant_id = $1 AND d.incident_id = $2
         ORDER BY d.updated_at
         "#,
+        tenant.id,
         id,
     )
-    .fetch_all(&state.pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.commit().await?;
     Ok(Json(IncidentDetail {
         incident,
         deliveries,
