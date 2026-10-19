@@ -182,7 +182,8 @@
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 0
-          }
+          },
+          "noValue": "Sin respuestas 5xx"
         },
         "overrides": []
       },
@@ -233,7 +234,8 @@
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 0
-          }
+          },
+          "noValue": "Sin respuestas 429"
         },
         "overrides": []
       },
@@ -374,7 +376,9 @@
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 0
-          }
+          },
+          "min": 0,
+          "max": 1
         },
         "overrides": []
       },
@@ -399,7 +403,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(uptime_check_lag_seconds_bucket{le=\"10\"}[$__rate_interval])) / sum(rate(uptime_check_lag_seconds_count[$__rate_interval]))",
+          "expr": "sum(rate(uptime_check_lag_seconds_bucket{le=~\"10|10.0\"}[$__rate_interval])) / sum(rate(uptime_check_lag_seconds_count[$__rate_interval]))",
           "legendFormat": "fracción",
           "refId": "A"
         }
@@ -548,8 +552,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Hash de contraseñas (p95)",
-      "description": "",
+      "title": "Logins por resultado",
+      "description": "Los escenarios hacen login en setup(); un fallo cuenta para el bloqueo por IP (20 cada 15 min).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -562,11 +566,12 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "short",
           "custom": {
             "lineWidth": 1,
             "fillOpacity": 0
-          }
+          },
+          "noValue": "Sin logins en el rango"
         },
         "overrides": []
       },
@@ -591,8 +596,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(password_hash_duration_seconds_bucket[$__rate_interval])))",
-          "legendFormat": "p95",
+          "expr": "sum by (result) (increase(auth_logins_total[$__rate_interval]))",
+          "legendFormat": "{{result}}",
           "refId": "A"
         }
       ]
