@@ -86,7 +86,7 @@
                   </span>
                   <CaretDownIcon
                     size={14}
-                    class="shrink-0 text-subtle group-data-[state=open]:rotate-180"
+                    class="shrink-0 text-subtle transition-[rotate] duration-200 ease-in-out group-data-[state=open]:rotate-180"
                     aria-hidden="true"
                   />
                 </Accordion.Trigger>
@@ -95,31 +95,34 @@
                 id="incident-{incident.id}-panel"
                 role="region"
                 aria-labelledby="incident-{incident.id}"
-                class="mt-3 rounded-md bg-recessed px-3 py-2 text-xs text-subtle"
+                class="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
               >
-                {#if detailError}
-                  <p class="text-danger">{detailError}</p>
-                {:else if !detail}
-                  <p>Cargando…</p>
-                {:else if detail.deliveries.length === 0}
-                  <p>No se envió ninguna alerta (el tenant no tenía canales activos).</p>
-                {:else}
-                  <p class="font-medium text-default">Alertas enviadas</p>
-                  <ul class="mt-1 space-y-1">
-                    {#each detail.deliveries as delivery (delivery.channel_id + delivery.event)}
-                      <li>
-                        {delivery.event === 'opened' ? 'Apertura' : 'Cierre'} →
-                        {delivery.channel_name} ({CHANNEL_LABELS[delivery.channel_type]}):
-                        <span class={delivery.status === 'sent' ? 'text-success' : 'text-danger'}>
-                          {delivery.status === 'sent'
-                            ? 'enviada'
-                            : `falló (${delivery.last_error})`}
-                        </span>
-                        {#if delivery.attempts > 1}· {delivery.attempts} intentos{/if}
-                      </li>
-                    {/each}
-                  </ul>
-                {/if}
+                <!-- The padded box sits inside: the height animation needs a box without padding. -->
+                <div class="mt-3 rounded-md bg-recessed px-3 py-2 text-xs text-subtle">
+                  {#if detailError}
+                    <p class="text-danger">{detailError}</p>
+                  {:else if !detail}
+                    <p>Cargando…</p>
+                  {:else if detail.deliveries.length === 0}
+                    <p>No se envió ninguna alerta (el tenant no tenía canales activos).</p>
+                  {:else}
+                    <p class="font-medium text-default">Alertas enviadas</p>
+                    <ul class="mt-1 space-y-1">
+                      {#each detail.deliveries as delivery (delivery.channel_id + delivery.event)}
+                        <li>
+                          {delivery.event === 'opened' ? 'Apertura' : 'Cierre'} →
+                          {delivery.channel_name} ({CHANNEL_LABELS[delivery.channel_type]}):
+                          <span class={delivery.status === 'sent' ? 'text-success' : 'text-danger'}>
+                            {delivery.status === 'sent'
+                              ? 'enviada'
+                              : `falló (${delivery.last_error})`}
+                          </span>
+                          {#if delivery.attempts > 1}· {delivery.attempts} intentos{/if}
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                </div>
               </Accordion.Content>
             </li>
           {/snippet}

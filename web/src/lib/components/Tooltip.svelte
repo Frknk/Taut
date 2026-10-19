@@ -43,7 +43,12 @@
     <Tooltip.Content
       role="tooltip"
       sideOffset={6}
-      class="z-50 max-w-xs rounded-md bg-contrast px-2 py-1 text-xs text-inverse shadow-md"
+      class={[
+        'z-50 max-w-xs rounded-md bg-contrast px-2 py-1 text-xs text-inverse shadow-md',
+        // Only the first one fades in; moving to a neighbour (instant-open) shows it at once.
+        'data-[side=bottom]:[--shift-y:-2px] data-[side=left]:[--shift-x:2px] data-[side=right]:[--shift-x:-2px] data-[side=top]:[--shift-y:2px]',
+        'data-[state=delayed-open]:animate-tooltip-in',
+      ]}
     >
       {content}
     </Tooltip.Content>

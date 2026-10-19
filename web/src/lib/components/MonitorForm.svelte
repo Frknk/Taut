@@ -87,7 +87,7 @@
         <RadioGroup.Item
           value={kind}
           class={[
-            'flex h-9 cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium ring',
+            'press flex h-9 cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium ring',
             'bg-control text-default ring-line hover:bg-tint',
             'data-[state=checked]:bg-brand data-[state=checked]:text-on-brand data-[state=checked]:ring-brand',
             'data-disabled:cursor-not-allowed data-[state=unchecked]:data-disabled:text-inactive data-[state=unchecked]:data-disabled:hover:bg-control',

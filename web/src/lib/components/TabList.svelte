@@ -21,7 +21,7 @@
     <Tabs.Trigger
       value={option.value}
       class={[
-        'my-0.5 flex cursor-pointer items-center rounded-md px-2.5 text-sm whitespace-nowrap',
+        'press my-0.5 flex cursor-pointer items-center rounded-md px-2.5 text-sm whitespace-nowrap',
         'text-subtle hover:text-default',
         'data-[state=active]:bg-base data-[state=active]:text-default data-[state=active]:shadow-xs data-[state=active]:ring data-[state=active]:ring-line',
         focusRing,

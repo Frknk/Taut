@@ -2,6 +2,7 @@
   import { Toggle } from 'bits-ui';
   import TableIcon from 'phosphor-svelte/lib/TableIcon';
   import { formatLatency, nearestIndex, niceCeil, scale, segments, ticks } from '#lib/charts.js';
+  import { appear } from '#lib/motion.js';
   import { buttonClass, focusRing } from '#lib/ui.js';
   import type { MetricsPoint } from '#lib/types.js';
 
@@ -148,7 +149,7 @@
   </div>
 
   {#if showTable}
-    <div class="mt-3 max-h-72 overflow-auto">
+    <div class="mt-3 max-h-72 overflow-auto" in:appear>
       <table class="w-full text-left tabular-nums">
         <thead class="sticky top-0 border-b border-hairline bg-base text-subtle">
           <tr>
@@ -173,7 +174,7 @@
       </table>
     </div>
   {:else}
-    <div class="relative mt-2" bind:clientWidth={width}>
+    <div class="relative mt-2" bind:clientWidth={width} in:appear>
       <svg
         {width}
         height={HEIGHT}

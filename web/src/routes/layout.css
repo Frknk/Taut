@@ -146,6 +146,7 @@
   --animate-pop-out: pop-out 120ms var(--ease-out) forwards;
   --animate-menu-in: menu-in 150ms var(--ease-out);
   --animate-rise-in: rise-in 200ms var(--ease-out);
+  --animate-tooltip-in: tooltip-in 125ms var(--ease-out);
   --animate-slide-in-left: slide-in-left 300ms var(--ease-drawer);
   --animate-slide-out-left: slide-out-left 200ms var(--ease-out) forwards;
   --animate-accordion-down: accordion-down 200ms var(--ease-out);
@@ -185,6 +186,13 @@
     from {
       opacity: 0;
       translate: 0 4px;
+    }
+  }
+  /* Starts 2px towards its trigger: set --shift-x/--shift-y per data-side. */
+  @keyframes tooltip-in {
+    from {
+      opacity: 0;
+      translate: var(--shift-x, 0) var(--shift-y, 0);
     }
   }
   @keyframes slide-in-left {
@@ -244,6 +252,11 @@
     }
   }
   @keyframes rise-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes tooltip-in {
     from {
       opacity: 0;
     }

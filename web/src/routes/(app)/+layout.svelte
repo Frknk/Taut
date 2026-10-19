@@ -74,11 +74,13 @@
           <ListIcon size={18} aria-hidden="true" />
         </Dialog.Trigger>
         <Dialog.Portal>
-          <Dialog.Overlay class="fixed inset-0 z-40 bg-scrim lg:hidden" />
+          <Dialog.Overlay
+            class="fixed inset-0 z-40 bg-scrim data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in lg:hidden"
+          />
           <Dialog.Content
             class={[
               'fixed inset-y-0 left-0 z-40 w-60 border-r border-hairline bg-base shadow-lg lg:hidden',
-              'transition-[translate] duration-200 starting:-translate-x-full focus-visible:outline-none',
+              'data-[state=closed]:animate-slide-out-left data-[state=open]:animate-slide-in-left focus-visible:outline-none',
             ]}
           >
             <Dialog.Title class="sr-only">Navegación</Dialog.Title>
