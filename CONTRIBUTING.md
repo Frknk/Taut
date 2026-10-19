@@ -22,7 +22,7 @@ Formato: `<tipo>(<scope opcional>): <descripción en inglés, imperativo, máx. 
 
 - Tipos: `feat`, `fix`, `docs`, `chore`, `ci`, `build`, `refactor`, `test`, `perf`, `revert`.
 - Scopes sugeridos: `api`, `auth`, `identity`, `web`, `db`, `http`, `config`, `telemetry`, `infra`,
-  `ci`, `docs`.
+  `loadtest`, `ci`, `docs`.
 - Un `!` antes de los dos puntos marca un cambio incompatible: `feat(api)!: drop v0 routes`.
 
 Válidos:

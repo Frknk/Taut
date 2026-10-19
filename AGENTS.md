@@ -27,7 +27,9 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `Dockerfile`         | Imagen de cualquier servicio: `--build-arg SERVICE=<nombre>`                            |
 | `web/`               | SvelteKit 3 + Tailwind 4, bits-ui, bun, oxlint, oxfmt, vitest (Node y Chromium); panel en `(app)/` con `Sidebar` (selector de organización), página pública en `status/[slug]`; recetas de estilo en `src/lib/ui.ts` |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
-| `compose.yaml`       | postgres (TimescaleDB), redis, nats, mailpit; los servicios bajo el perfil `app`         |
+| `compose.yaml`       | postgres (TimescaleDB), redis, nats, mailpit; perfiles `app` (servicios), `obs` (Prometheus, Grafana, postgres-exporter), `loadtest` (servidor eco) y `k6` |
+| `loadtest/`          | k6: `scenarios/*.js`, `lib/` (config, login, umbrales), `seed/*.sql` (semilla `lt-*` por psql); reportes en `docs/loadtest/` ([ADR 0011](docs/adr/0011-pruebas-de-carga-k6.md)) |
+| `infra/observability`| `prometheus.yml` y provisioning y tableros de Grafana (el de k6 va vendorizado)          |
 | `.github/workflows`  | `ci.yml` (PR y main) y `build.yml` (imagen a GHCR)                                       |
 
 ## Comandos
@@ -41,6 +43,10 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   incidents, notifier y status-bff juntos y `just run <servicio>` uno solo en su puerto;
   `just migrate-add <name>` crea migraciones; `just sqlx-prepare` regenera `.sqlx/` contra una base
   vacía (con la base de desarrollo la inferencia de nulabilidad cambia y CI falla).
+- Pruebas de carga: `just loadtest-up`, `just loadtest-seed`, `just loadtest <escenario>`
+  (`smoke` antes de cualquier otro) y `just loadtest-clean`; detalles en `loadtest/README.md`.
+  Se miden imágenes release con la configuración por defecto; un cuello de botella se reporta
+  en `docs/loadtest/` y se arregla en otro PR.
 - Si el entorno no tiene Docker, di explícitamente qué tests no corriste.
 
 ## Convenciones obligatorias

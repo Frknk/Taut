@@ -1,0 +1,28 @@
+# Prometheus local (perfil "obs" de compose.yaml). Scrapea el /metrics de cada servicio de Taut
+# y del postgres-exporter; k6 escribe sus métricas aparte, por remote write (/api/v1/write).
+# Dentro de la red de compose todos los servicios escuchan en el 8080.
+global:
+  scrape_interval: 5s
+  scrape_timeout: 4s
+
+scrape_configs:
+  - job_name: taut
+    static_configs:
+      - targets: ["api:8080"]
+        labels: { service: api }
+      - targets: ["auth:8080"]
+        labels: { service: auth }
+      - targets: ["scheduler:8080"]
+        labels: { service: scheduler }
+      - targets: ["checker:8080"]
+        labels: { service: checker }
+      - targets: ["incidents:8080"]
+        labels: { service: incidents }
+      - targets: ["notifier:8080"]
+        labels: { service: notifier }
+      - targets: ["status-bff:8080"]
+        labels: { service: status-bff }
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]

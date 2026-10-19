@@ -1,0 +1,10 @@
+# Tableros versionados en infra/observability/grafana/dashboards; se editan en el repo, no en la UI.
+apiVersion: 1
+
+providers:
+  - name: taut
+    folder: Taut
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
