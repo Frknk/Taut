@@ -19,7 +19,10 @@ Semana 13–14 en curso: cuentas de usuario con verificación de correo, sesione
 con roles (este PR); después 2FA, invitaciones y API keys. Seguridad transversal: webhooks
 firmados con HMAC-SHA256, presupuesto de peticiones por tenant en Redis y Row-Level Security en
 PostgreSQL con un rol sin privilegios ([ADR 0010](docs/adr/0010-row-level-security-por-tenant.md)).
-Pendiente: el despliegue (PaaS, Terraform y Kubernetes, semanas 5–8) y las pruebas de carga.
+Pruebas de carga con k6 (semana 6): escenarios, semilla y Prometheus + Grafana locales en
+[loadtest/](loadtest/README.md), reportes en [docs/loadtest](docs/loadtest/README.md)
+([ADR 0011](docs/adr/0011-pruebas-de-carga-k6.md)). Pendiente: el despliegue (PaaS, Terraform y
+Kubernetes, semanas 5–8).
 
 ## Requisitos
 
@@ -166,7 +169,12 @@ build del frontend). Es exactamente lo que corre CI.
 | `just db-reset`      | Recrea la base de datos y aplica las migraciones                            |
 | `just sqlx-prepare`  | Regenera la caché offline `.sqlx/`                                          |
 | `just image [svc]`   | Construye la imagen `taut-<svc>:dev` (por defecto `api`) con el commit actual |
-| `just loadtest`      | Pruebas de carga con k6 (semana 6)                                          |
+| `just obs-up`        | Prometheus (`:9090`) y Grafana (`:3000`) con los tableros de `infra/observability` |
+| `just loadtest-up`   | Servicios release, observabilidad y el servidor eco de las pruebas de carga |
+| `just loadtest-seed` / `loadtest-clean` | Siembra (o borra) los datos de carga: tenants `lt-*` con historia |
+| `just loadtest x`    | Corre el escenario k6 `x` (`smoke`, `api-crud`, `status-page`); ver `loadtest/README.md` |
+| `just loadtest-keep id` | Copia el resumen de una corrida a `docs/loadtest/data`, sin los tokens del login |
+| `just loadtest-lint` | Revisa los escenarios con oxlint, oxfmt y `k6 inspect`                      |
 
 ## Estructura
 
@@ -192,12 +200,12 @@ taut/
 ├── web/             SvelteKit 3 + Tailwind 4 + bits-ui, SPA estática (bun, oxlint, oxfmt)
 ├── migrations/      migraciones sqlx compartidas (una base de datos en el MVP)
 ├── .sqlx/           caché offline de sqlx
-├── infra/           terraform/ (sem. 5) y k8s/ (sem. 8)
-├── loadtest/        escenarios k6 (sem. 6)
-├── docs/            documento base, ADRs
+├── infra/           terraform/ (sem. 5), k8s/ (sem. 8), observability/ (Prometheus y Grafana)
+├── loadtest/        escenarios k6, semilla SQL y librerías (sem. 6)
+├── docs/            documento base, ADRs, reportes de carga (docs/loadtest)
 ├── .github/         ci.yml, build.yml, dependabot, plantilla de PR
 ├── Dockerfile       imagen de cualquier servicio (--build-arg SERVICE=...)
-├── compose.yaml     postgres (TimescaleDB), redis, nats, mailpit y los servicios (perfil app)
+├── compose.yaml     postgres (TimescaleDB), redis, nats, mailpit; perfiles app, obs, loadtest y k6
 ├── justfile         recetas de desarrollo
 ├── lefthook.yml     hooks de git
 └── AGENTS.md        convenciones para agentes de IA (CLAUDE.md lo incluye)

@@ -17,6 +17,9 @@ web/.env
 web/.env.*
 !web/.env.example
 
+# Resultados de k6 (los que van al reporte se copian a docs/loadtest/data)
+loadtest/results/
+
 # Sistema y editores
 .DS_Store
 *.log

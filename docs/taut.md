@@ -376,13 +376,19 @@ checks.requested y viaja en la cabecera del mensaje NATS, de modo que la sesión
 de un suceso") se resuelve con una sola consulta en Kibana: `trace_id:"4bf92f…"` muestra scheduler
 → checker → incident service → notifier en orden.
 
-**Pruebas de carga (k6)** en `loadtest/`, tres escenarios:
+**Pruebas de carga (k6)** en `loadtest/` ([ADR 0011](adr/0011-pruebas-de-carga-k6.md)). Modelo
+abierto: tasas fijas de llegada en lugar de VUs, con umbrales sobre la fase estable. Los datos
+vienen de una semilla SQL con historia sintética (tenants `lt-*`), y k6 corre en compose junto a
+Prometheus y Grafana. Los reportes van en `docs/loadtest/`.
 
-1. api-crud.js: 50 usuarios virtuales creando y listando monitores, 5 min. Umbral: p95 < 300 ms,
-   errores < 1 %.
-2. status-page.js: 500 VUs leyendo páginas de estado públicas. Se corre dos veces: sin caché
-   (sem. 6) y con Redis (sem. 13); el delta es el entregable.
-3. checker-soak.js: 2 000 monitores sintéticos a 30 s apuntando a un servidor de eco interno,
+1. api-crud.js: el panel repartido entre 50 tenants (25 it/s de lectura, con lista, detalle,
+   checks, métricas e incidentes, y 1 it/s de escritura), 5 min. Umbral: p95 < 300 ms, errores
+   < 1 %, cero 429.
+2. status-page.js: 500 req/s sobre 20 páginas de estado con 90 días de historia. Se corre dos veces:
+   sin caché (sem. 6) y con Redis (sem. 13); el delta es el entregable.
+3. Fase 2: rate-limit.js (429 y Retry-After al pasar el presupuesto), isolation.js (ningún tenant ve
+   datos de otro bajo carga) y perfiles stress/spike de la página de estado.
+4. checker-soak.js: 2 000 monitores sintéticos a 30 s apuntando a un servidor de eco interno,
    30 min. Verifica que uptime_check_lag_seconds se mantenga bajo 10 s y que el HPA escale.
 
 ## Roadmap por semanas

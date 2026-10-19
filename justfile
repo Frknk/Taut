@@ -6,6 +6,13 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 web_dir := "web"
 # Base de datos desechable para `sqlx-prepare`: recién migrada, igual que la de CI.
 prepare_db := "postgres://taut:taut@localhost:5432/taut_prepare"
+# Todos los perfiles de compose, para que `down` y `nuke` no dejen contenedores sueltos.
+all_profiles := "--profile app --profile obs --profile loadtest"
+# psql dentro del contenedor de postgres (no hace falta instalarlo en la máquina).
+psql := "docker compose exec -T postgres psql -U taut -d taut -q -v ON_ERROR_STOP=1"
+# Tamaños de la semilla de carga; `loadtest-seed` y `loadtest` usan los mismos (LT_* los cambia).
+lt_sizes := "-v status_tenants=" + env("LT_STATUS_TENANTS", "20") + " -v status_monitors=" + env("LT_STATUS_MONITORS", "10") + " -v status_days=" + env("LT_STATUS_DAYS", "89") + " -v status_step_min=" + env("LT_STATUS_STEP_MIN", "5") + " -v panel_tenants=" + env("LT_PANEL_TENANTS", "50") + " -v panel_monitors=" + env("LT_PANEL_MONITORS", "5") + " -v panel_days=" + env("LT_PANEL_DAYS", "30") + " -v panel_step_min=" + env("LT_PANEL_STEP_MIN", "1")
+lt_k6_env := "-e LT_STATUS_TENANTS=" + env("LT_STATUS_TENANTS", "20") + " -e LT_STATUS_MONITORS=" + env("LT_STATUS_MONITORS", "10") + " -e LT_PANEL_TENANTS=" + env("LT_PANEL_TENANTS", "50") + " -e LT_PANEL_MONITORS=" + env("LT_PANEL_MONITORS", "5")
 
 # Lista las recetas disponibles
 default:
@@ -37,11 +44,15 @@ up-all:
 
 # Apaga los contenedores (los datos quedan en los volúmenes)
 down:
-    docker compose --profile app down
+    docker compose {{all_profiles}} down
 
 # Apaga y borra los volúmenes
 nuke:
-    docker compose --profile app down -v
+    docker compose {{all_profiles}} down -v
+
+# Levanta Prometheus (http://localhost:9090) y Grafana (http://localhost:3000)
+obs-up:
+    docker compose --profile obs up -d --wait
 
 # Sigue los logs de los contenedores: just logs postgres
 logs *args:
@@ -134,6 +145,42 @@ sqlx-prepare:
 image svc="api":
     docker build --build-arg SERVICE={{svc}} --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t taut-{{svc}}:dev .
 
-# Pruebas de carga con k6 (llegan en la semana 6)
-loadtest:
-    @echo "Los escenarios de k6 llegan en la semana 6 (ver loadtest/README.md)."
+# Pruebas de carga (loadtest/README.md): servicios release, observabilidad y el servidor eco
+loadtest-up:
+    GIT_SHA=$(git rev-parse --short HEAD) docker compose --profile app --profile obs --profile loadtest up -d --build --wait
+
+# Borra los datos de carga anteriores y siembra los nuevos (tarda unos minutos): just loadtest-seed
+loadtest-seed set="base": loadtest-clean
+    {{psql}} {{lt_sizes}} -v echo_url="${ECHO_URL:-http://echo/}" -f - < loadtest/seed/{{set}}.sql
+    {{psql}} -f - < loadtest/seed/refresh.sql
+
+# Borra todo lo que creó la semilla de carga (slugs lt-*, correos @loadtest.taut.test)
+loadtest-clean:
+    {{psql}} -f - < loadtest/seed/clean.sql
+    {{psql}} -f - < loadtest/seed/refresh.sql
+
+# Corre un escenario de k6; lo que sigue va a k6: just loadtest status-page -e SLUGS=hot
+loadtest scenario *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    testid="$(date -u +%Y%m%dT%H%M%SZ)-{{scenario}}"
+    mkdir -p "loadtest/results/$testid"
+    docker compose --profile k6 run --rm \
+      -e K6_WEB_DASHBOARD=true -e K6_WEB_DASHBOARD_EXPORT="results/$testid/report.html" \
+      k6 run --out experimental-prometheus-rw \
+      --tag testid="$testid" --tag commit="$(git rev-parse --short HEAD)" \
+      --summary-trend-stats "avg,min,med,p(90),p(95),p(99),max" \
+      --summary-export "results/$testid/summary.json" \
+      {{lt_k6_env}} {{args}} "scenarios/{{scenario}}.js"
+    echo "Resultados en loadtest/results/$testid (testid=$testid en Grafana)"
+
+# Guarda el resumen de una corrida para el reporte, sin setup_data (lleva los tokens del login)
+loadtest-keep testid:
+    mkdir -p docs/loadtest/data
+    jq 'del(.setup_data)' "loadtest/results/{{testid}}/summary.json" > "docs/loadtest/data/{{testid}}.json"
+
+# Revisa los escenarios de k6 sin correrlos: oxlint, oxfmt (estilo de web/) y `k6 inspect`
+loadtest-lint:
+    {{web_dir}}/node_modules/.bin/oxlint loadtest
+    {{web_dir}}/node_modules/.bin/oxfmt -c {{web_dir}}/.oxfmtrc.json --check loadtest
+    @for f in loadtest/scenarios/*.js; do docker compose --profile k6 run --rm k6 inspect "scenarios/$(basename "$f")" > /dev/null && echo "ok $f"; done

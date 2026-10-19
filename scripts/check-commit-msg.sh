@@ -22,7 +22,7 @@ if [[ ! "$subject" =~ $pattern ]]; then
   Formato (Conventional Commits):
     <tipo>(<scope opcional>): <descripción en inglés, imperativo, máx. 72 caracteres>
   Tipos:            ${types//|/, }
-  Scopes sugeridos: api, web, db, http, config, telemetry, infra, ci, docs
+  Scopes sugeridos: api, web, db, http, config, telemetry, infra, loadtest, ci, docs
   Ejemplos:         feat(api): add monitor creation endpoint
                     fix(web): handle missing PUBLIC_API_URL
                     chore: bump sqlx to 0.9.1
