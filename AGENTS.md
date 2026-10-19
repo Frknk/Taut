@@ -108,7 +108,8 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   `bg-base`, `text-subtle`, `ring-line`, `bg-brand`…), declaradas en `src/routes/layout.css`.
   Nunca colores primitivos (`bg-neutral-50`, `text-red-700`) ni la variante `dark:`. Reusa los
   componentes de `src/lib/components/` (Button, Badge, Banner, LayerCard, Tabs/TabList/TabPanel,
-  Select, Dialog, Menu/MenuItem/MenuRadioItem, Tooltip, Empty, Logo, TenantForm, Breadcrumb) y las recetas
+  Select, Dialog, Menu/MenuItem/MenuRadioItem, Tooltip, Empty, Logo, TenantForm, Breadcrumb,
+  Step, CopyLabel, Loading, DrawnCheck) y las recetas
   de `src/lib/ui.ts`; el logo va sin fondo ni texto.
   La navegación del panel vive en `Sidebar.svelte`: una sección nueva se agrega ahí, al grupo
   Monitoreo u Organización (lo personal va al menú de usuario del pie), y a `SECTIONS` de
@@ -130,6 +131,14 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   `data-*` que expone (`data-highlighted`, `data-[state=open]`). Nada de `title=` para información:
   `Tooltip`. Cada componente tiene su `*.svelte.test.ts` (Vitest en Chromium) que prueba el
   teclado y termina con `expectAccessible()` de `src/lib/test/axe.ts`.
+- **Movimiento** en `web/` ([ADR 0007](docs/adr/0007-design-system-taut-ui.md), skill `animate`):
+  sin librerías; tokens `ease-*` y `animate-*` de `src/routes/layout.css`, `press` en controles
+  pulsables y las transiciones de `src/lib/motion.ts` (`step`, `pop`, `appear`, `leave`). Solo
+  `opacity`, `scale`, `translate` y `rotate`; `ease-out` para entrar o salir, nunca `ease-in`;
+  menos de 300 ms y salidas más cortas. Los overlays de bits-ui se animan con
+  `data-[state=open|closed]`. No se animan hovers de color, navegación frecuente ni refrescos del
+  polling. Todo keyframe nuevo lleva su versión de solo opacidad en el bloque
+  `prefers-reduced-motion` de `layout.css`.
 - **Gráficos** en `web/`: tokens de color en `src/routes/layout.css` (paleta validada), funciones
   puras en `src/lib/charts.ts`; todo gráfico lleva leyenda si tiene más de una serie, tooltip,
   navegación con teclado y una vista de tabla, y los colores de estado van con texto o icono.
