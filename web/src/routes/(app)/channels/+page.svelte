@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { flip } from 'svelte/animate';
 
   import Badge from '#lib/components/Badge.svelte';
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import CopyLabel from '#lib/components/CopyLabel.svelte';
   import Dialog from '#lib/components/Dialog.svelte';
   import Empty from '#lib/components/Empty.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
@@ -18,6 +20,7 @@
     type ChannelErrors,
   } from '#lib/channel-form.js';
   import { CHANNEL_LABELS, timeAgo } from '#lib/format.js';
+  import { FLIP, leave } from '#lib/motion.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { AlertChannel, ChannelKind, ChannelWithSecret, RotatedSecret } from '#lib/types.js';
   import { card, fieldError, help, input, label } from '#lib/ui.js';
@@ -192,7 +195,11 @@
 {:else if channels.length > 0}
   <ul class={[card, 'mt-6 divide-y divide-hairline']}>
     {#each channels as channel (channel.id)}
-      <li class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+      <li
+        class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
+        animate:flip={FLIP}
+        out:leave
+      >
         <Badge>{CHANNEL_LABELS[channel.type]}</Badge>
         {#if channel.type === 'webhook'}
           {#if channel.signing_secret_set}
@@ -305,7 +312,9 @@
     </div>
   {/if}
   {#snippet actions()}
-    <Button onclick={copySecret}>{copied ? 'Copiado' : 'Copiar secreto'}</Button>
+    <Button onclick={copySecret}
+      ><CopyLabel {copied} label="Copiar secreto" done="Copiado" /></Button
+    >
     <Button variant="primary" onclick={() => (showingSecret = false)}>Ya lo guardé</Button>
   {/snippet}
 </Dialog>

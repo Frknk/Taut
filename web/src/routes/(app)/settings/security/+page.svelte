@@ -5,6 +5,7 @@
   import Badge from '#lib/components/Badge.svelte';
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import CopyLabel from '#lib/components/CopyLabel.svelte';
   import Dialog from '#lib/components/Dialog.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
   import { ApiError, authRequest, describeError } from '#lib/api.js';
@@ -272,7 +273,7 @@
   <LayerCard title="Códigos de respaldo">
     {#snippet actions()}
       <Button size="sm" variant="ghost" onclick={copyCodes}>
-        {copied ? 'Copiados' : 'Copiar'}
+        <CopyLabel {copied} label="Copiar" done="Copiados" />
       </Button>
       <Button size="sm" variant="ghost" onclick={() => (codes = null)}>Ya los guardé</Button>
     {/snippet}

@@ -4,6 +4,7 @@
   import Badge from '#lib/components/Badge.svelte';
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
+  import CopyLabel from '#lib/components/CopyLabel.svelte';
   import Dialog from '#lib/components/Dialog.svelte';
   import Empty from '#lib/components/Empty.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
@@ -278,9 +279,11 @@
   {#snippet actions()}
     {#if created}
       <Button variant="ghost" onclick={() => copy('curl')}>
-        {copied === 'curl' ? 'Copiado' : 'Copiar curl'}
+        <CopyLabel copied={copied === 'curl'} label="Copiar curl" done="Copiado" />
       </Button>
-      <Button onclick={() => copy('key')}>{copied === 'key' ? 'Copiada' : 'Copiar clave'}</Button>
+      <Button onclick={() => copy('key')}
+        ><CopyLabel copied={copied === 'key'} label="Copiar clave" done="Copiada" /></Button
+      >
       <Button variant="primary" onclick={() => (creating = false)}>Ya la guardé</Button>
     {:else}
       <Button variant="ghost" onclick={() => (creating = false)} disabled={saving}>Cancelar</Button>
