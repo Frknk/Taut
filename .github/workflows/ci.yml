@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             image:
@@ -137,7 +137,7 @@ jobs:
       - run: bun run fmt:check
       - run: bun run check
       # Los tests de componentes (*.svelte.test.ts) corren en Chromium con Playwright.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lock') }}
