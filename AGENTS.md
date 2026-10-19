@@ -27,7 +27,7 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `Dockerfile`         | Imagen de cualquier servicio: `--build-arg SERVICE=<nombre>`                            |
 | `web/`               | SvelteKit 3 + Tailwind 4, bits-ui, bun, oxlint, oxfmt, vitest (Node y Chromium); panel en `(app)/` con `Sidebar` (selector de organización), página pública en `status/[slug]`; recetas de estilo en `src/lib/ui.ts` |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
-| `compose.yaml`       | postgres (TimescaleDB), redis, nats, mailpit; perfiles `app` (servicios), `obs` (Prometheus, Grafana, postgres-exporter), `loadtest` (servidor eco) y `k6` |
+| `compose.yaml`       | postgres (TimescaleDB), redis, nats, mailpit; perfiles `app` (servicios), `obs` (Prometheus, Grafana, postgres-exporter, nats-exporter), `loadtest` (servidor eco) y `k6` |
 | `loadtest/`          | k6: `scenarios/*.js`, `lib/` (config, login, umbrales), `seed/*.sql` (semilla `lt-*` por psql); reportes en `docs/loadtest/` ([ADR 0011](docs/adr/0011-pruebas-de-carga-k6.md)) |
 | `infra/observability`| `prometheus.yml` y provisioning y tableros de Grafana (el de k6 va vendorizado)          |
 | `.github/workflows`  | `ci.yml` (PR y main) y `build.yml` (imagen a GHCR)                                       |
