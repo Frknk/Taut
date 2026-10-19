@@ -58,7 +58,8 @@
         "x": 0,
         "y": 0
       },
-      "panels": []
+      "panels": [],
+      "id": 1
     },
     {
       "type": "timeseries",
@@ -109,7 +110,8 @@
           "legendFormat": "{{service}}",
           "refId": "A"
         }
-      ]
+      ],
+      "id": 2
     },
     {
       "type": "timeseries",
@@ -160,7 +162,8 @@
           "legendFormat": "{{service}} {{route}}",
           "refId": "A"
         }
-      ]
+      ],
+      "id": 3
     },
     {
       "type": "timeseries",
@@ -212,7 +215,8 @@
           "legendFormat": "{{service}} {{route}}",
           "refId": "A"
         }
-      ]
+      ],
+      "id": 4
     },
     {
       "type": "timeseries",
@@ -273,7 +277,8 @@
           "legendFormat": "errores de Redis (pasan sin contar)",
           "refId": "B"
         }
-      ]
+      ],
+      "id": 5
     },
     {
       "type": "row",
@@ -285,7 +290,8 @@
         "x": 0,
         "y": 17
       },
-      "panels": []
+      "panels": [],
+      "id": 6
     },
     {
       "type": "timeseries",
@@ -354,7 +360,8 @@
           "legendFormat": "p99",
           "refId": "C"
         }
-      ]
+      ],
+      "id": 7
     },
     {
       "type": "timeseries",
@@ -407,7 +414,8 @@
           "legendFormat": "fracción",
           "refId": "A"
         }
-      ]
+      ],
+      "id": 8
     },
     {
       "type": "timeseries",
@@ -485,7 +493,8 @@
           "legendFormat": "expirados",
           "refId": "D"
         }
-      ]
+      ],
+      "id": 9
     },
     {
       "type": "timeseries",
@@ -536,7 +545,121 @@
           "legendFormat": "monitores",
           "refId": "A"
         }
-      ]
+      ],
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "Cola de JetStream por consumer",
+      "description": "Pendientes: mensajes que el consumer aún no recibió. Sin ack: entregados y en proceso. Si los pendientes crecen, el consumer no da abasto.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (stream_name, consumer_name) (jetstream_consumer_num_pending)",
+          "legendFormat": "{{stream_name}} / {{consumer_name}} pendientes",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (stream_name, consumer_name) (jetstream_consumer_num_ack_pending)",
+          "legendFormat": "{{stream_name}} / {{consumer_name}} sin ack",
+          "refId": "B"
+        }
+      ],
+      "id": 11
+    },
+    {
+      "type": "timeseries",
+      "title": "Tamaño de los streams",
+      "description": "CHECKS guarda 24 h de mensajes en disco.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (stream_name) (jetstream_stream_total_bytes)",
+          "legendFormat": "{{stream_name}}",
+          "refId": "A"
+        }
+      ],
+      "id": 12
     },
     {
       "type": "row",
@@ -546,9 +669,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 42
       },
-      "panels": []
+      "panels": [],
+      "id": 13
     },
     {
       "type": "timeseries",
@@ -562,7 +686,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -600,7 +724,8 @@
           "legendFormat": "{{result}}",
           "refId": "A"
         }
-      ]
+      ],
+      "id": 14
     },
     {
       "type": "timeseries",
@@ -614,7 +739,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -651,7 +776,8 @@
           "legendFormat": "{{state}}",
           "refId": "A"
         }
-      ]
+      ],
+      "id": 15
     }
   ]
 }

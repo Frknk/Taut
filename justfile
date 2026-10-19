@@ -11,8 +11,8 @@ all_profiles := "--profile app --profile obs --profile loadtest"
 # psql dentro del contenedor de postgres (no hace falta instalarlo en la máquina).
 psql := "docker compose exec -T postgres psql -U taut -d taut -q -v ON_ERROR_STOP=1"
 # Tamaños de la semilla de carga; `loadtest-seed` y `loadtest` usan los mismos (LT_* los cambia).
-lt_sizes := "-v status_tenants=" + env("LT_STATUS_TENANTS", "20") + " -v status_monitors=" + env("LT_STATUS_MONITORS", "10") + " -v status_days=" + env("LT_STATUS_DAYS", "89") + " -v status_step_min=" + env("LT_STATUS_STEP_MIN", "5") + " -v panel_tenants=" + env("LT_PANEL_TENANTS", "50") + " -v panel_monitors=" + env("LT_PANEL_MONITORS", "5") + " -v panel_days=" + env("LT_PANEL_DAYS", "30") + " -v panel_step_min=" + env("LT_PANEL_STEP_MIN", "1")
-lt_k6_env := "-e LT_STATUS_TENANTS=" + env("LT_STATUS_TENANTS", "20") + " -e LT_STATUS_MONITORS=" + env("LT_STATUS_MONITORS", "10") + " -e LT_PANEL_TENANTS=" + env("LT_PANEL_TENANTS", "50") + " -e LT_PANEL_MONITORS=" + env("LT_PANEL_MONITORS", "5")
+lt_sizes := "-v status_tenants=" + env("LT_STATUS_TENANTS", "20") + " -v status_monitors=" + env("LT_STATUS_MONITORS", "10") + " -v status_days=" + env("LT_STATUS_DAYS", "89") + " -v status_step_min=" + env("LT_STATUS_STEP_MIN", "5") + " -v panel_tenants=" + env("LT_PANEL_TENANTS", "50") + " -v panel_monitors=" + env("LT_PANEL_MONITORS", "5") + " -v panel_days=" + env("LT_PANEL_DAYS", "30") + " -v panel_step_min=" + env("LT_PANEL_STEP_MIN", "1") + " -v soak_tenants=" + env("LT_SOAK_TENANTS", "200") + " -v soak_monitors=" + env("LT_SOAK_MONITORS", "10") + " -v soak_interval_s=" + env("LT_SOAK_INTERVAL_S", "30")
+lt_k6_env := "-e LT_STATUS_TENANTS=" + env("LT_STATUS_TENANTS", "20") + " -e LT_STATUS_MONITORS=" + env("LT_STATUS_MONITORS", "10") + " -e LT_PANEL_TENANTS=" + env("LT_PANEL_TENANTS", "50") + " -e LT_PANEL_MONITORS=" + env("LT_PANEL_MONITORS", "5") + " -e LT_SOAK_TENANTS=" + env("LT_SOAK_TENANTS", "200") + " -e LT_SOAK_MONITORS=" + env("LT_SOAK_MONITORS", "10") + " -e LT_SOAK_INTERVAL_S=" + env("LT_SOAK_INTERVAL_S", "30")
 
 # Lista las recetas disponibles
 default:
@@ -149,7 +149,7 @@ image svc="api":
 loadtest-up:
     GIT_SHA=$(git rev-parse --short HEAD) docker compose --profile app --profile obs --profile loadtest up -d --build --wait
 
-# Borra los datos de carga anteriores y siembra los nuevos (tarda unos minutos): just loadtest-seed
+# Borra los datos de carga anteriores y siembra un set: just loadtest-seed (base) o just loadtest-seed soak
 loadtest-seed set="base": loadtest-clean
     {{psql}} {{lt_sizes}} -v echo_url="${ECHO_URL:-http://echo/}" -f - < loadtest/seed/{{set}}.sql
     {{psql}} -f - < loadtest/seed/refresh.sql

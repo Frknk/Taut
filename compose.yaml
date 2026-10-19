@@ -236,6 +236,16 @@ services:
       postgres:
         condition: service_healthy
 
+  # JetStream para Prometheus: mensajes pendientes por consumer (checker, incidents…), la cola que
+  # el soak del checker vigila.
+  nats-exporter:
+    profiles: ["obs"]
+    image: natsio/prometheus-nats-exporter:0.20.2
+    command: ["-jsz=all", "-varz", "http://nats:8222"]
+    depends_on:
+      nats:
+        condition: service_healthy
+
   # Destino de los monitores de las pruebas de carga (http://echo/): responde 200 al instante,
   # así se mide Taut y no internet. Sin puerto en el host.
   echo:
