@@ -114,3 +114,68 @@ async fn monitor_without_results_has_no_figures(pool: PgPool) {
     assert_eq!(metrics["latency"]["p50_ms"], Value::Null);
     assert_eq!(metrics["series"], json!([]));
 }
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn uptime_windows_add_raw_edges_to_whole_days_exactly(pool: PgPool) {
+    let app = common::app(pool.clone()).await;
+    let tenant = common::create_tenant(&app, "acme").await;
+    let monitor = common::create_monitor(
+        &app,
+        &tenant,
+        json!({ "name": "API", "type": "http", "target": "https://example.com" }),
+    )
+    .await;
+    let id: Uuid = monitor["id"].as_str().unwrap().parse().unwrap();
+    // One healthy check per hour for 31 days, and a failure half an hour on each side of the
+    // start of the week and of the month: the windows hold 167 and 719 hourly checks.
+    sqlx::query(
+        "INSERT INTO check_results (monitor_id, tenant_id, at, region, ok, latency_ms)
+         SELECT $1, $2, now() - make_interval(hours => n), 'local', true, 10
+         FROM generate_series(1, 744) AS n
+         UNION ALL
+         SELECT $1, $2, now() - interval '7 days' + make_interval(mins => m), 'local', false, NULL
+         FROM unnest(ARRAY[-30, 30]) AS m
+         UNION ALL
+         SELECT $1, $2, now() - interval '30 days' + make_interval(mins => m), 'local', false, NULL
+         FROM unnest(ARRAY[-30, 30]) AS m",
+    )
+    .bind(id)
+    .bind(tenant.parse::<Uuid>().unwrap())
+    .execute(&pool)
+    .await
+    .unwrap();
+    let week = 100.0 * 167.0 / 168.0;
+    let month = 100.0 * 719.0 / 722.0;
+
+    // Nothing materialized, materialized as the policy leaves it, and with today too.
+    for refresh in [
+        None,
+        Some("CALL refresh_continuous_aggregate('uptime_daily', NULL, now() - interval '1 hour')"),
+        Some("CALL refresh_continuous_aggregate('uptime_daily', NULL, NULL)"),
+    ] {
+        if let Some(refresh) = refresh {
+            sqlx::query(refresh).execute(&pool).await.unwrap();
+        }
+        for (range, checks, failures) in [("24h", 23, 0), ("7d", 168, 1), ("30d", 722, 3)] {
+            let (status, body) = common::send(
+                &app,
+                Method::GET,
+                &format!("/v1/monitors/{id}/metrics?range={range}"),
+                Some(&tenant),
+                None,
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "{body}");
+            assert_eq!(body["checks"], checks, "{range} after {refresh:?}");
+            assert_eq!(body["failures"], failures, "{range} after {refresh:?}");
+            assert_eq!(body["uptime"]["24h"], 100.0, "after {refresh:?}");
+            for (window, expected) in [("7d", week), ("30d", month)] {
+                let uptime = body["uptime"][window].as_f64().unwrap();
+                assert!(
+                    (uptime - expected).abs() < 1e-9,
+                    "{window} uptime {uptime} after {refresh:?}"
+                );
+            }
+        }
+    }
+}

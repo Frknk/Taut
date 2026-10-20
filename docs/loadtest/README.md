@@ -8,12 +8,13 @@ pruebas: [loadtest/README.md](../../loadtest/README.md). Decisiones:
 - `data/<testid>.json`: el `summary.json` de cada corrida, para comparar después. Se copia con
   `just loadtest-keep <testid>`, que le quita `setup_data` (trae los tokens del login).
 
-| Fecha      | Escenario                                           | Commit    | Veredicto                                                     | Reporte                                      |
-| ---------- | --------------------------------------------------- | --------- | ------------------------------------------------------------- | -------------------------------------------- |
-| 2026-10-19 | api-crud (línea base)                               | `92928be` | Pasa: p95 44 ms a 135 req/s                                   | [reporte](2026-10-19-api-crud.md)            |
-| 2026-10-19 | status-page (línea base sin caché)                  | `92928be` | Pasa: p95 6 ms a 500 req/s; techo ~950 req/s                  | [reporte](2026-10-19-status-page.md)         |
-| 2026-10-19 | rate-limit                                          | `92928be` | Pasa: 600 y 60 OK por ventana, `Retry-After` correcto         | [reporte](2026-10-19-rate-limit.md)          |
-| 2026-10-19 | isolation (y autotest)                              | `92928be` | Pasa: 0 fugas en 9 365 comprobaciones                         | [reporte](2026-10-19-isolation.md)           |
-| 2026-10-19 | status-page stress, spike y breakpoint              | `92928be` | SLO hasta ~750–900 req/s, techo ~920; se recupera en segundos | [reporte](2026-10-19-status-page-limites.md) |
-| 2026-10-19 | checker-soak (y sondeo de 30 000 monitores)         | `92928be` | Pasa con 2 000 monitores; techo del checker ~1 000 chequeos/s | [reporte](2026-10-19-checker-soak.md)        |
-| 2026-10-20 | perfilado de status-bff (status-page a 1 200 req/s) | `ee90d8e` | 325 → 1 154 req/s con este PR y el filtro de logs estático    | [reporte](2026-10-20-status-bff-perfil.md)   |
+| Fecha      | Escenario                                                  | Commit    | Veredicto                                                     | Reporte                                      |
+| ---------- | ---------------------------------------------------------- | --------- | ------------------------------------------------------------- | -------------------------------------------- |
+| 2026-10-19 | api-crud (línea base)                                      | `92928be` | Pasa: p95 44 ms a 135 req/s                                   | [reporte](2026-10-19-api-crud.md)            |
+| 2026-10-19 | status-page (línea base sin caché)                         | `92928be` | Pasa: p95 6 ms a 500 req/s; techo ~950 req/s                  | [reporte](2026-10-19-status-page.md)         |
+| 2026-10-19 | rate-limit                                                 | `92928be` | Pasa: 600 y 60 OK por ventana, `Retry-After` correcto         | [reporte](2026-10-19-rate-limit.md)          |
+| 2026-10-19 | isolation (y autotest)                                     | `92928be` | Pasa: 0 fugas en 9 365 comprobaciones                         | [reporte](2026-10-19-isolation.md)           |
+| 2026-10-19 | status-page stress, spike y breakpoint                     | `92928be` | SLO hasta ~750–900 req/s, techo ~920; se recupera en segundos | [reporte](2026-10-19-status-page-limites.md) |
+| 2026-10-19 | checker-soak (y sondeo de 30 000 monitores)                | `92928be` | Pasa con 2 000 monitores; techo del checker ~1 000 chequeos/s | [reporte](2026-10-19-checker-soak.md)        |
+| 2026-10-20 | perfilado de status-bff (status-page a 1 200 req/s)        | `ee90d8e` | 325 → 1 154 req/s con este PR y el filtro de logs estático    | [reporte](2026-10-20-status-bff-perfil.md)   |
+| 2026-10-20 | api-crud con el uptime de `uptime_daily` (antes y después) | `acd1902` | Pasa: `/metrics` p50 41 → 21 ms, p95 global 47 → 26 ms        | [reporte](2026-10-20-api-crud-metrics.md)    |
