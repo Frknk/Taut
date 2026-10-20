@@ -31,6 +31,12 @@ class TenantSelection {
    */
   switching = $state(false);
 
+  /** The selected tenant as the api last returned it, with its plan and quotas; `undefined` until `list` has it. */
+  get details(): TenantWithRole | undefined {
+    const id = this.current?.id;
+    return id ? this.list.find((tenant) => tenant.id === id) : undefined;
+  }
+
   /** Whether the selected tenant lets the user manage channels, members and the tenant. */
   get isOwner(): boolean {
     return this.current?.role === 'owner';

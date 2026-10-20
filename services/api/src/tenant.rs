@@ -27,20 +27,30 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::ratelimit::Bucket;
 
-/// Commercial plan of a tenant; sets its quotas.
+/// Commercial plan of a tenant; sets its quotas (docs/adr/0012). There is no billing yet: new
+/// tenants start on `free` and an operator assigns the paid plans (`just tenant-plan`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(type_name = "text", rename_all = "lowercase")]
 pub enum Plan {
-    /// The only plan of the prototype.
+    /// The default plan of every new tenant.
     Free,
+    /// First paid plan.
+    Pro,
+    /// Largest plan.
+    Business,
 }
 
 impl Plan {
+    /// Every plan, from the smallest to the largest.
+    pub const ALL: [Self; 3] = [Self::Free, Self::Pro, Self::Business];
+
     /// Lowercase name, as stored and serialized.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Free => "free",
+            Self::Pro => "pro",
+            Self::Business => "business",
         }
     }
 
@@ -48,6 +58,8 @@ impl Plan {
     pub const fn monitor_quota(self) -> i64 {
         match self {
             Self::Free => 10,
+            Self::Pro => 50,
+            Self::Business => 200,
         }
     }
 
@@ -55,6 +67,16 @@ impl Plan {
     pub const fn heartbeat_quota(self) -> i64 {
         match self {
             Self::Free => 10,
+            Self::Pro => 50,
+            Self::Business => 200,
+        }
+    }
+
+    /// Maximum number of API keys that are not revoked.
+    pub const fn api_key_quota(self) -> i64 {
+        match self {
+            Self::Free | Self::Pro => 20,
+            Self::Business => 50,
         }
     }
 
@@ -62,6 +84,8 @@ impl Plan {
     pub const fn api_key_requests_per_minute(self) -> u64 {
         match self {
             Self::Free => 60,
+            Self::Pro => 300,
+            Self::Business => 600,
         }
     }
 
@@ -70,8 +94,36 @@ impl Plan {
     pub const fn panel_requests_per_minute(self) -> u64 {
         match self {
             Self::Free => 600,
+            Self::Pro => 1_200,
+            Self::Business => 3_000,
         }
     }
+
+    /// Every quota of the plan, as the panel shows it.
+    pub const fn limits(self) -> PlanLimits {
+        PlanLimits {
+            monitors: self.monitor_quota(),
+            heartbeats: self.heartbeat_quota(),
+            api_keys: self.api_key_quota(),
+            api_key_requests_per_minute: self.api_key_requests_per_minute(),
+            panel_requests_per_minute: self.panel_requests_per_minute(),
+        }
+    }
+}
+
+/// The quotas of a plan, in the JSON of a tenant, so the panel never hard-codes them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct PlanLimits {
+    /// Monitors that are not heartbeats.
+    pub monitors: i64,
+    /// Heartbeat monitors.
+    pub heartbeats: i64,
+    /// API keys that are not revoked.
+    pub api_keys: i64,
+    /// Requests per minute of all the tenant's API keys together.
+    pub api_key_requests_per_minute: u64,
+    /// Requests per minute of the panel, all members together.
+    pub panel_requests_per_minute: u64,
 }
 
 /// What a user is to a tenant.
@@ -110,7 +162,7 @@ pub struct Tenant {
     pub created_at: DateTime<Utc>,
 }
 
-/// A tenant seen by one of its members: the tenant plus their role in it.
+/// A tenant seen by one of its members: the tenant, their role in it and what its plan allows.
 #[derive(Debug, Clone, Serialize)]
 pub struct TenantWithRole {
     /// The tenant.
@@ -118,6 +170,20 @@ pub struct TenantWithRole {
     pub tenant: Tenant,
     /// The caller's role.
     pub role: Role,
+    /// Quotas of the tenant's plan.
+    pub limits: PlanLimits,
+}
+
+impl TenantWithRole {
+    /// The tenant as `role` sees it, with the quotas of its plan.
+    pub const fn new(tenant: Tenant, role: Role) -> Self {
+        let limits = tenant.plan.limits();
+        Self {
+            tenant,
+            role,
+            limits,
+        }
+    }
 }
 
 /// Looks a tenant up by id, with the role of `user_id` in it; `None` unless they are a member.
@@ -142,15 +208,17 @@ pub async fn find_for_member(
     .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;
-    Ok(row.map(|row| TenantWithRole {
-        tenant: Tenant {
-            id: row.id,
-            slug: row.slug,
-            name: row.name,
-            plan: row.plan,
-            created_at: row.created_at,
-        },
-        role: row.role,
+    Ok(row.map(|row| {
+        TenantWithRole::new(
+            Tenant {
+                id: row.id,
+                slug: row.slug,
+                name: row.name,
+                plan: row.plan,
+                created_at: row.created_at,
+            },
+            row.role,
+        )
     }))
 }
 
@@ -464,6 +532,24 @@ fn touch(pool: PgPool, tenant_id: Uuid, key_id: Uuid) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn larger_plans_allow_more_and_keep_the_database_names() {
+        for pair in Plan::ALL.windows(2) {
+            let (smaller, larger) = (pair[0].limits(), pair[1].limits());
+            assert!(larger.monitors > smaller.monitors, "{pair:?}");
+            assert!(larger.heartbeats > smaller.heartbeats, "{pair:?}");
+            assert!(larger.api_keys >= smaller.api_keys, "{pair:?}");
+            assert!(larger.api_key_requests_per_minute > smaller.api_key_requests_per_minute);
+            assert!(larger.panel_requests_per_minute > smaller.panel_requests_per_minute);
+        }
+        for plan in Plan::ALL {
+            assert_eq!(serde_json::to_value(plan).unwrap(), plan.as_str());
+        }
+        // Free keeps the quotas of the prototype, so existing tenants see no change.
+        assert_eq!(Plan::Free.limits().monitors, 10);
+        assert_eq!(Plan::Free.limits().api_key_requests_per_minute, 60);
+    }
 
     fn actor(role: Role) -> Actor {
         Actor::User {

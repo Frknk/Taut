@@ -10,18 +10,17 @@
   import LayerCard from '#lib/components/LayerCard.svelte';
   import StatusBadge from '#lib/components/StatusBadge.svelte';
   import { describeError, request } from '#lib/api.js';
-  import { KIND_LABELS, formatSeconds, timeAgo } from '#lib/format.js';
+  import { KIND_LABELS, PLAN_LABELS, formatSeconds, timeAgo } from '#lib/format.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { Monitor } from '#lib/types.js';
   import { focusRing, table } from '#lib/ui.js';
-
-  const QUOTA = 10;
 
   let monitors = $state<Monitor[]>([]);
   let loaded = $state(false);
   let error = $state('');
 
   const tenantId = $derived(selectedTenant.current?.id ?? '');
+  const tenant = $derived(selectedTenant.details);
   const heartbeats = $derived(monitors.filter((monitor) => monitor.type === 'heartbeat').length);
 
   async function load() {
@@ -61,9 +60,12 @@
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
     <h1 class="text-2xl font-semibold text-strong">Monitores</h1>
-    <p class="mt-0.5 text-[13px]/[18px] text-subtle tabular-nums">
-      {monitors.length - heartbeats} / {QUOTA} monitores · {heartbeats} / {QUOTA} heartbeats (plan free)
-    </p>
+    {#if tenant}
+      <p class="mt-0.5 text-[13px]/[18px] text-subtle tabular-nums">
+        {monitors.length - heartbeats} / {tenant.limits.monitors} monitores · {heartbeats} / {tenant
+          .limits.heartbeats} heartbeats (plan {PLAN_LABELS[tenant.plan]})
+      </p>
+    {/if}
   </div>
   <Button variant="primary" href={resolve('/(app)/monitors/new')}>
     <PlusIcon size={16} aria-hidden="true" />

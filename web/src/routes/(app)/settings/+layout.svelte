@@ -28,7 +28,7 @@
     {
       href: resolve('/(app)/settings/tenant'),
       title: 'Ajustes de la organización',
-      text: `Nombre de ${org}, salir de ella o eliminarla.`,
+      text: `Plan y nombre de ${org}, salir de ella o eliminarla.`,
     },
     {
       href: resolve('/(app)/settings/api-keys'),

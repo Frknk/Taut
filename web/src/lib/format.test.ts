@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { STATUS_GLYPHS, STATUS_TONES, formatSeconds, timeAgo } from './format';
+import {
+  PLAN_LABELS,
+  STATUS_GLYPHS,
+  STATUS_TONES,
+  formatSeconds,
+  perMinute,
+  timeAgo,
+} from './format';
 
 describe('formatSeconds', () => {
   it('uses the largest sensible unit', () => {
@@ -34,5 +41,17 @@ describe('status badges', () => {
     expect(STATUS_GLYPHS.up).toBe(STATUS_GLYPHS.down);
     expect(STATUS_TONES.up).not.toBe(STATUS_TONES.down);
     expect(STATUS_GLYPHS.paused).not.toBe(STATUS_GLYPHS.pending);
+  });
+});
+
+describe('plans', () => {
+  it('names every plan', () => {
+    expect(Object.keys(PLAN_LABELS)).toEqual(['free', 'pro', 'business']);
+    expect(PLAN_LABELS.business).toBe('Business');
+  });
+
+  it('writes budgets per minute', () => {
+    expect(perMinute(60)).toBe('60 por minuto');
+    expect(perMinute(3000)).toMatch(/^3.?000 por minuto$/);
   });
 });

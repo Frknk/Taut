@@ -373,10 +373,7 @@ async fn accept(
         user_id = %user.user_id,
         "invitation accepted"
     );
-    Ok(Json(TenantWithRole {
-        tenant,
-        role: invitation.role,
-    }))
+    Ok(Json(TenantWithRole::new(tenant, invitation.role)))
 }
 
 #[cfg(test)]

@@ -94,6 +94,30 @@ async fn api_keys_get_429_after_the_plan_budget(pool: PgPool) {
 }
 
 #[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn the_budget_follows_the_plan(pool: PgPool) {
+    let app = common::app(pool.clone()).await;
+    let tenant = common::create_tenant(&app, "acme").await;
+    let key = create_key(&app, &tenant).await;
+    sqlx::query("UPDATE tenants SET plan = 'pro' WHERE slug = 'acme'")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Well past the 60 of free, a pro tenant still has room...
+    spend(&tenant, Bucket::ApiKey, 299).await;
+    assert_eq!(
+        list_monitors(&app, &key, None).await.status(),
+        StatusCode::OK
+    );
+    // ...until its own budget of 300 is spent.
+    spend(&tenant, Bucket::ApiKey, 300).await;
+    assert_eq!(
+        list_monitors(&app, &key, None).await.status(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
+}
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
 async fn the_panel_and_other_tenants_keep_their_budget(pool: PgPool) {
     let app = common::app(pool).await;
     let acme = common::create_tenant(&app, "acme").await;

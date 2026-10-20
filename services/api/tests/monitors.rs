@@ -263,3 +263,18 @@ async fn free_plan_quotas_are_enforced_per_kind(pool: PgPool) {
     )
     .await;
 }
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn a_paid_plan_raises_the_quota(pool: PgPool) {
+    let app = common::app(pool.clone()).await;
+    let tenant = common::create_tenant(&app, "acme").await;
+    for n in 0..10 {
+        common::create_monitor(&app, &tenant, http_monitor(&format!("m{n}"))).await;
+    }
+    sqlx::query("UPDATE tenants SET plan = 'pro' WHERE slug = 'acme'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // The eleventh monitor did not fit in free; it fits in pro, with no restart.
+    common::create_monitor(&app, &tenant, http_monitor("m10")).await;
+}

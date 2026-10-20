@@ -7,7 +7,7 @@
   import Dialog from '#lib/components/Dialog.svelte';
   import LayerCard from '#lib/components/LayerCard.svelte';
   import { ApiError, describeError, request } from '#lib/api.js';
-  import { ROLE_LABELS } from '#lib/format.js';
+  import { PLAN_LABELS, ROLE_LABELS, perMinute } from '#lib/format.js';
   import { confirmsDeletion, tenantNameError } from '#lib/invite-form.js';
   import { selectedTenant } from '#lib/tenant.svelte.js';
   import type { Tenant } from '#lib/types.js';
@@ -15,6 +15,7 @@
 
   const current = $derived(selectedTenant.current);
   const isOwner = $derived(selectedTenant.isOwner);
+  const details = $derived(selectedTenant.details);
 
   let name = $state(selectedTenant.current?.name ?? '');
   let nameError = $state('');
@@ -129,6 +130,44 @@
     </div>
   </dl>
 </LayerCard>
+
+{#if details}
+  <LayerCard title="Plan">
+    <dl class="grid gap-3 text-sm sm:grid-cols-3">
+      <div>
+        <dt class="text-subtle">Plan</dt>
+        <dd class="font-medium text-default">{PLAN_LABELS[details.plan]}</dd>
+      </div>
+      <div>
+        <dt class="text-subtle">Monitores</dt>
+        <dd class="text-default tabular-nums">{details.limits.monitors}</dd>
+      </div>
+      <div>
+        <dt class="text-subtle">Heartbeats</dt>
+        <dd class="text-default tabular-nums">{details.limits.heartbeats}</dd>
+      </div>
+      <div>
+        <dt class="text-subtle">API keys activas</dt>
+        <dd class="text-default tabular-nums">{details.limits.api_keys}</dd>
+      </div>
+      <div>
+        <dt class="text-subtle">Peticiones del panel</dt>
+        <dd class="text-default tabular-nums">
+          {perMinute(details.limits.panel_requests_per_minute)}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-subtle">Peticiones con API key</dt>
+        <dd class="text-default tabular-nums">
+          {perMinute(details.limits.api_key_requests_per_minute)}
+        </dd>
+      </div>
+    </dl>
+    <p class="mt-4 text-sm text-subtle">
+      Todavía no hay facturación: un administrador cambia el plan.
+    </p>
+  </LayerCard>
+{/if}
 
 {#if isOwner}
   <form onsubmit={rename} novalidate>

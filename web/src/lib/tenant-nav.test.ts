@@ -28,7 +28,14 @@ describe('sectionAfterSwitch', () => {
 });
 
 function tenant(id: string): TenantWithRole {
-  return { id, slug: id, name: id, plan: 'free', created_at: '', role: 'owner' };
+  const limits = {
+    monitors: 10,
+    heartbeats: 10,
+    api_keys: 20,
+    api_key_requests_per_minute: 60,
+    panel_requests_per_minute: 600,
+  };
+  return { id, slug: id, name: id, plan: 'free', created_at: '', role: 'owner', limits };
 }
 
 describe('pickTenant', () => {

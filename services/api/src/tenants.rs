@@ -83,10 +83,7 @@ async fn create(
     tracing::info!(tenant_id = %tenant.id, slug = %tenant.slug, user_id = %user.user_id, "tenant created");
     Ok((
         StatusCode::CREATED,
-        Json(TenantWithRole {
-            tenant,
-            role: Role::Owner,
-        }),
+        Json(TenantWithRole::new(tenant, Role::Owner)),
     ))
 }
 
@@ -111,15 +108,17 @@ async fn list(
     tx.commit().await?;
     Ok(Json(
         rows.into_iter()
-            .map(|row| TenantWithRole {
-                tenant: Tenant {
-                    id: row.id,
-                    slug: row.slug,
-                    name: row.name,
-                    plan: row.plan,
-                    created_at: row.created_at,
-                },
-                role: row.role,
+            .map(|row| {
+                TenantWithRole::new(
+                    Tenant {
+                        id: row.id,
+                        slug: row.slug,
+                        name: row.name,
+                        plan: row.plan,
+                        created_at: row.created_at,
+                    },
+                    row.role,
+                )
             })
             .collect(),
     ))

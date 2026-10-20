@@ -41,8 +41,8 @@ se indica, configurables por monitor.
 | Periodo de confirmación (T_conf) | 60 s                 | `monitors.confirmation_period_s`, por monitor           |
 | Periodo de recuperación (T_rec)  | 120 s                | `monitors.recovery_period_s`, por monitor               |
 | Regiones desplegadas / quórum    | 3 / 2                | Prototipo 2 (F-18); el prototipo 1 corre en una región  |
-| Cuota de monitores por tenant    | 10                   | Validación en `POST /v1/monitors` según `tenants.plan`  |
-| Cuota de heartbeats por tenant   | 10                   | Idem, para `type = heartbeat`                           |
+| Cuota de monitores por tenant    | 10 / 50 / 200        | Free / pro / business ([ADR 0012](adr/0012-planes-de-prototipo.md)); validación en `POST /v1/monitors` según `tenants.plan` |
+| Cuota de heartbeats por tenant   | 10 / 50 / 200        | Idem, para `type = heartbeat`                           |
 | Status pages por tenant          | 1                    | Una página por `tenants.slug`                           |
 | Ventana de barras en status page | 90 días              | `uptime_daily` (agregado continuo de TimescaleDB)        |
 
@@ -198,6 +198,8 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   13–14»).
 - Un monitor de otro tenant responde `404`, nunca `403`, para no revelar que existe.
 - Cuotas del plan free: 10 monitores y 10 heartbeats, contadas por separado; superarlas es `403`.
+  Desde el 19-10-2026 hay además pro y business, que asigna un operador
+  ([ADR 0012](adr/0012-planes-de-prototipo.md)).
   La fila del tenant se bloquea (`FOR UPDATE`) al crear, así dos altas simultáneas no pasan ambas.
 - Timeout entre 1 y 60 s y siempre menor que el intervalo; periodos de confirmación, recuperación
   y gracia entre 0 y 3 600 s. El tipo de un monitor no cambia después de creado.
