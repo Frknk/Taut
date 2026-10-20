@@ -8,6 +8,12 @@
 | k6        | 2.3.0 en contenedor, red de compose, hasta 2 000 VUs                                                                                                                   |
 | Veredicto | El SLO se cumple hasta unas 750–900 req/s y el techo queda cerca de 920 req/s; tras un pico se recupera en segundos y sin errores                                      |
 
+> **Nota (2026-10-20).** El [perfilado de status-bff](2026-10-20-status-bff-perfil.md) explicó
+> el techo: dentro de status-bff, el `RwLock` de `EnvFilter` se llevaba el 65 % de la CPU (el log y
+> la serialización, los candidatos de abajo, no llegaban al 2 %). Además, estas corridas se
+> hicieron con la parte en tiempo real de `uptime_daily` vacía, así que no midieron el costo del
+> día en curso que tiene producción.
+
 ## Resumen
 
 En escalones de 2 min, la página cumple el SLO hasta 750 req/s (p95 58 ms). A 1 000 req/s ofrecidas

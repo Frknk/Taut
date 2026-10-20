@@ -113,6 +113,10 @@ en cada iteración sería medir auth. Nunca mandes una contraseña errónea: aut
   base tiene que poder compararse con la de la semana 13.
 - Anota la máquina y los recursos de la VM de OrbStack en el reporte: k6 y Taut comparten CPU.
 - Corre `smoke` antes de cada prueba pesada y no uses el panel mientras tanto.
+- Anota la hora UTC de las corridas de `status-page`: el día en curso de `uptime_daily` se
+  calcula en cada lectura desde `check_results` y crece hasta la medianoche UTC
+  ([perfilado](../docs/loadtest/2026-10-20-status-bff-perfil.md)). `just loadtest-seed` lo deja
+  sin materializar, como la política en producción.
 - En macOS, corre las pruebas largas con `caffeinate -i just loadtest …`. Si el Mac entra en
   reposo a mitad de la corrida, los contenedores se congelan y esa corrida no sirve (pasó con el
   primer `stress` del 19-10: hubo que repetirlo).
@@ -135,8 +139,6 @@ crear una serie de Prometheus por monitor. `just loadtest-lint` revisa los scrip
 
 ## Pendiente
 
-- Perfilar status-bff: la página de estado se estanca cerca de 920 req/s sin agotar la CPU ni el pool
-  ([reporte](../docs/loadtest/2026-10-19-status-page-limites.md)).
 - La parte del HPA del soak (que el checker escale) espera a Kubernetes.
 - Semana 13: repetir `status-page` con la caché de Redis y comparar con la línea base.
 - Job nightly contra staging (falla si p95 > 300 ms) cuando exista staging.
