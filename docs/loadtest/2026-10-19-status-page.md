@@ -8,6 +8,11 @@
 | k6        | 2.3.0 en contenedor, red de compose                                     |
 | Veredicto | **Pasa** todos los umbrales a 500 req/s                                 |
 
+> **Nota (2026-10-20).** Esta corrida se hizo con la parte en tiempo real de `uptime_daily`
+> vacía: `refresh.sql` materializaba también el día en curso. En producción esa parte siempre
+> existe y, filtrada solo por tenant, costaba ~10 ms de PostgreSQL por página a las 04:00 UTC. Ver
+> el [perfilado de status-bff](2026-10-20-status-bff-perfil.md).
+
 ## Resumen
 
 Es la línea base sin caché de la semana 6. Las 20 páginas de estado, con 10 monitores y 90 días

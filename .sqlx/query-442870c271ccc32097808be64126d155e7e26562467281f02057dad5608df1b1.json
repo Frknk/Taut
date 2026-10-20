@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT monitor_id AS \"monitor_id!\", day AS \"day!\", checks AS \"checks!\",\n               failures AS \"failures!\"\n        FROM uptime_daily_of_current_tenant($1)\n        ",
+  "query": "\n        SELECT monitor_id AS \"monitor_id!\", day AS \"day!\", checks AS \"checks!\",\n               failures AS \"failures!\"\n        FROM uptime_daily_of_monitors($1, $2)\n        ",
   "describe": {
     "columns": [
       {
@@ -30,7 +30,8 @@
     ],
     "parameters": {
       "Left": [
-        "Timestamptz"
+        "Timestamptz",
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -40,5 +41,5 @@
       null
     ]
   },
-  "hash": "aeeac5d78e3518cac6ac2b5a2658a403ac410aca85d446bab9d1a63bca8759c7"
+  "hash": "442870c271ccc32097808be64126d155e7e26562467281f02057dad5608df1b1"
 }
