@@ -1,6 +1,6 @@
 // Spanish labels and formatting shared by the panel and the status page.
 
-import type { ChannelKind, MonitorKind, MonitorStatus, Role } from './types.js';
+import type { ChannelKind, MonitorKind, MonitorStatus, Plan, Role } from './types.js';
 import type { Tone } from './ui.js';
 
 export const KIND_LABELS: Record<MonitorKind, string> = {
@@ -74,3 +74,14 @@ export const ROLE_LABELS: Record<Role, string> = {
   owner: 'Propietario',
   member: 'Miembro',
 };
+
+export const PLAN_LABELS: Record<Plan, string> = {
+  free: 'Free',
+  pro: 'Pro',
+  business: 'Business',
+};
+
+/** A per-minute budget in words: 1200 → «1200 por minuto». */
+export function perMinute(count: number): string {
+  return `${count.toLocaleString('es')} por minuto`;
+}

@@ -97,3 +97,37 @@ async fn unknown_tenant_is_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"]["code"], "bad_request");
 }
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn tenants_carry_the_limits_of_their_plan(pool: PgPool) {
+    let app = common::app(pool.clone()).await;
+    let tenant = common::create_tenant(&app, "acme").await;
+    let (_, listed) = common::send(&app, Method::GET, "/v1/tenants", None, None).await;
+    assert_eq!(listed[0]["plan"], "free");
+    assert_eq!(listed[0]["limits"]["monitors"], 10);
+    assert_eq!(listed[0]["limits"]["panel_requests_per_minute"], 600);
+
+    // An operator moves the tenant to a paid plan (`just tenant-plan`): the next read says so.
+    sqlx::query("UPDATE tenants SET plan = 'business' WHERE slug = 'acme'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (status, shown) = common::send(
+        &app,
+        Method::GET,
+        &format!("/v1/tenants/{tenant}"),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{shown}");
+    assert_eq!(shown["plan"], "business");
+    assert_eq!(shown["limits"]["monitors"], 200);
+    assert_eq!(shown["limits"]["api_keys"], 50);
+
+    // The database knows only the three plans.
+    let unknown = sqlx::query("UPDATE tenants SET plan = 'gold' WHERE slug = 'acme'")
+        .execute(&pool)
+        .await;
+    assert!(unknown.is_err(), "the plan CHECK must reject unknown plans");
+}

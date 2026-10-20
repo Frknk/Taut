@@ -76,6 +76,9 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   reciben `CurrentUser`, que rechaza las API keys con `401`. `CurrentTenant` además cuenta la
   petición contra el presupuesto del tenant (`services/api/src/ratelimit.rs`, por plan: API keys
   y panel por separado) y responde `429` al agotarlo; no hace falta nada en el handler.
+  Las cuotas y presupuestos de cada plan (free, pro, business) viven en `Plan`
+  (`services/api/src/tenant.rs`, [ADR 0012](docs/adr/0012-planes-de-prototipo.md)); nunca se
+  escriben a mano en el panel, que los lee de `limits`. El plan lo cambia `just tenant-plan`.
 - **API keys**: `CurrentTenant` también acepta `Bearer taut_live_…` (`Actor::ApiKey`). Las claves
   solo llegan a las rutas de `API_KEY_ROUTES` en `services/api/src/tenant.rs` (monitores e
   incidentes); una ruta nueva queda cerrada a ellas hasta que se agregue ahí. Si el handler

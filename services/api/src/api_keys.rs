@@ -21,9 +21,6 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::tenant::{CurrentTenant, Permission};
 
-/// Active keys a tenant may have; generous, it only stops runaway scripts.
-const MAX_ACTIVE_KEYS: i64 = 20;
-
 const MAX_NAME_CHARS: usize = 100;
 
 /// Routes under `/v1/api-keys`.
@@ -133,9 +130,11 @@ async fn create(
     )
     .fetch_one(&mut *tx)
     .await?;
-    if active >= MAX_ACTIVE_KEYS {
+    let quota = tenant.plan.api_key_quota();
+    if active >= quota {
         return Err(AppError::Forbidden(format!(
-            "a tenant can have at most {MAX_ACTIVE_KEYS} active api keys"
+            "the {} plan allows {quota} active api keys; revoke one before creating another",
+            tenant.plan.as_str()
         )));
     }
     let generated = api_key::generate();

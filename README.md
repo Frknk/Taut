@@ -91,7 +91,7 @@ keys, `/v1/tenants` y el tenant les responden `401`/`403`. Revocada, responde `4
 | `POST /v1/auth/reauth`                | Reautenticación (`password` y `code` si hay 2FA): token con `auth_time` nuevo para las acciones delicadas |
 | `GET /.well-known/jwks.json` (auth)   | Clave pública con la que la api verifica los tokens          |
 | `POST /v1/tenants`                    | Crea un tenant (`name`, `slug`); quien lo crea es owner      |
-| `GET /v1/tenants` · `/v1/tenants/{id}` | Mis tenants con mi rol, o uno de ellos                     |
+| `GET /v1/tenants` · `/v1/tenants/{id}` | Mis tenants con mi rol y los `limits` de su plan, o uno de ellos |
 | `GET /v1/members`                     | Miembros del tenant con su rol                              |
 | `PUT/DELETE /v1/members/{user_id}`    | Cambia el rol (`role`) o quita a un miembro (owner); nunca al último owner (`409`) |
 | `GET/POST /v1/invitations` · `DELETE /{id}` | Invitaciones pendientes; invitar (`email`, `role`; owner, máx. 20, enlace de 7 días por correo); revocar |
@@ -165,6 +165,7 @@ build del frontend). Es exactamente lo que corre CI.
 | `just deny`          | cargo-deny: avisos de seguridad, licencias y duplicados                     |
 | `just check` / `ci`  | Todo lo anterior más el build del frontend                                  |
 | `just migrate`       | Aplica las migraciones pendientes                                           |
+| `just tenant-plan s p` | Cambia el plan de la organización `s` a `p` (free, pro, business; sin facturación) |
 | `just migrate-add x` | Crea la migración `migrations/<timestamp>_x.sql`                            |
 | `just db-reset`      | Recrea la base de datos y aplica las migraciones                            |
 | `just sqlx-prepare`  | Regenera la caché offline `.sqlx/`                                          |

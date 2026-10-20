@@ -3,19 +3,32 @@
 export type MonitorKind = 'http' | 'keyword' | 'tcp' | 'heartbeat';
 export type MonitorStatus = 'pending' | 'up' | 'down' | 'paused';
 
+/** Commercial plan of a tenant; assigned by an operator while there is no billing. */
+export type Plan = 'free' | 'pro' | 'business';
+
+/** What a plan allows (`limits` of a tenant in `GET /v1/tenants`). */
+export interface PlanLimits {
+  monitors: number;
+  heartbeats: number;
+  api_keys: number;
+  api_key_requests_per_minute: number;
+  panel_requests_per_minute: number;
+}
+
 export interface Tenant {
   id: string;
   slug: string;
   name: string;
-  plan: string;
+  plan: Plan;
   created_at: string;
 }
 
 export type Role = 'owner' | 'member';
 
-/** A tenant as `GET /v1/tenants` returns it: with the caller's role. */
+/** A tenant as `GET /v1/tenants` returns it: with the caller's role and its plan's quotas. */
 export interface TenantWithRole extends Tenant {
   role: Role;
+  limits: PlanLimits;
 }
 
 /** The signed-in user (`GET /v1/auth/me`, `user` of a login). */

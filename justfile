@@ -141,6 +141,16 @@ sqlx-prepare:
     DATABASE_URL={{prepare_db}} sqlx database reset -y
     DATABASE_URL={{prepare_db}} cargo sqlx prepare --workspace
 
+# Cambia el plan de una organización (free, pro o business; aún sin facturación): just tenant-plan acme pro
+tenant-plan slug plan:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # La api lee el plan en cada petición: el cambio vale desde la siguiente, sin reiniciar nada.
+    updated=$(printf '%s\n' "UPDATE tenants SET plan = :'plan' WHERE slug = :'slug' RETURNING slug || ': ' || plan;" \
+      | {{psql}} -tA -v slug="{{slug}}" -v plan="{{plan}}" -f -)
+    if [ -z "$updated" ]; then echo "No hay ninguna organización con el slug {{slug}}" >&2; exit 1; fi
+    echo "Plan cambiado: $updated"
+
 # Construye la imagen de un servicio con el commit actual: just image checker
 image svc="api":
     docker build --build-arg SERVICE={{svc}} --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t taut-{{svc}}:dev .

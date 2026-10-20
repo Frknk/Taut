@@ -31,3 +31,4 @@ después, y no se edita para cambiarla: una decisión nueva reemplaza a la anter
 | 0009 | [bits-ui como base de los componentes interactivos](0009-bits-ui-componentes-accesibles.md) | Aceptado | 2026-10-16 |
 | 0010 | [Row-Level Security por tenant con un rol sin login](0010-row-level-security-por-tenant.md) | Aceptado | 2026-10-18 |
 | 0011 | [Pruebas de carga con k6 en modelo abierto, semilla SQL y Prometheus local](0011-pruebas-de-carga-k6.md) | Aceptado | 2026-10-19 |
+| 0012 | [Planes free, pro y business sin facturación](0012-planes-de-prototipo.md) | Aceptado | 2026-10-19 |
