@@ -8,6 +8,7 @@
 //   just loadtest status-page -e RATE=1000
 //   just loadtest status-page -e PROFILE=stress     steps from 100 to 1 500 req/s, 2 min each
 //   just loadtest status-page -e PROFILE=spike      50 req/s, a minute at 2 000, back to 50
+//     (-e SPIKE_BASE=20 -e SPIKE_PEAK=200 for a small server)
 //   just loadtest status-page -e PROFILE=breakpoint 0 to 3 000 req/s in 15 min, stops when it breaks
 //
 // Only the baseline has pass/fail thresholds on the SLO. The other profiles look for where and
@@ -45,6 +46,9 @@ const STRESS_RATES = [100, 250, 500, 750, 1000, 1250, 1500];
 const STRESS_STEP_S = intVar('STEP_S', 120);
 /** VUs k6 may use: at ~1 s per response the open model needs about one VU per req/s. */
 const MAX_VUS = intVar('MAX_VUS', 2000);
+/** Rates of the spike profile: the normal traffic before and after, and the peak. */
+const SPIKE_BASE = intVar('SPIKE_BASE', 50);
+const SPIKE_PEAK = intVar('SPIKE_PEAK', 2000);
 
 function constant(rate, duration, startTime, phase) {
   return {
@@ -96,22 +100,22 @@ const PROFILES = {
   // The question is whether the page recovers on its own once the spike is over.
   spike: () => ({
     scenarios: {
-      before: constant(50, '1m', '0s', 'before'),
+      before: constant(SPIKE_BASE, '1m', '0s', 'before'),
       spike: {
         executor: 'ramping-arrival-rate',
-        startRate: 50,
+        startRate: SPIKE_BASE,
         timeUnit: '1s',
         stages: [
-          { target: 2000, duration: '10s' },
-          { target: 2000, duration: '1m' },
-          { target: 50, duration: '10s' },
+          { target: SPIKE_PEAK, duration: '10s' },
+          { target: SPIKE_PEAK, duration: '1m' },
+          { target: SPIKE_BASE, duration: '10s' },
         ],
         startTime: '1m',
         preAllocatedVUs: 200,
         maxVUs: MAX_VUS,
         tags: { phase: 'spike' },
       },
-      after: constant(50, '2m', '2m20s', 'after'),
+      after: constant(SPIKE_BASE, '2m', '2m20s', 'after'),
     },
     thresholds: { ...sloOf('before'), ...sloOf('after') },
   }),
