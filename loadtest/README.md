@@ -140,6 +140,10 @@ crear una serie de Prometheus por monitor. `just loadtest-lint` revisa los scrip
 
 ## Pendiente
 
+- El sondeo de 30 000 monitores agota los puertos efímeros del checker (todos apuntan al mismo
+  eco): repartir los monitores del soak entre varios destinos, o darle al checker
+  `tcp_tw_reuse` y el rango de puertos ampliado, y agregar un umbral sobre los fallos de los
+  monitores `lt-k-*` ([reporte](../docs/loadtest/2026-10-20-checker-puertos.md)).
 - La parte del HPA del soak (que el checker escale) espera a Kubernetes.
 - Semana 13: repetir `status-page` con la caché de Redis y comparar con la línea base.
 - Job nightly contra staging (falla si p95 > 300 ms) cuando exista staging.

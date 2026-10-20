@@ -8,6 +8,12 @@
 | k6        | 2.3.0 en contenedor; no envía carga a Taut, solo lee Prometheus cada 15 s                                    |
 | Veredicto | El soak de 2 000 monitores **pasa**; el sondeo de 30 000 encuentra el techo del checker en ~1 000 chequeos/s |
 
+> **Nota (2026-10-20).** El diagnóstico del sondeo de 30 000 monitores era incorrecto. La mitad de
+> sus chequeos falló con `os error 99` (`failed_ratio` 0,50–0,58, que este reporte no miró): el
+> contenedor del checker agotó sus puertos efímeros, y esa búsqueda de puertos era la CPU al 110 %.
+> Con los puertos sanos, el mismo checker atiende 1 000 chequeos/s con el 24 % de un núcleo. Ver
+> [el sondeo repetido](2026-10-20-checker-puertos.md).
+
 ## Resumen
 
 El pipeline de chequeos cumple el SLO con mucho margen. Con 2 000 monitores cada 30 s durante 30

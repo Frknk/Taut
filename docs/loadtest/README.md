@@ -19,3 +19,4 @@ pruebas: [loadtest/README.md](../../loadtest/README.md). Decisiones:
 | 2026-10-20 | status-page con y sin compresión (brotli), alternadas      | `7a2261d` | Pasa: 19,5 veces menos bytes por ~0,3 ms de CPU por página    | [reporte](2026-10-20-compresion.md)          |
 | 2026-10-20 | perfilado de status-bff (status-page a 1 200 req/s)        | `ee90d8e` | 325 → 1 154 req/s con este PR y el filtro de logs estático    | [reporte](2026-10-20-status-bff-perfil.md)   |
 | 2026-10-20 | api-crud con el uptime de `uptime_daily` (antes y después) | `acd1902` | Pasa: `/metrics` p50 41 → 21 ms, p95 global 47 → 26 ms        | [reporte](2026-10-20-api-crud-metrics.md)    |
+| 2026-10-20 | checker-soak: sondeo de 30 000 monitores repetido          | `2d82966` | Techo del 19-10: puertos agotados; 1 000/s con 24 % de núcleo | [reporte](2026-10-20-checker-puertos.md)     |

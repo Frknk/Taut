@@ -72,7 +72,7 @@ pub async fn run(
         consumer,
         CONCURRENCY,
         stop,
-        |delivery: Delivery<CheckCompleted>| {
+        move |delivery: Delivery<CheckCompleted>| {
             let pool = pool.clone();
             let bus = bus.clone();
             async move { handle(&pool, &bus, &delivery.event).await }

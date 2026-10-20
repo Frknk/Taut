@@ -227,42 +227,34 @@ pub async fn run(
         )
         .await?;
     tracing::info!("notifier consuming incidents, test requests and account emails");
-    let alerts = taut_bus::consume(
-        incidents,
-        CONCURRENCY,
-        stop.clone(),
-        |delivery: Delivery<IncidentChanged>| {
+    let alerts = taut_bus::consume(incidents, CONCURRENCY, stop.clone(), {
+        let notifier = Arc::clone(&notifier);
+        move |delivery: Delivery<IncidentChanged>| {
             let notifier = Arc::clone(&notifier);
             async move { notifier.incident(&delivery.event).await }
-        },
-    );
-    let tests = taut_bus::consume(
-        tests,
-        CONCURRENCY,
-        stop.clone(),
-        |delivery: Delivery<TestNotification>| {
+        }
+    });
+    let tests = taut_bus::consume(tests, CONCURRENCY, stop.clone(), {
+        let notifier = Arc::clone(&notifier);
+        move |delivery: Delivery<TestNotification>| {
             let notifier = Arc::clone(&notifier);
             async move { notifier.test(&delivery.event).await }
-        },
-    );
-    let users = taut_bus::consume(
-        users,
-        CONCURRENCY,
-        stop.clone(),
-        |delivery: Delivery<AccountEmail>| {
+        }
+    });
+    let users = taut_bus::consume(users, CONCURRENCY, stop.clone(), {
+        let notifier = Arc::clone(&notifier);
+        move |delivery: Delivery<AccountEmail>| {
             let notifier = Arc::clone(&notifier);
             async move { notifier.account_email(&delivery.event).await }
-        },
-    );
-    let tenants = taut_bus::consume(
-        tenants,
-        CONCURRENCY,
-        stop,
-        |delivery: Delivery<AccountEmail>| {
+        }
+    });
+    let tenants = taut_bus::consume(tenants, CONCURRENCY, stop, {
+        let notifier = Arc::clone(&notifier);
+        move |delivery: Delivery<AccountEmail>| {
             let notifier = Arc::clone(&notifier);
             async move { notifier.account_email(&delivery.event).await }
-        },
-    );
+        }
+    });
     tokio::try_join!(alerts, tests, users, tenants)?;
     Ok(())
 }
