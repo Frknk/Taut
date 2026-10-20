@@ -1,8 +1,8 @@
 //! Middleware stack shared by every HTTP service.
 //!
 //! From the outside in: request id (ULID, kept when a gateway already set one), a task-local
-//! trace id, a tracing span per request, request-id propagation to the response, CORS, the
-//! client address, HTTP metrics, panic capture and a request timeout.
+//! trace id, a tracing span per request, request-id propagation to the response, CORS,
+//! response compression, the client address, HTTP metrics, panic capture and a request timeout.
 
 use std::any::Any;
 use std::convert::Infallible;
@@ -20,6 +20,7 @@ use taut_config::HttpSettings;
 use tower::ServiceBuilder;
 use tower_http::LatencyUnit;
 use tower_http::catch_panic::CatchPanicLayer;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::request_id::{
     MakeRequestId, PropagateRequestIdLayer, RequestId, SetRequestIdLayer,
@@ -91,6 +92,10 @@ pub fn apply(router: Router, settings: &HttpSettings) -> Router {
             )
             .layer(PropagateRequestIdLayer::x_request_id())
             .layer(cors(settings))
+            // Brotli (quality 4, tower-http's default for dynamic responses) or gzip, when the
+            // client accepts them; bodies under 32 bytes, images and event streams go as they
+            // are. A status page drops from ~66 KB of JSON to a few.
+            .layer(CompressionLayer::new())
             .layer(middleware::from_fn(move |req, next| {
                 client_ip(trust_proxy, req, next)
             }))
@@ -223,4 +228,63 @@ fn panic_response(err: Box<dyn Any + Send + 'static>) -> Response {
         .unwrap_or_else(|| "unknown panic".to_owned());
     tracing::error!(panic = %detail, "handler panicked");
     AppError::Internal(anyhow::anyhow!("handler panicked")).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::routing::get;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    use super::*;
+
+    /// A JSON body as repetitive as a status page.
+    fn page() -> String {
+        let bar = r#"{"date":"2026-10-20","uptime":100.0,"status":"up"}"#;
+        format!("[{}]", vec![bar; 200].join(","))
+    }
+
+    async fn fetch(path: &str, accept: Option<&str>) -> (Option<String>, Option<String>, usize) {
+        let router = Router::new()
+            .route("/page", get(|| async { page() }))
+            .route("/tiny", get(|| async { "ok" }));
+        let app = apply(router, &taut_config::Settings::default().http);
+        let mut request = Request::get(path);
+        if let Some(accept) = accept {
+            request = request.header(header::ACCEPT_ENCODING, accept);
+        }
+        let response = app
+            .oneshot(request.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let text = |name| {
+            response
+                .headers()
+                .get(name)
+                .map(|value: &HeaderValue| value.to_str().unwrap().to_owned())
+        };
+        let (encoding, vary) = (text(header::CONTENT_ENCODING), text(header::VARY));
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        (encoding, vary, body.len())
+    }
+
+    #[tokio::test]
+    async fn compresses_with_the_best_encoding_the_client_accepts() {
+        let plain = page().len();
+        for (accept, expected) in [("gzip", "gzip"), ("gzip, deflate, br", "br")] {
+            let (encoding, vary, size) = fetch("/page", Some(accept)).await;
+            assert_eq!(encoding.as_deref(), Some(expected), "{accept}");
+            assert_eq!(vary.as_deref(), Some("accept-encoding"), "{accept}");
+            assert!(size * 10 < plain, "{accept}: {size} of {plain} bytes");
+        }
+    }
+
+    #[tokio::test]
+    async fn leaves_bodies_alone_without_accept_encoding_or_when_tiny() {
+        let (encoding, _, size) = fetch("/page", None).await;
+        assert_eq!(encoding, None);
+        assert_eq!(size, page().len());
+        let (encoding, _, _) = fetch("/tiny", Some("gzip, br")).await;
+        assert_eq!(encoding, None, "under 32 bytes it is not worth it");
+    }
 }

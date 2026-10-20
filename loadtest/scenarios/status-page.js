@@ -31,6 +31,11 @@ import {
 const RATE = intVar('RATE', 500);
 const DURATION = __ENV.DURATION || '5m';
 const SLUGS = enumVar('SLUGS', ['spread', 'hot'], 'spread');
+/**
+ * What the visitor's browser accepts. Over HTTPS every browser sends at least gzip and br, and
+ * k6 sends nothing unless asked; `-e ACCEPT_ENCODING=` measures the uncompressed page.
+ */
+const ACCEPT_ENCODING = __ENV.ACCEPT_ENCODING ?? 'gzip, deflate, br';
 /** One in this many responses is parsed and checked; parsing all of them would load k6 itself. */
 const PARSE_EVERY = intVar('PARSE_EVERY', 100);
 const PROFILE = enumVar('PROFILE', ['baseline', 'stress', 'spike', 'breakpoint'], 'baseline');
@@ -148,6 +153,7 @@ function slug() {
 export default function () {
   const parse = exec.scenario.iterationInTest % PARSE_EVERY === 0;
   const res = http.get(`${STATUS_URL}/s/${slug()}`, {
+    headers: ACCEPT_ENCODING ? { 'Accept-Encoding': ACCEPT_ENCODING } : {},
     tags: { name: 'GET /s/:slug' },
     responseType: parse ? 'text' : 'none',
   });
