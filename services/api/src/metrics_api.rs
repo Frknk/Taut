@@ -1,8 +1,12 @@
 //! `GET /v1/monitors/{id}/metrics`: latency and uptime of a monitor (F-26).
 //!
-//! Read straight from the `check_results` hypertable with `time_bucket` and
-//! `percentile_cont`; the CQRS split moves these reads to their own service in week 10.
-//! Latency only counts healthy checks, so timeouts do not drown the percentiles.
+//! The series and the percentiles come from the `check_results` hypertable with
+//! `time_bucket` and `percentile_cont`. The uptime of 7 and 30 days, which every response
+//! carries, adds the whole days of `uptime_daily` to the raw results of the partial first
+//! day: reading 30 days of raw results on every call cost ten times the other reads
+//! (`docs/loadtest/2026-10-19-api-crud.md`). The CQRS split moves these reads to their own
+//! service in week 10. Latency only counts healthy checks, so timeouts do not drown the
+//! percentiles.
 
 // Axum handlers receive their state by value even when they only borrow it.
 #![allow(clippy::needless_pass_by_value)]
@@ -10,8 +14,9 @@
 use axum::Router;
 use axum::extract::State;
 use axum::routing::get;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Days, NaiveTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::PgConnection;
 use taut_http::{AppError, Json, Path, Query};
 use taut_model::uptime_percent;
 use uuid::Uuid;
@@ -145,27 +150,7 @@ async fn metrics(
     #[allow(clippy::cast_precision_loss)] // a few million seconds at most
     let (window_s, bucket_s) = (range.window_s() as f64, range.bucket_s() as f64);
 
-    let counts = sqlx::query!(
-        r#"
-        SELECT
-            count(*) FILTER (WHERE at > now() - interval '24 hours') AS "checks_day!",
-            count(*) FILTER (WHERE at > now() - interval '24 hours' AND NOT ok) AS "failures_day!",
-            count(*) FILTER (WHERE at > now() - interval '7 days') AS "checks_week!",
-            count(*) FILTER (WHERE at > now() - interval '7 days' AND NOT ok) AS "failures_week!",
-            count(*) AS "checks_month!",
-            count(*) FILTER (WHERE NOT ok) AS "failures_month!",
-            count(*) FILTER (WHERE at > now() - make_interval(secs => $3)) AS "checks_range!",
-            count(*) FILTER (WHERE at > now() - make_interval(secs => $3) AND NOT ok)
-                AS "failures_range!"
-        FROM check_results
-        WHERE monitor_id = $1 AND tenant_id = $2 AND at > now() - interval '30 days'
-        "#,
-        id,
-        tenant.id,
-        window_s,
-    )
-    .fetch_one(&mut *tx)
-    .await?;
+    let counts = uptime_counts(&mut tx, tenant.id, id, Utc::now()).await?;
 
     let latency = sqlx::query_as!(
         Latency,
@@ -207,17 +192,121 @@ async fn metrics(
     .await?;
     tx.commit().await?;
 
+    let (checks, failures) = match range {
+        Range::Day => counts.day,
+        Range::Week => counts.week,
+        Range::Month => counts.month,
+    };
     Ok(Json(Metrics {
         range: range.name(),
         bucket_s: range.bucket_s(),
-        checks: counts.checks_range,
-        failures: counts.failures_range,
+        checks,
+        failures,
         uptime: Uptimes {
-            day: uptime_percent(counts.checks_day, counts.failures_day),
-            week: uptime_percent(counts.checks_week, counts.failures_week),
-            month: uptime_percent(counts.checks_month, counts.failures_month),
+            day: uptime_percent(counts.day.0, counts.day.1),
+            week: uptime_percent(counts.week.0, counts.week.1),
+            month: uptime_percent(counts.month.0, counts.month.1),
         },
         latency,
         series,
     }))
+}
+
+/// Checks and failures of the last 24 hours, 7 days and 30 days of `monitor` as of `now`.
+async fn uptime_counts(
+    conn: &mut PgConnection,
+    tenant: Uuid,
+    monitor: Uuid,
+    now: DateTime<Utc>,
+) -> Result<Counts, sqlx::Error> {
+    let day = now - TimeDelta::hours(24);
+    let week = Window::last(now, 7);
+    let month = Window::last(now, 30);
+    // Raw results of the last 24 hours and of the partial first day of each window.
+    let raw = sqlx::query!(
+        r#"
+        SELECT
+            count(*) FILTER (WHERE w = 1) AS "checks_day!",
+            count(*) FILTER (WHERE w = 1 AND NOT ok) AS "failures_day!",
+            count(*) FILTER (WHERE w = 7) AS "checks_week!",
+            count(*) FILTER (WHERE w = 7 AND NOT ok) AS "failures_week!",
+            count(*) FILTER (WHERE w = 30) AS "checks_month!",
+            count(*) FILTER (WHERE w = 30 AND NOT ok) AS "failures_month!"
+        FROM (
+            SELECT 1 AS w, ok FROM check_results
+            WHERE monitor_id = $1 AND tenant_id = $2 AND at > $3
+            UNION ALL
+            SELECT 7, ok FROM check_results
+            WHERE monitor_id = $1 AND tenant_id = $2 AND at > $4 AND at < $5
+            UNION ALL
+            SELECT 30, ok FROM check_results
+            WHERE monitor_id = $1 AND tenant_id = $2 AND at > $6 AND at < $7
+        ) AS r
+        "#,
+        monitor,
+        tenant,
+        day,
+        week.start,
+        week.whole_days,
+        month.start,
+        month.whole_days,
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    // Whole days from the daily aggregate; today comes from its real-time part.
+    let daily = sqlx::query!(
+        r#"
+        SELECT
+            coalesce(sum(checks) FILTER (WHERE day >= $3), 0)::bigint AS "checks_week!",
+            coalesce(sum(failures) FILTER (WHERE day >= $3), 0)::bigint AS "failures_week!",
+            coalesce(sum(checks), 0)::bigint AS "checks_month!",
+            coalesce(sum(failures), 0)::bigint AS "failures_month!"
+        FROM uptime_daily_of_monitors($1, $2)
+        "#,
+        month.whole_days,
+        &[monitor][..],
+        week.whole_days,
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    Ok(Counts {
+        day: (raw.checks_day, raw.failures_day),
+        week: (
+            raw.checks_week + daily.checks_week,
+            raw.failures_week + daily.failures_week,
+        ),
+        month: (
+            raw.checks_month + daily.checks_month,
+            raw.failures_month + daily.failures_month,
+        ),
+    })
+}
+
+/// A window of whole days that ends now, split where `uptime_daily` can take over: the raw
+/// results from `start` to `whole_days`, the daily aggregate from `whole_days` on.
+struct Window {
+    /// Now minus the length of the window.
+    start: DateTime<Utc>,
+    /// The first midnight (UTC, like the aggregate's buckets) after `start`.
+    whole_days: DateTime<Utc>,
+}
+
+impl Window {
+    fn last(now: DateTime<Utc>, days: u64) -> Self {
+        let start = now.checked_sub_days(Days::new(days)).unwrap_or(now);
+        let whole_days = start
+            .date_naive()
+            .and_time(NaiveTime::MIN)
+            .and_utc()
+            .checked_add_days(Days::new(1))
+            .unwrap_or(now);
+        Self { start, whole_days }
+    }
+}
+
+/// Checks and failures of the three uptime windows.
+struct Counts {
+    day: (i64, i64),
+    week: (i64, i64),
+    month: (i64, i64),
 }

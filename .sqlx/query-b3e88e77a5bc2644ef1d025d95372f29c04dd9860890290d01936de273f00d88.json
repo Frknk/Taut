@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            coalesce(sum(checks) FILTER (WHERE day >= $3), 0)::bigint AS \"checks_week!\",\n            coalesce(sum(failures) FILTER (WHERE day >= $3), 0)::bigint AS \"failures_week!\",\n            coalesce(sum(checks), 0)::bigint AS \"checks_month!\",\n            coalesce(sum(failures), 0)::bigint AS \"failures_month!\"\n        FROM uptime_daily_of_monitors($1, $2)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "checks_week!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "failures_week!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "checks_month!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "failures_month!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "UuidArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b3e88e77a5bc2644ef1d025d95372f29c04dd9860890290d01936de273f00d88"
+}
