@@ -5,6 +5,9 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
+  // PUBLIC_API_URL, PUBLIC_AUTH_URL y PUBLIC_STATUS_URL (src/lib/api.ts) se leen con
+  // import.meta.env, que por defecto solo expone VITE_*.
+  envPrefix: ['VITE_', 'PUBLIC_'],
   plugins: [
     tailwindcss(),
     sveltekit({
