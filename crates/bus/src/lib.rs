@@ -6,12 +6,14 @@
 //! JSON;
 //! [`Bus::publish`] waits for the stream's acknowledgement and copies the event's trace id into
 //! the `x-request-id` header. [`consume`] runs a durable pull consumer: it decodes each message,
-//! opens a span with the trace id, calls the handler with bounded concurrency and acks, naks or
-//! terminates the message according to the handler's answer.
+//! opens a span with the trace id, runs the handler in its own task with bounded concurrency
+//! and acks, naks or terminates the message according to the handler's answer.
 //!
 //! Delivery is at least once, so handlers must be idempotent.
 
 use std::future::Future;
+use std::pin::pin;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_nats::connection::State;
@@ -26,6 +28,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use taut_config::NatsSettings;
 use tokio::sync::watch;
+use tokio::task::{JoinError, JoinSet};
 use tracing::Instrument;
 
 /// Header that carries the trace id, the same one HTTP requests use.
@@ -251,6 +254,12 @@ const RESUBSCRIBE_DELAY: Duration = Duration::from_secs(2);
 
 /// Runs `handler` on every message of `consumer`, at most `concurrency` at a time, until
 /// `stop` turns `true`. In-flight messages finish before it returns.
+///
+/// Each message runs in its own tokio task, so the handlers spread over every worker thread
+/// of the runtime; interleaving them inside one task (`for_each_concurrent`) ran all their
+/// CPU work on one thread. A slot frees up when its task ends, and no
+/// message is pulled while every slot is taken. A handler that panics only loses its task:
+/// the message is not acknowledged, so NATS redelivers it after the ack wait.
 pub async fn consume<T, H, Fut>(
     consumer: PullConsumer,
     concurrency: usize,
@@ -258,11 +267,13 @@ pub async fn consume<T, H, Fut>(
     handler: H,
 ) -> Result<(), BusError>
 where
-    T: DeserializeOwned,
-    H: Fn(Delivery<T>) -> Fut,
-    Fut: Future<Output = Handled>,
+    T: DeserializeOwned + Send + 'static,
+    H: Fn(Delivery<T>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Handled> + Send + 'static,
 {
-    let handler = &handler;
+    let handler = Arc::new(handler);
+    let concurrency = concurrency.max(1);
+    let mut in_flight = JoinSet::new();
     while !*stop.borrow() {
         let messages = match consumer.messages().await {
             Ok(messages) => messages,
@@ -277,21 +288,44 @@ where
             // An error means the sender is gone, which also means stop.
             let _ = stopped.wait_for(|stop| *stop).await;
         };
-        messages
-            .take_until(stop_signal)
-            .for_each_concurrent(concurrency, |message| async move {
-                match message {
-                    Ok(message) => process(message, handler).await,
-                    Err(err) => tracing::warn!(error = %err, "message stream error"),
+        let mut messages = pin!(messages.take_until(stop_signal));
+        loop {
+            while let Some(finished) = in_flight.try_join_next() {
+                report_panic(finished);
+            }
+            if in_flight.len() >= concurrency {
+                if let Some(finished) = in_flight.join_next().await {
+                    report_panic(finished);
                 }
-            })
-            .await;
+                continue;
+            }
+            match messages.next().await {
+                Some(Ok(message)) => {
+                    let handler = Arc::clone(&handler);
+                    in_flight.spawn(
+                        async move { process(message, handler.as_ref()).await }.in_current_span(),
+                    );
+                }
+                Some(Err(err)) => tracing::warn!(error = %err, "message stream error"),
+                None => break,
+            }
+        }
         if !*stop.borrow() {
             tracing::warn!("message stream ended, pulling again");
             tokio::time::sleep(RESUBSCRIBE_DELAY).await;
         }
     }
+    while let Some(finished) = in_flight.join_next().await {
+        report_panic(finished);
+    }
     Ok(())
+}
+
+/// Logs a handler task that panicked; its message was not acknowledged and comes back.
+fn report_panic(finished: Result<(), JoinError>) {
+    if let Err(err) = finished {
+        tracing::error!(error = %err, "message handler panicked; the message will be redelivered");
+    }
 }
 
 async fn process<T, H, Fut>(message: jetstream::Message, handler: &H)

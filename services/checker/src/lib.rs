@@ -65,7 +65,7 @@ pub async fn run(
         consumer,
         settings.checks.concurrency,
         stop,
-        |delivery: Delivery<CheckRequested>| {
+        move |delivery: Delivery<CheckRequested>| {
             let bus = bus.clone();
             let checker = Arc::clone(&checker);
             let region = Arc::clone(&region);
