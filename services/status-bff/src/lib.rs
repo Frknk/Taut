@@ -163,15 +163,18 @@ pub async fn build(
         .checked_sub_days(Days::new(u64::from(page::DAYS) - 1))
         .unwrap_or(today);
     let first_instant = first.and_time(chrono::NaiveTime::MIN).and_utc();
+    let ids: Vec<Uuid> = monitors.iter().map(|monitor| monitor.id).collect();
     // The continuous aggregate has no row-level security of its own; this function reads it
-    // for the transaction's tenant only.
+    // for the transaction's tenant only. The ids let today's part, not materialized yet, use
+    // the primary key of check_results instead of reading the whole day of every tenant.
     let days = sqlx::query!(
         r#"
         SELECT monitor_id AS "monitor_id!", day AS "day!", checks AS "checks!",
                failures AS "failures!"
-        FROM uptime_daily_of_current_tenant($1)
+        FROM uptime_daily_of_monitors($1, $2)
         "#,
-        first_instant
+        first_instant,
+        &ids,
     )
     .fetch_all(&mut *tx)
     .await?;

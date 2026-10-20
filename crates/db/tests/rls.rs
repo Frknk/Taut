@@ -321,6 +321,20 @@ async fn uptime_is_read_only_through_the_tenant_function(pool: PgPool) {
     .await
     .unwrap();
     assert_eq!(rows, 1);
+    // Monitor ids of another tenant do not open its rows.
+    let every_monitor: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM monitors")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert_eq!(every_monitor.len(), 2);
+    let rows: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM uptime_daily_of_monitors(now() - interval '3 days', $1)",
+    )
+    .bind(&every_monitor)
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(rows, 1);
     let err = sqlx::query("SELECT count(*) FROM uptime_daily")
         .execute(&mut *tx)
         .await
@@ -328,10 +342,18 @@ async fn uptime_is_read_only_through_the_tenant_function(pool: PgPool) {
     assert_eq!(code(&err).as_deref(), Some(DENIED), "{err}");
     tx.rollback().await.unwrap();
 
-    // Outside a tenant transaction the function returns nothing.
+    // Outside a tenant transaction the functions return nothing.
     let rows: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM uptime_daily_of_current_tenant(now() - interval '3 days')",
     )
+    .fetch_one(&restricted)
+    .await
+    .unwrap();
+    assert_eq!(rows, 0);
+    let rows: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM uptime_daily_of_monitors(now() - interval '3 days', $1)",
+    )
+    .bind(&every_monitor)
     .fetch_one(&restricted)
     .await
     .unwrap();
