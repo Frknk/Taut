@@ -15,8 +15,9 @@ use serde_json::{Map, Value};
 use taut_config::{LogFormat, TelemetrySettings};
 use tracing::field::{Field, Visit};
 use tracing::span::{Attributes, Id, Record};
-use tracing::{Event, Subscriber};
+use tracing::{Event, Level, Subscriber};
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::filter::Targets;
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
@@ -81,9 +82,10 @@ fn install(
     service: &'static str,
     settings: &TelemetrySettings,
 ) -> Result<Telemetry, TelemetryError> {
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    // The variable EnvFilter::try_from_default_env read before; not a Taut setting.
+    let directives = std::env::var(EnvFilter::DEFAULT_ENV).ok();
     let registry = tracing_subscriber::registry()
-        .with(filter)
+        .with(LogFilter::parse(directives.as_deref()).layer())
         .with(SpanFieldsLayer);
     match settings.log_format {
         LogFormat::Json => {
@@ -101,6 +103,50 @@ fn install(
         .install_recorder()?;
 
     Ok(Telemetry { metrics })
+}
+
+/// Which events are logged, from the directives of `RUST_LOG`.
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)] // built once at startup and boxed into a layer right away
+enum LogFilter {
+    /// Levels per target (`info,sqlx=warn`), decided once per callsite.
+    Static(Targets),
+    /// Directives that also filter by span or field (`[request{tenant_id=…}]=debug`).
+    ///
+    /// `EnvFilter` takes a lock shared by every thread each time a span is entered or exited,
+    /// even when no directive looks at spans; sqlx enters the request span once per row it
+    /// reads. That lock took 65 % of the CPU of status-bff and kept it from using more than
+    /// 3 to 4 cores (`docs/loadtest/2026-10-20-status-bff-perfil.md`), so it is only used when
+    /// a directive needs it.
+    Dynamic(EnvFilter),
+}
+
+impl LogFilter {
+    /// `info` when `directives` are missing, empty or invalid, like before.
+    fn parse(directives: Option<&str>) -> Self {
+        let default = || Self::Static(Targets::new().with_default(Level::INFO));
+        let Some(directives) = directives.map(str::trim).filter(|d| !d.is_empty()) else {
+            return default();
+        };
+        // Span and field filters always come in brackets; Targets would read `[request]` as
+        // the name of a target instead of rejecting it.
+        if !directives.contains('[')
+            && let Ok(targets) = directives.parse::<Targets>()
+        {
+            return Self::Static(targets);
+        }
+        EnvFilter::try_new(directives).map_or_else(|_| default(), Self::Dynamic)
+    }
+
+    fn layer<S>(self) -> Box<dyn Layer<S> + Send + Sync>
+    where
+        S: Subscriber + for<'a> LookupSpan<'a>,
+    {
+        match self {
+            Self::Static(targets) => targets.boxed(),
+            Self::Dynamic(filter) => filter.boxed(),
+        }
+    }
 }
 
 /// Span fields captured as JSON so the event formatter can attach them to every line.
@@ -227,6 +273,46 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
+
+    #[test]
+    fn plain_directives_use_the_static_filter() {
+        let LogFilter::Static(targets) = LogFilter::parse(Some("info,taut_api=debug,sqlx=warn"))
+        else {
+            panic!("plain directives need no span bookkeeping");
+        };
+        assert!(targets.would_enable("taut_api::monitors", &Level::DEBUG));
+        assert!(targets.would_enable("taut_status_bff", &Level::INFO));
+        assert!(!targets.would_enable("taut_status_bff", &Level::DEBUG));
+        assert!(!targets.would_enable("sqlx::query", &Level::INFO));
+        assert!(targets.would_enable("sqlx::query", &Level::WARN));
+    }
+
+    #[test]
+    fn missing_empty_or_invalid_directives_log_info() {
+        for directives in [None, Some(""), Some("  "), Some("taut_api=loud")] {
+            let LogFilter::Static(targets) = LogFilter::parse(directives) else {
+                panic!("{directives:?} falls back to the static info filter");
+            };
+            assert!(
+                targets.would_enable("taut_api", &Level::INFO),
+                "{directives:?}"
+            );
+            assert!(
+                !targets.would_enable("taut_api", &Level::DEBUG),
+                "{directives:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn span_directives_keep_env_filter() {
+        for directives in ["[request]=debug", "info,[check{monitor_id}]=trace"] {
+            assert!(
+                matches!(LogFilter::parse(Some(directives)), LogFilter::Dynamic(_)),
+                "{directives}"
+            );
+        }
+    }
 
     #[test]
     fn init_is_idempotent() {
