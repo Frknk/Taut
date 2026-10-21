@@ -98,8 +98,12 @@ escalones() {
 cache() {
   local ttl="$1"
   [[ "$ttl" =~ ^[0-9]+$ ]] || usage
+  local out
   # shellcheck disable=SC2029 # $ttl ya se validó: se expande a propósito en el Mac.
-  ssh vps "cd /opt/taut && STATUS_CACHE_TTL=$ttl docker compose up -d --wait status-bff" >/dev/null
+  if ! out=$(ssh vps "cd /opt/taut && STATUS_CACHE_TTL=$ttl docker compose up -d --wait status-bff" 2>&1); then
+    echo "$out" >&2
+    exit 1
+  fi
   echo "caché de status-bff en la VPS: ${ttl} s ($([ "$ttl" -eq 0 ] && echo apagada || echo encendida))"
 }
 
