@@ -140,6 +140,14 @@ pub struct SchedulerSettings {
     pub lock_ttl_secs: u64,
 }
 
+/// Status BFF settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatusSettings {
+    /// Seconds a status page lives in the Redis cache; 0 turns the cache off and every request
+    /// reads the database, which is how the load tests measure the page without it.
+    pub cache_ttl_secs: u64,
+}
+
 /// Notifier settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotifierSettings {
@@ -225,6 +233,8 @@ pub struct Settings {
     pub checks: ChecksSettings,
     /// Scheduler.
     pub scheduler: SchedulerSettings,
+    /// Status BFF.
+    pub status: StatusSettings,
     /// Notifier.
     pub notifier: NotifierSettings,
     /// Auth service.
@@ -270,6 +280,7 @@ impl Default for Settings {
                 resync_secs: 30,
                 lock_ttl_secs: 10,
             },
+            status: StatusSettings { cache_ttl_secs: 30 },
             notifier: NotifierSettings {
                 smtp_url: "smtp://localhost:1025".to_owned(),
                 email_from: "Taut <alertas@taut.localhost>".to_owned(),
@@ -379,11 +390,13 @@ mod tests {
             jail.set_env("TAUT_HTTP__ADDR", "127.0.0.1:9090");
             jail.set_env("TAUT_DATABASE__MAX_CONNECTIONS", "3");
             jail.set_env("TAUT_TELEMETRY__LOG_FORMAT", "json");
+            jail.set_env("TAUT_STATUS__CACHE_TTL_SECS", "0");
             let settings = extract()?;
             assert_eq!(settings.app.env, Environment::Staging);
             assert_eq!(settings.http.addr.to_string(), "127.0.0.1:9090");
             assert_eq!(settings.database.max_connections, 3);
             assert_eq!(settings.telemetry.log_format, LogFormat::Json);
+            assert_eq!(settings.status.cache_ttl_secs, 0);
             Ok(())
         });
     }

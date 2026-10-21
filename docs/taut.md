@@ -184,7 +184,7 @@ retención de 90 días y agregados continuos para `uptime_daily`.*
 
 | Clave               | Contenido                           | TTL              |
 | ------------------- | ----------------------------------- | ---------------- |
-| status:{slug}       | JSON de la página de estado pública | 30 s             |
+| status:{slug}       | JSON de la página de estado pública, comprimido con brotli | 30 s (`TAUT_STATUS__CACHE_TTL_SECS`) |
 | monitor:{id}:last   | Últimos 50 resultados               | 5 min            |
 | lock:scheduler      | Lock de líder del scheduler         | 10 s, renovado   |
 | rl:{tenant}:{min}, rl:{tenant}:panel:{min} | Peticiones del tenant en el minuto: API keys y panel | 60 s |

@@ -155,7 +155,7 @@ esperar a la semana 11 (microservicios por eventos) sin cambiar los tópicos del
 | Intervalos                | 20 s a 5 min                                        | Valores fijos 30 / 60 / 180 / 300 s                | Valores fijos de la hoja                                                    |
 | Canales de alerta         | Correo, Telegram, Discord                           | Email P0, webhook genérico P1, push/SMS ✗          | Email y webhook (Discord y Slack por incoming webhook). Telegram (bot API) al prototipo 2 |
 | Multi-región              | "Uno o más puntos de prueba"                        | P1, esfuerzo L, "valor curso nube: sí, primero"    | Prototipo 2: necesita el clúster y es el mejor escaparate de Kubernetes multi-región (sem. 8–9) |
-| Página de estado          | Servida por el BFF, cacheada en Redis               | P0 mínima: lista + barras de 90 días               | BFF entrega JSON y la SPA lo pinta; la caché Redis llega en la sem. 13      |
+| Página de estado          | Servida por el BFF, cacheada en Redis               | P0 mínima: lista + barras de 90 días               | BFF entrega JSON y la SPA lo pinta; la caché Redis llegó en la sem. 13      |
 
 ## Candidatas para el prototipo 2
 
@@ -281,8 +281,8 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   en `/status/{slug}`. Devuelve estado general, monitores con 90 barras diarias (UTC) y los
   incidentes abiertos más los resueltos de los últimos 7 días. No expone destinos, IPs ni causas
   de falla: una causa como `dns: could not resolve db.internal` revelaría un host interno; un
-  test lo verifica. Responde con `Cache-Control: public, max-age=30`; la caché en Redis llega en
-  la semana 13.
+  test lo verifica. Responde con `Cache-Control: public, max-age=30`. Desde la semana 13 guarda
+  cada página 30 s en Redis, ya comprimida con brotli (`TAUT_STATUS__CACHE_TTL_SECS`, 0 la apaga).
 - Colores de las barras por disponibilidad del día: ≥ 99,9 % bien, ≥ 99 % aviso, ≥ 95 % serio,
   menos crítico y gris sin datos, con leyenda de umbrales, tooltip por día (ratón o flechas) y
   una lista de los días con fallas como alternativa sin color. Cada monitor muestra su estado

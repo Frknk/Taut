@@ -4,14 +4,17 @@
 //! the overall state, every monitor with its current status and 90 daily uptime bars, and
 //! the open incidents plus the ones resolved in the last week. It never exposes targets,
 //! IPs or failure causes (a cause such as `dns: could not resolve db.internal` would leak a
-//! hostname). Responses may be cached for 30 seconds; the Redis cache arrives in week 13.
+//! hostname). Pages are cached in Redis for 30 seconds, already compressed ([`cache`]), and
+//! browsers may keep them for as long (`Cache-Control: max-age=30`).
 
+pub mod cache;
 pub mod page;
 
+use anyhow::Context;
 use axum::Router;
 use axum::extract::State;
-use axum::http::{HeaderValue, header};
-use axum::response::IntoResponse;
+use axum::http::{HeaderMap, HeaderValue, header};
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use chrono::{DateTime, Days, Utc};
 use metrics_exporter_prometheus::PrometheusHandle;
@@ -22,6 +25,7 @@ use taut_http::{AppError, Json, Path, Probe, ServiceInfo, health, layers, metric
 use taut_model::MonitorStatus;
 use uuid::Uuid;
 
+use crate::cache::PageCache;
 use crate::page::{DayBar, Overall};
 
 /// Name reported in logs, metrics and `/health`.
@@ -32,12 +36,28 @@ const CACHE_CONTROL: &str = "public, max-age=30";
 /// Resolved incidents stay on the page this long.
 const RECENT_INCIDENT_DAYS: i32 = 7;
 
-/// Router with `/health`, `/ready`, `/metrics` and `/s/{slug}`.
-pub fn app(settings: &Settings, pool: PgPool, metrics_handle: PrometheusHandle) -> Router {
+/// What the page handler needs.
+#[derive(Clone)]
+struct Pages {
+    pool: PgPool,
+    cache: PageCache,
+}
+
+/// Router with `/health`, `/ready`, `/metrics` and `/s/{slug}`. Redis has no readiness probe:
+/// without it the pages are still served, from the database.
+pub fn app(
+    settings: &Settings,
+    pool: PgPool,
+    cache: PageCache,
+    metrics_handle: PrometheusHandle,
+) -> Router {
     let info = ServiceInfo::new(SERVICE_NAME, env!("CARGO_PKG_VERSION"), &settings.app);
     let pages = Router::new()
         .route("/s/{slug}", get(status_page))
-        .with_state(pool.clone());
+        .with_state(Pages {
+            pool: pool.clone(),
+            cache,
+        });
     let router = Router::new()
         .merge(health::router(info, vec![Probe::database(pool)]))
         .merge(metrics::router(metrics_handle))
@@ -108,19 +128,120 @@ struct MonitorRow {
 }
 
 async fn status_page(
-    State(pool): State<PgPool>,
+    State(Pages { pool, cache }): State<Pages>,
     Path(slug): Path<String>,
-) -> Result<impl IntoResponse, AppError> {
-    let page = build(&pool, &slug, Utc::now())
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let slug = slug.to_ascii_lowercase();
+    let brotli = cache::accepts_brotli(&headers);
+    if cache.is_enabled() {
+        match cache.get(&slug).await {
+            Ok(Some(page)) => {
+                count("hit");
+                return stored(page, brotli);
+            }
+            Ok(None) => count("miss"),
+            Err(err) => {
+                cache_failed(&err);
+                // Redis is struggling: answer as if the cache were off rather than also
+                // trying to write the page back.
+                return Ok(uncached(fresh(&pool, &slug).await?));
+            }
+        }
+    }
+    let page = fresh(&pool, &slug).await?;
+    if !cache.is_enabled() {
+        return Ok(uncached(page));
+    }
+
+    // Serialized and compressed once per TTL, then served as is.
+    let json = serde_json::to_vec(&page).context("serialize status page")?;
+    let compressed = cache::compress(&json).context("compress status page")?;
+    if let Err(err) = cache.put(&slug, &compressed).await {
+        cache_failed(&err);
+    }
+    Ok(if brotli {
+        encoded(compressed)
+    } else {
+        plain(json)
+    })
+}
+
+/// The page of `slug` built from the database; `404` for an unknown slug.
+async fn fresh(pool: &PgPool, slug: &str) -> Result<StatusPage, AppError> {
+    build(pool, slug, Utc::now())
         .await?
-        .ok_or_else(|| AppError::NotFound("status page not found".to_owned()))?;
-    Ok((
+        .ok_or_else(|| AppError::NotFound("status page not found".to_owned()))
+}
+
+/// A page as served without the cache: the compression layer compresses it per request.
+fn uncached(page: StatusPage) -> Response {
+    (
         [(
             header::CACHE_CONTROL,
             HeaderValue::from_static(CACHE_CONTROL),
         )],
         Json(page),
-    ))
+    )
+        .into_response()
+}
+
+/// A page from the cache: as stored for brotli clients, decompressed for the rest.
+fn stored(page: Vec<u8>, brotli: bool) -> Result<Response, AppError> {
+    if brotli {
+        return Ok(encoded(page));
+    }
+    let json = cache::decompress(&page).context("decompress cached status page")?;
+    Ok(plain(json))
+}
+
+/// Brotli bytes as they are. The compression layer leaves a response that already has a
+/// `Content-Encoding` alone, so `Vary` goes here.
+fn encoded(page: Vec<u8>) -> Response {
+    (
+        [
+            (
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json"),
+            ),
+            (header::CONTENT_ENCODING, HeaderValue::from_static("br")),
+            (header::VARY, HeaderValue::from_static("accept-encoding")),
+            (
+                header::CACHE_CONTROL,
+                HeaderValue::from_static(CACHE_CONTROL),
+            ),
+        ],
+        page,
+    )
+        .into_response()
+}
+
+/// JSON bytes; the compression layer still gzips them if the client asks.
+fn plain(json: Vec<u8>) -> Response {
+    (
+        [
+            (
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json"),
+            ),
+            (
+                header::CACHE_CONTROL,
+                HeaderValue::from_static(CACHE_CONTROL),
+            ),
+        ],
+        json,
+    )
+        .into_response()
+}
+
+/// Counts a cache lookup: `hit`, `miss` or `error`.
+fn count(result: &'static str) {
+    ::metrics::counter!("status_page_cache_total", "result" => result).increment(1);
+}
+
+fn cache_failed(err: &cache::CacheError) {
+    tracing::warn!(error = %err, "status page cache unavailable; reading the database");
+    count("error");
 }
 
 /// Assembles the page of `slug` as of `now`; `None` when no tenant has that slug. The slug is

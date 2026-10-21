@@ -176,7 +176,10 @@ services:
     build:
       context: .
       args: { SERVICE: status-bff, GIT_SHA: "${GIT_SHA:-dev}" }
-    environment: *taut-env
+    environment:
+      <<: *taut-env
+      # 0 apaga la caché de páginas: `TAUT_STATUS__CACHE_TTL_SECS=0 just loadtest-up` mide sin ella.
+      TAUT_STATUS__CACHE_TTL_SECS: ${TAUT_STATUS__CACHE_TTL_SECS:-30}
     ports:
       - "8085:8080"
     depends_on:

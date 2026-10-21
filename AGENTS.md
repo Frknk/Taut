@@ -23,7 +23,7 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `services/checker`   | `taut-checker`: consume `checks.requested`, un módulo por tipo en `src/checks/`, publica `checks.completed` |
 | `services/incidents` | `taut-incidents`: guarda `checks.completed`, máquina de estados (`state.rs`), publica `incidents.*` |
 | `services/notifier`  | `taut-notifier`: consume `incidents.*` y `notifications.test`; correo (lettre) y webhooks |
-| `services/status-bff`| `taut-status-bff`: `GET /s/{slug}`, página de estado pública (sin destinos ni causas) |
+| `services/status-bff`| `taut-status-bff`: `GET /s/{slug}`, página de estado pública (sin destinos ni causas), cacheada en Redis ya comprimida (`cache.rs`, `TAUT_STATUS__CACHE_TTL_SECS`) |
 | `Dockerfile`         | Imagen de cualquier servicio: `--build-arg SERVICE=<nombre>`                            |
 | `web/`               | SvelteKit 3 + Tailwind 4, bits-ui, bun, oxlint, oxfmt, vitest (Node y Chromium); panel en `(app)/` con `Sidebar` (selector de organización), página pública en `status/[slug]`; recetas de estilo en `src/lib/ui.ts` |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
