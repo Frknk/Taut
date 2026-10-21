@@ -15,6 +15,17 @@ export function intVar(name, fallback) {
   return value;
 }
 
+/** Reads a comma-separated list of positive integers (`RATES=10,25,50`). */
+export function intListVar(name, fallback) {
+  const raw = env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const values = raw.split(',').map((part) => Number(part.trim()));
+  if (values.some((value) => !Number.isInteger(value) || value <= 0)) {
+    throw new Error(`${name} must be positive integers separated by commas, got "${raw}"`);
+  }
+  return values;
+}
+
 /** Reads a string variable restricted to a set of values. */
 export function enumVar(name, allowed, fallback) {
   const value = env[name] || fallback;

@@ -36,7 +36,7 @@ Lo que va después de `just loadtest <escenario>` pasa a k6, por ejemplo
 | -------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `smoke`        | Que el stack, la semilla y los scripts funcionan                                                        | 1 VU, 3 iteraciones                                                                                                                | todos los checks y ninguna petición fallida                                                                                                    |
 | `api-crud`     | El panel: lista, detalle, checks, métricas e incidentes, más crear, editar, pausar y borrar             | 1 min de calentamiento a 5 it/s; 5 min a 25 it/s de lectura y 1 it/s de escritura                                                  | p95 < 300 ms (global y por ruta), p99 < 1 s, errores < 1 %, cero 429                                                                           |
-| `status-page`  | Páginas de estado públicas, sin caché                                                                   | 30 s de rampa y 5 min a 500 req/s                                                                                                  | p95 < 300 ms, p99 < 1 s, errores < 1 %                                                                                                         |
+| `status-page`  | Páginas de estado públicas, con la caché de Redis (`TAUT_STATUS__CACHE_TTL_SECS=0` la apaga)            | 30 s de rampa y 5 min a 500 req/s                                                                                                  | p95 < 300 ms, p99 < 1 s, errores < 1 %                                                                                                         |
 | `rate-limit`   | El presupuesto por tenant: 429 con `Retry-After` al agotarlo, sin afectar a otros                       | 15 req/s de panel y 2 req/s de API key sobre `lt-rl-a`, 2 req/s de control; 3 ventanas de 1 min                                    | 600 (panel) y 60 (API key) OK por ventana ±2, `Retry-After` correcto, cero 429 en el control, cero errores del limitador                       |
 | `isolation`    | Que ningún tenant llegue a datos de otro bajo carga (RLS, ADR 0010)                                     | 20 it/s de ataque (14 caminos en rueda) y 8 it/s de uso normal de las víctimas, 3 min                                              | cero fugas (aborta en la primera) y cero respuestas inesperadas                                                                                |
 | `checker-soak` | El pipeline de chequeos (scheduler, NATS, checker, incidents) con muchos monitores durante mucho tiempo | Ninguna petición a Taut: los 2 000 monitores de `just loadtest-seed soak` son la carga; k6 lee Prometheus cada 15 s durante 30 min | 99,5 % de los chequeos con lag < 10 s, cero expirados, programados ≈ esperados, completados y guardados ≥ 99 %, cola de NATS < 10 s de trabajo |
@@ -48,8 +48,8 @@ resultado y no una prueba rota:
 | Perfil       | Carga                                                                              | Qué responde                            |
 | ------------ | ---------------------------------------------------------------------------------- | --------------------------------------- |
 | `baseline`   | El de la tabla de arriba (por defecto)                                             | ¿Cumple el SLO a la carga normal?       |
-| `stress`     | Escalones de 2 min: 100, 250, 500, 750, 1 000, 1 250 y 1 500 req/s                 | ¿En qué escalón deja de cumplir el SLO? |
-| `spike`      | 1 min a 50 req/s, 1 min a 2 000, 2 min a 50                                        | ¿Se recupera sola después del pico?     |
+| `stress`     | Escalones de 2 min: 100, 250, 500, 750, 1 000, 1 250 y 1 500 req/s (`RATES`)       | ¿En qué escalón deja de cumplir el SLO? |
+| `spike`      | 1 min a 50 req/s, 1 min a 2 000, 2 min a 50 (`SPIKE_BASE`, `SPIKE_PEAK`)           | ¿Se recupera sola después del pico?     |
 | `breakpoint` | Rampa de 0 a 3 000 req/s en 15 min; se corta con p95 > 1 s o más de 5 % de errores | ¿Cuál es la tasa máxima sostenible?     |
 
 `checker-soak` necesita su propio set de datos (`just loadtest-seed soak`, que borra el base) y conviene correrlo con `caffeinate -i`.
@@ -71,6 +71,8 @@ Variables de los escenarios:
 | `SLUGS`                                                     | status-page                      | `spread`                 | `spread` reparte entre las 20 páginas; `hot` las manda todas a una                                            |
 | `ACCEPT_ENCODING`                                           | status-page                      | `gzip, deflate, br`      | Lo que acepta el navegador del visitante; vacío pide la página sin comprimir                                  |
 | `PROFILE`, `STEP_S`, `MAX_VUS`                              | status-page                      | `baseline`, 120, 2000    | Perfil de carga, duración de cada escalón de `stress` y VUs máximos de k6                                     |
+| `RATES`                                                     | status-page (`stress`)           | 100,250,…,1500           | Escalones en req/s, separados por coma; `10,25,50` para un servidor chico                                     |
+| `SPIKE_BASE`, `SPIKE_PEAK`                                  | status-page (`spike`)            | 50, 2000                 | Tasa normal antes y después del pico, y la del pico                                                           |
 | `ATTACK_RATE`, `VICTIM_RATE`, `SELFTEST`                    | isolation                        | 20, 8, —                 | Iteraciones por segundo de atacantes y víctimas; `SELFTEST=1` para el autotest                                |
 | `LT_SOAK_TENANTS`, `LT_SOAK_MONITORS`, `LT_SOAK_INTERVAL_S` | checker-soak y su semilla        | 200, 10, 30              | Tamaño del set del soak (tenants × monitores, cada cuántos segundos)                                          |
 | `WARMUP`                                                    | checker-soak                     | `3m`                     | Espera antes de medir: un intervalo para repartir los monitores y una ventana completa de `rate()`            |
@@ -109,7 +111,9 @@ en cada iteración sería medir auth. Nunca mandes una contraseña errónea: aut
 ## Medir bien
 
 - Imágenes release (`just loadtest-up`), nunca `just dev` ni `just workers`, que compilan en debug.
-- Configuración por defecto (pool de 10 conexiones, logs `info`, sin caché). Si una prueba
+- Configuración por defecto (pool de 10 conexiones, logs `info`). La caché de la página de
+  estado viene activa (30 s); para la línea base sin ella, `TAUT_STATUS__CACHE_TTL_SECS=0 just
+  loadtest-up` (vuelve a activarla un `just loadtest-up` sin la variable). Si una prueba
   encuentra un cuello de botella, se reporta con su evidencia y se arregla en otro PR: la línea
   base tiene que poder compararse con la de la semana 13.
 - Anota la máquina y los recursos de la VM de OrbStack en el reporte: k6 y Taut comparten CPU.
@@ -145,5 +149,6 @@ crear una serie de Prometheus por monitor. `just loadtest-lint` revisa los scrip
   `tcp_tw_reuse` y el rango de puertos ampliado, y agregar un umbral sobre los fallos de los
   monitores `lt-k-*` ([reporte](../docs/loadtest/2026-10-20-checker-puertos.md)).
 - La parte del HPA del soak (que el checker escale) espera a Kubernetes.
-- Semana 13: repetir `status-page` con la caché de Redis y comparar con la línea base.
+- Semana 13: repetir `status-page` en el Mac con la caché y sin ella (`TAUT_STATUS__CACHE_TTL_SECS=0`),
+  a 500 y a 900 req/s. En la VPS ya se comparó ([reporte](../docs/loadtest/2026-10-21-vps-cache.md)).
 - Job nightly contra staging (falla si p95 > 300 ms) cuando exista staging.
