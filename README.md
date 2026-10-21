@@ -109,7 +109,7 @@ keys, `/v1/tenants` y el tenant les responden `401`/`403`. Revocada, responde `4
 | `POST /v1/alert-channels/{id}/test`   | Envía un mensaje de prueba por el canal                    |
 | `POST /v1/alert-channels/{id}/rotate-secret` | Nuevo secreto de firma de un `webhook` (owner + reautenticación); el anterior deja de valer |
 | `GET/POST /h/{token}` · `/h/{token}/fail` | Ping público de un heartbeat (sin cabecera de tenant) |
-| `GET /s/{slug}` (status-bff, :8085)   | JSON público de la página de estado; sin sesión            |
+| `GET /s/{slug}` (status-bff, :8085)   | JSON público de la página de estado; sin sesión, 30 s en caché |
 
 ```bash
 curl -s localhost:8086/v1/auth/register -H 'content-type: application/json' \

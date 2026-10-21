@@ -8,6 +8,7 @@ use http_body_util::BodyExt;
 use serde_json::Value;
 use sqlx::PgPool;
 use taut_config::Settings;
+use taut_status_bff::cache::PageCache;
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -58,7 +59,13 @@ async fn get(pool: PgPool, path: &str) -> (StatusCode, Option<String>, Value) {
     let settings = Arc::new(Settings::default());
     let telemetry = taut_telemetry::init(taut_status_bff::SERVICE_NAME, &settings.telemetry)
         .expect("telemetry");
-    let app = taut_status_bff::app(&settings, pool, telemetry.metrics().clone());
+    // The cache has its own tests (tests/cache.rs); here every request reads the database.
+    let app = taut_status_bff::app(
+        &settings,
+        pool,
+        PageCache::disabled(),
+        telemetry.metrics().clone(),
+    );
     let response = app
         .oneshot(Request::get(path).body(Body::empty()).unwrap())
         .await

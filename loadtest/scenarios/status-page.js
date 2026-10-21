@@ -1,12 +1,14 @@
-// status-page: public status pages read by many visitors. It is the baseline of week 6 (no
-// cache) and week 13 reruns it unchanged with the Redis cache: keep the profile and the mix the
-// same, or the comparison means nothing. k6 has no HTTP cache, so Cache-Control does not apply:
-// every request reaches status-bff.
+// status-page: public status pages read by many visitors. Week 6 measured it without a cache;
+// status-bff now keeps each page in Redis for 30 s, so the baseline without it runs against
+// `TAUT_STATUS__CACHE_TTL_SECS=0 just loadtest-up` and the comparison against the default. Keep
+// the profile and the mix the same, or the comparison means nothing. k6 has no HTTP cache, so
+// Cache-Control does not apply: every request reaches status-bff.
 //
 //   just loadtest status-page                      500 req/s over the 20 seeded pages
 //   just loadtest status-page -e SLUGS=hot         everyone on one page (an incident going viral)
 //   just loadtest status-page -e RATE=1000
 //   just loadtest status-page -e PROFILE=stress     steps from 100 to 1 500 req/s, 2 min each
+//     (-e RATES=10,25,50 -e STEP_S=60 for a small server)
 //   just loadtest status-page -e PROFILE=spike      50 req/s, a minute at 2 000, back to 50
 //     (-e SPIKE_BASE=20 -e SPIKE_PEAK=200 for a small server)
 //   just loadtest status-page -e PROFILE=breakpoint 0 to 3 000 req/s in 15 min, stops when it breaks
@@ -25,6 +27,7 @@ import {
   STATUS_TENANTS,
   STATUS_URL,
   enumVar,
+  intListVar,
   intVar,
   statusSlug,
 } from '../lib/config.js';
@@ -42,7 +45,7 @@ const PARSE_EVERY = intVar('PARSE_EVERY', 100);
 const PROFILE = enumVar('PROFILE', ['baseline', 'stress', 'spike', 'breakpoint'], 'baseline');
 
 /** Steps of the stress profile, in requests per second; the probe of 19-10 broke near 950. */
-const STRESS_RATES = [100, 250, 500, 750, 1000, 1250, 1500];
+const STRESS_RATES = intListVar('RATES', [100, 250, 500, 750, 1000, 1250, 1500]);
 const STRESS_STEP_S = intVar('STEP_S', 120);
 /** VUs k6 may use: at ~1 s per response the open model needs about one VU per req/s. */
 const MAX_VUS = intVar('MAX_VUS', 2000);
