@@ -84,7 +84,8 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   incidentes); una ruta nueva queda cerrada a ellas hasta que se agregue ahí. Si el handler
   necesita al usuario, `actor.user_id()?` (`403` para una clave), nunca un valor por defecto.
 - **Identidad** ([ADR 0008](docs/adr/0008-auth-service-eddsa-memberships.md)): contraseñas solo con
-  `taut_auth::password` (Argon2id en `spawn_blocking`); secretos de un solo uso con
+  `taut_auth::password` (Argon2id en `spawn_blocking`, con `TAUT_AUTH__MAX_CONCURRENT_HASHES` a la vez:
+  cada hash usa 19 MB); secretos de un solo uso con
   `taut_identity::random` y guardados como SHA-256; nunca registrar tokens, cookies, códigos ni
   correos completos en los logs. Los correos de cuenta son eventos `AccountEmail` que envía el
   notifier. Segundo factor solo con `taut_auth::mfa`: el secreto TOTP se guarda cifrado
