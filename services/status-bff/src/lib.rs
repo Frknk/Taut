@@ -4,14 +4,16 @@
 //! the overall state, every monitor with its current status and 90 daily uptime bars, and
 //! the open incidents plus the ones resolved in the last week. It never exposes targets,
 //! IPs or failure causes (a cause such as `dns: could not resolve db.internal` would leak a
-//! hostname). Pages are cached in Redis for 30 seconds, already compressed ([`cache`]), and
-//! browsers may keep them for as long (`Cache-Control: max-age=30`).
+//! hostname). Pages are cached in Redis for 30 seconds, already compressed, with the last copy
+//! of each in memory to serve while it is rebuilt ([`cache`]); browsers may keep them for as
+//! long (`Cache-Control: max-age=30`).
 
 pub mod cache;
 pub mod page;
 
 use anyhow::Context;
 use axum::Router;
+use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, header};
 use axum::response::{IntoResponse, Response};
@@ -134,37 +136,84 @@ async fn status_page(
 ) -> Result<Response, AppError> {
     let slug = slug.to_ascii_lowercase();
     let brotli = cache::accepts_brotli(&headers);
-    if cache.is_enabled() {
-        match cache.get(&slug).await {
-            Ok(Some(page)) => {
-                count("hit");
-                return stored(page, brotli);
-            }
-            Ok(None) => count("miss"),
-            Err(err) => {
-                cache_failed(&err);
-                // Redis is struggling: answer as if the cache were off rather than also
-                // trying to write the page back.
-                return Ok(uncached(fresh(&pool, &slug).await?));
-            }
-        }
-    }
-    let page = fresh(&pool, &slug).await?;
     if !cache.is_enabled() {
-        return Ok(uncached(page));
+        served("database");
+        return Ok(uncached(fresh(&pool, &slug).await?));
     }
 
+    match cache.get(&slug).await {
+        Ok(Some(page)) => {
+            count("hit");
+            served("redis");
+            let page = Bytes::from(page);
+            if cache
+                .recall(&slug)
+                .is_none_or(|kept| kept.age >= cache.ttl())
+            {
+                cache.remember(&slug, page.clone());
+            }
+            return stored(&page, brotli);
+        }
+        Ok(None) => count("miss"),
+        Err(err) => cache_failed(&err),
+    }
+
+    // Redis has no page for us: the copy in memory answers while it is not too old.
+    if let Some(kept) = cache.recall(&slug) {
+        if kept.age < cache.ttl() {
+            served("memory");
+            return stored(&kept.page, brotli);
+        }
+        if kept.age < cache::MAX_STALE {
+            served("stale");
+            rebuild_in_background(&pool, &cache, &slug);
+            return stored(&kept.page, brotli);
+        }
+    }
+
+    // No usable copy: one request rebuilds the page and the others wait for it.
+    let flight = cache.flight(&slug);
+    let _rebuilding = flight.lock().await;
+    if let Some(kept) = cache.recall(&slug).filter(|kept| kept.age < cache.ttl()) {
+        served("memory");
+        return stored(&kept.page, brotli);
+    }
+    served("database");
+    let page = rebuild(&pool, &cache, &slug).await?;
+    stored(&page, brotli)
+}
+
+/// Builds the page of `slug`, compresses it off the async workers and stores it in Redis and in
+/// memory. The caller holds the flight of `slug`.
+async fn rebuild(pool: &PgPool, cache: &PageCache, slug: &str) -> Result<Bytes, AppError> {
+    let page = fresh(pool, slug).await?;
     // Serialized and compressed once per TTL, then served as is.
-    let json = serde_json::to_vec(&page).context("serialize status page")?;
-    let compressed = cache::compress(&json).context("compress status page")?;
-    if let Err(err) = cache.put(&slug, &compressed).await {
+    let compressed = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
+        let json = serde_json::to_vec(&page).context("serialize status page")?;
+        cache::compress(&json).context("compress status page")
+    })
+    .await
+    .context("compress status page")??;
+    if let Err(err) = cache.put(slug, &compressed).await {
         cache_failed(&err);
     }
-    Ok(if brotli {
-        encoded(compressed)
-    } else {
-        plain(json)
-    })
+    let compressed = Bytes::from(compressed);
+    cache.remember(slug, compressed.clone());
+    Ok(compressed)
+}
+
+/// Rebuilds the page of `slug` in a task of its own, unless one is already doing it.
+fn rebuild_in_background(pool: &PgPool, cache: &PageCache, slug: &str) {
+    let Ok(rebuilding) = cache.flight(slug).try_lock_owned() else {
+        return;
+    };
+    let (pool, cache, slug) = (pool.clone(), cache.clone(), slug.to_owned());
+    tokio::spawn(async move {
+        if let Err(err) = rebuild(&pool, &cache, &slug).await {
+            tracing::warn!(error = %err, "status page rebuild failed; serving the old copy");
+        }
+        drop(rebuilding);
+    });
 }
 
 /// The page of `slug` built from the database; `404` for an unknown slug.
@@ -186,18 +235,18 @@ fn uncached(page: StatusPage) -> Response {
         .into_response()
 }
 
-/// A page from the cache: as stored for brotli clients, decompressed for the rest.
-fn stored(page: Vec<u8>, brotli: bool) -> Result<Response, AppError> {
+/// A stored page: as is for brotli clients, decompressed for the rest.
+fn stored(page: &Bytes, brotli: bool) -> Result<Response, AppError> {
     if brotli {
-        return Ok(encoded(page));
+        return Ok(encoded(page.clone()));
     }
-    let json = cache::decompress(&page).context("decompress cached status page")?;
+    let json = cache::decompress(page).context("decompress cached status page")?;
     Ok(plain(json))
 }
 
 /// Brotli bytes as they are. The compression layer leaves a response that already has a
 /// `Content-Encoding` alone, so `Vary` goes here.
-fn encoded(page: Vec<u8>) -> Response {
+fn encoded(page: Bytes) -> Response {
     (
         [
             (
@@ -234,13 +283,19 @@ fn plain(json: Vec<u8>) -> Response {
         .into_response()
 }
 
-/// Counts a cache lookup: `hit`, `miss` or `error`.
+/// Counts a Redis lookup: `hit`, `miss` or `error`.
 fn count(result: &'static str) {
     ::metrics::counter!("status_page_cache_total", "result" => result).increment(1);
 }
 
+/// Counts where a page came from: `redis`, `memory`, `stale` (an old copy served while it is
+/// rebuilt) or `database`.
+fn served(source: &'static str) {
+    ::metrics::counter!("status_page_served_total", "source" => source).increment(1);
+}
+
 fn cache_failed(err: &cache::CacheError) {
-    tracing::warn!(error = %err, "status page cache unavailable; reading the database");
+    tracing::warn!(error = %err, "status page cache unavailable");
     count("error");
 }
 
