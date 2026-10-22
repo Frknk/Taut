@@ -1,6 +1,7 @@
 //! Redis cache of the status page, against the PostgreSQL and Redis of `just up`.
 
 use std::io::Read;
+use std::time::Duration;
 
 use axum::Router;
 use axum::body::{Body, Bytes};
@@ -159,6 +160,7 @@ async fn a_cached_page_is_served_until_it_expires(pool: PgPool) {
     assert_eq!(second.body, first.body);
     assert_eq!(second.monitor_name(), "Web");
 
+    // Gone from Redis but younger than the TTL in memory: the copy answers, not the database.
     redis::cmd("DEL")
         .arg(cache::key(&slug))
         .query_async::<()>(&mut redis().await)
@@ -168,7 +170,63 @@ async fn a_cached_page_is_served_until_it_expires(pool: PgPool) {
         get(&app, &format!("/s/{slug}"), Some(BROWSER))
             .await
             .monitor_name(),
-        "Api"
+        "Web"
+    );
+}
+
+/// Requests `path` until the page names `monitor`, for up to 5 s (a background rebuild).
+async fn eventually_named(app: &Router, path: &str, monitor: &str) {
+    for _ in 0..50 {
+        if get(app, path, Some(BROWSER)).await.monitor_name() == monitor {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("{path} never showed {monitor}");
+}
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn an_expired_page_is_served_old_while_it_is_rebuilt(pool: PgPool) {
+    let slug = unique_slug();
+    let web = page_with_monitor(&pool, &slug, "Web").await;
+    let app = app(pool.clone(), PageCache::lazy(&redis_url(), 1).unwrap());
+    let path = format!("/s/{slug}");
+
+    assert_eq!(get(&app, &path, Some(BROWSER)).await.monitor_name(), "Web");
+    rename(&pool, web, "Api").await;
+    tokio::time::sleep(Duration::from_millis(1_200)).await;
+
+    // Expired in Redis and in memory: the old page answers at once and a task rebuilds it.
+    let stale = get(&app, &path, Some(BROWSER)).await;
+    assert_eq!(stale.status, StatusCode::OK);
+    assert_eq!(stale.monitor_name(), "Web");
+    eventually_named(&app, &path, "Api").await;
+}
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn concurrent_requests_share_one_rebuild(pool: PgPool) {
+    let slug = unique_slug();
+    page_with_monitor(&pool, &slug, "Web").await;
+    let app = app(pool, PageCache::lazy(&redis_url(), 30).unwrap());
+    let path = format!("/s/{slug}");
+
+    let tasks: Vec<_> = (0..20)
+        .map(|_| {
+            let (app, path) = (app.clone(), path.clone());
+            tokio::spawn(async move { get(&app, &path, Some(BROWSER)).await })
+        })
+        .collect();
+    let mut pages = Vec::new();
+    for task in tasks {
+        pages.push(task.await.unwrap());
+    }
+    // One build: every page carries the same generated_at.
+    let first = pages[0].json()["generated_at"].clone();
+    assert!(pages.iter().all(|page| page.status == StatusCode::OK));
+    assert!(
+        pages
+            .iter()
+            .all(|page| page.json()["generated_at"] == first)
     );
 }
 
@@ -225,7 +283,24 @@ async fn without_redis_the_page_comes_from_the_database(pool: PgPool) {
 
     assert_eq!(get(&app, &path, None).await.monitor_name(), "Web");
     rename(&pool, web, "Api").await;
+    // Within the TTL the copy in memory answers, as Redis would have.
     let page = get(&app, &path, None).await;
     assert_eq!(page.status, StatusCode::OK);
-    assert_eq!(page.monitor_name(), "Api");
+    assert_eq!(page.monitor_name(), "Web");
+}
+
+#[sqlx::test(migrator = "taut_db::MIGRATOR")]
+async fn without_redis_an_old_copy_is_rebuilt_from_the_database(pool: PgPool) {
+    let slug = unique_slug();
+    let web = page_with_monitor(&pool, &slug, "Web").await;
+    let app = app(
+        pool.clone(),
+        PageCache::lazy("redis://127.0.0.1:1", 1).unwrap(),
+    );
+    let path = format!("/s/{slug}");
+
+    assert_eq!(get(&app, &path, Some(BROWSER)).await.monitor_name(), "Web");
+    rename(&pool, web, "Api").await;
+    tokio::time::sleep(Duration::from_millis(1_200)).await;
+    eventually_named(&app, &path, "Api").await;
 }

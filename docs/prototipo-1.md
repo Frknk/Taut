@@ -283,6 +283,10 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   de falla: una causa como `dns: could not resolve db.internal` revelaría un host interno; un
   test lo verifica. Responde con `Cache-Control: public, max-age=30`. Desde la semana 13 guarda
   cada página 30 s en Redis, ya comprimida con brotli (`TAUT_STATUS__CACHE_TTL_SECS`, 0 la apaga).
+  Cada proceso guarda además la última copia de cada página: si Redis no la tiene o no responde,
+  sirve esa copia (vencida, hasta 5 min) mientras una sola tarea la reconstruye, y solo sin copia
+  una petición espera, a una única reconstrucción por página. Así una página que vence bajo carga
+  se arma una vez y no una por petición; `status_page_served_total{source}` cuenta de dónde salió.
 - Colores de las barras por disponibilidad del día: ≥ 99,9 % bien, ≥ 99 % aviso, ≥ 95 % serio,
   menos crítico y gris sin datos, con leyenda de umbrales, tooltip por día (ratón o flechas) y
   una lista de los días con fallas como alternativa sin color. Cada monitor muestra su estado
