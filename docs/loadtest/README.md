@@ -24,3 +24,4 @@ pruebas: [loadtest/README.md](../../loadtest/README.md). Decisiones:
 | 2026-10-21 | mixed en la VPS (todo a la vez), con Caddy de 128 y 192 MB  | `a4328e2` | Techo en 1× (1 000 pestañas, 20 en el panel); a 2× cede Caddy              | [reporte](2026-10-21-vps-mixta.md)           |
 | 2026-10-21 | mixed en la VPS con la copia en memoria de status-bff       | `652e39d` | Cero errores hasta 2× (antes 11,7 % y 30 %); p95 sobre el SLO por la CPU   | [reporte](2026-10-21-vps-mixta-copia.md)     |
 | 2026-10-22 | memoria de auth: ráfagas de logins y mixed con 6 logins/min | `f6fd044` | auth aguanta 16 logins a la vez sin OOM y vuelve a 3–5 MB; a 2× cede Caddy | [reporte](2026-10-22-auth-memoria.md)        |
+| 2026-10-22 | demo del 20-10 repetida en la VPS (sostenida y pico)        | `1331a21` | Pasa: sostenida a 50 req/s de 28,5 % de errores y p95 8,9 s a 0 y 166 ms   | [reporte](2026-10-22-vps-comparacion.md)     |
