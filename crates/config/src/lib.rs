@@ -178,6 +178,9 @@ pub struct AuthSettings {
     /// Key that encrypts the TOTP secrets at rest (AES-256-GCM): 32 bytes in base64. Empty:
     /// see [`AuthSettings::totp_key`]. `openssl rand -base64 32` makes one.
     pub totp_key: String,
+    /// Argon2id hashes computed at the same time; the rest wait their turn. Each one takes 19 MB,
+    /// so this bounds the memory of logins and registrations to this many times 19 MB.
+    pub max_concurrent_hashes: usize,
 }
 
 /// Error of a malformed `TAUT_AUTH__TOTP_KEY`.
@@ -293,6 +296,7 @@ impl Default for Settings {
                 access_ttl_secs: 15 * 60,
                 refresh_ttl_secs: 7 * 24 * 3600,
                 totp_key: String::new(),
+                max_concurrent_hashes: 2,
             },
         }
     }

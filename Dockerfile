@@ -38,6 +38,10 @@ ENV TAUT_APP__ENV=prod \
     TAUT_APP__COMMIT=${GIT_SHA} \
     TAUT_HTTP__ADDR=0.0.0.0:8080 \
     TAUT_TELEMETRY__LOG_FORMAT=json
+# glibc sube su umbral de mmap cada vez que libera un bloque grande y desde ahí los guarda en el
+# heap sin devolverlos: auth retenía 19 MB por cada hash Argon2id que coincidió con otro (60 de
+# 64 MB en la VPS). Con el umbral fijo, todo bloque de más de 128 KB vuelve al sistema al liberarse.
+ENV MALLOC_MMAP_THRESHOLD_=131072
 USER taut
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/taut-service"]
