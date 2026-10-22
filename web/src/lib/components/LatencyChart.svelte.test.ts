@@ -26,4 +26,21 @@ describe('LatencyChart table toggle', () => {
     await userEvent.click(toggle);
     await expect.element(page.getByRole('table')).not.toBeInTheDocument();
   });
+
+  it('lets the keyboard reach the table once it scrolls', async () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      t: new Date(from + i * 900_000).toISOString(),
+      checks: 30,
+      failures: 0,
+      avg_ms: 40,
+      p95_ms: 80,
+    }));
+    await render(LatencyChart, { points: many, bucketS: 900, from, to: from + 60 * 900_000 });
+    await userEvent.click(page.getByRole('button', { name: 'Ver tabla' }));
+    const region = page.getByRole('region', { name: 'Latencia por intervalo, en tabla' });
+    await expect.element(region).toHaveAttribute('tabindex', '0');
+    await userEvent.keyboard('{Tab}');
+    await expect.element(region).toHaveFocus();
+    await expectAccessible();
+  });
 });

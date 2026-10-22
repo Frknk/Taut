@@ -1,7 +1,15 @@
 <script lang="ts">
   import { Toggle } from 'bits-ui';
   import TableIcon from 'phosphor-svelte/lib/TableIcon';
-  import { formatLatency, nearestIndex, niceCeil, scale, segments, ticks } from '#lib/charts.js';
+  import {
+    formatLatency,
+    nearestIndex,
+    niceCeil,
+    scale,
+    segments,
+    tickCount,
+    ticks,
+  } from '#lib/charts.js';
   import { appear } from '#lib/motion.js';
   import { buttonClass, focusRing } from '#lib/ui.js';
   import type { MetricsPoint } from '#lib/types.js';
@@ -35,7 +43,9 @@
   const x = $derived(scale(from, to, MARGIN.left, plotRight));
   const y = $derived(scale(0, maxValue, plotBottom, MARGIN.top));
   const times = $derived(points.map((p) => Date.parse(p.t) + (bucketS * 1000) / 2));
-  const yTicks = $derived(ticks(maxValue));
+  const yTicks = $derived(ticks(maxValue, tickCount(maxValue)));
+  /** Steps under a millisecond (an axis up to 1 or 2 ms) need a decimal to stay apart. */
+  const tickDecimals = $derived(maxValue / tickCount(maxValue) < 1 ? 1 : 0);
   const xTicks = $derived(ticks(to - from, 4).map((offset) => from + offset));
   const shortRange = $derived(to - from <= 2 * 86_400_000);
 
@@ -149,7 +159,14 @@
   </div>
 
   {#if showTable}
-    <div class="mt-3 max-h-72 overflow-auto" in:appear>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex: the region scrolls, so the keyboard has to reach it. -->
+    <div
+      role="region"
+      aria-label="Latencia por intervalo, en tabla"
+      tabindex="0"
+      class={['mt-3 max-h-72 overflow-auto rounded-sm', focusRing]}
+      in:appear
+    >
       <table class="w-full text-left tabular-nums">
         <thead class="sticky top-0 border-b border-hairline bg-base text-subtle">
           <tr>
@@ -207,7 +224,7 @@
             dominant-baseline="middle"
             fill="var(--viz-muted)"
             font-size="12"
-            class="tabular-nums">{formatLatency(tick)}</text
+            class="tabular-nums">{formatLatency(tick, tickDecimals)}</text
           >
         {/each}
         {#each xTicks as tick (tick)}
@@ -302,7 +319,7 @@
           class="pointer-events-none absolute top-2 w-48 rounded-md bg-base px-3 py-2 shadow-md ring ring-line"
           style:left="{tooltipLeft}px"
         >
-          <p style:color="var(--viz-muted)">{formatBucket(active)}</p>
+          <p style:color="var(--viz-ink-secondary)">{formatBucket(active)}</p>
           {#each SERIES as series (series.key)}
             <p class="mt-1 flex items-center gap-2">
               <span class="inline-block h-0.5 w-3 rounded-full" style:background={series.color}
