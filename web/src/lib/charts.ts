@@ -15,6 +15,17 @@ export function ticks(max: number, count = 4): number[] {
   return Array.from({ length: count + 1 }, (_, index) => (max * index) / count);
 }
 
+/**
+ * How many intervals split an axis that ends at a nice maximum so every tick lands on a round
+ * value: 4 for 2 × 10^n (steps of 0,5, 5, 50…) and 5 for 1 and 5 × 10^n (steps of 2, 20… and
+ * 1, 10…). With four intervals an axis up to 10 ms would read 3, 5, 8, 10.
+ */
+export function tickCount(max: number): number {
+  if (!(max > 0)) return 4;
+  const mantissa = max / 10 ** Math.floor(Math.log10(max) + 1e-9);
+  return Math.round(mantissa) === 2 ? 4 : 5;
+}
+
 /** Linear map from `[d0, d1]` to `[r0, r1]`. */
 export function scale(d0: number, d1: number, r0: number, r1: number): (value: number) => number {
   const span = d1 - d0 || 1;
@@ -88,9 +99,12 @@ export function formatPercent(value: number | null): string {
   return `${value.toLocaleString('es', { maximumFractionDigits: 2 })} %`;
 }
 
-/** `123 ms` or `1,2 s`, or a dash without data. */
-export function formatLatency(ms: number | null): string {
+/**
+ * `123 ms` or `1,2 s`, or a dash without data. `decimals` is for axis ticks under a millisecond
+ * apart (an axis up to 1 or 2 ms), which rounded to whole milliseconds would all read the same.
+ */
+export function formatLatency(ms: number | null, decimals = 0): string {
   if (ms === null) return '—';
-  if (ms < 1000) return `${Math.round(ms)} ms`;
+  if (ms < 1000) return `${ms.toLocaleString('es', { maximumFractionDigits: decimals })} ms`;
   return `${(ms / 1000).toLocaleString('es', { maximumFractionDigits: 1 })} s`;
 }

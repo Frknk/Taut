@@ -7,6 +7,7 @@ import {
   niceCeil,
   scale,
   segments,
+  tickCount,
   ticks,
   uptimeLevel,
 } from './charts';
@@ -19,6 +20,17 @@ describe('niceCeil and ticks', () => {
     expect(niceCeil(420)).toBe(500);
     expect(niceCeil(1000)).toBe(1000);
     expect(ticks(200)).toEqual([0, 50, 100, 150, 200]);
+  });
+
+  it('splits a nice maximum so every tick lands on a round value', () => {
+    expect(tickCount(1)).toBe(5);
+    expect(tickCount(2)).toBe(4);
+    expect(tickCount(5)).toBe(5);
+    expect(tickCount(50)).toBe(5);
+    expect(tickCount(200)).toBe(4);
+    expect(tickCount(1000)).toBe(5);
+    expect(ticks(10, tickCount(10))).toEqual([0, 2, 4, 6, 8, 10]);
+    expect(ticks(500, tickCount(500))).toEqual([0, 100, 200, 300, 400, 500]);
   });
 });
 
@@ -73,5 +85,14 @@ describe('uptime levels and formats', () => {
     expect(formatPercent(null)).toBe('—');
     expect(formatLatency(123.4)).toBe('123 ms');
     expect(formatLatency(1234)).toBe('1,2 s');
+    expect(formatLatency(null)).toBe('—');
+  });
+
+  it('keeps sub-millisecond axis ticks apart with a decimal', () => {
+    expect(formatLatency(0.5)).toBe('1 ms');
+    expect(formatLatency(0.5, 1)).toBe('0,5 ms');
+    const labels = ticks(2, tickCount(2)).map((tick) => formatLatency(tick, 1));
+    expect(labels).toEqual(['0 ms', '0,5 ms', '1 ms', '1,5 ms', '2 ms']);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });

@@ -107,9 +107,9 @@
             <div class="mt-2">
               <UptimeBars days={monitor.days} label={monitor.name} />
             </div>
-            <div class="mt-1 flex justify-between text-xs" style:color="var(--viz-muted)">
+            <div class="mt-1 flex justify-between text-xs text-subtle">
               <span>hace 90 días</span>
-              <span class="text-subtle tabular-nums">
+              <span class="tabular-nums">
                 {formatPercent(monitor.uptime_90d)} de disponibilidad
               </span>
               <span>hoy</span>
