@@ -2,7 +2,9 @@
 //!
 //! Every error becomes a JSON body `{"error": {"code", "message", "trace_id"}}` with the
 //! matching status code. Internal errors are logged with their cause and answered with a
-//! generic message, so nothing about the implementation leaks to clients.
+//! generic message, so nothing about the implementation leaks to clients. Passing overload (a
+//! saturated database pool, a dependency that is down) is a `503` with `Retry-After`, not a
+//! `500`: clients may try again, and the logs tell saturation apart from bugs.
 
 use axum::Json;
 use axum::extract::rejection::{JsonRejection, PathRejection, QueryRejection};
@@ -13,6 +15,10 @@ use serde::Serialize;
 use taut_db::DbError;
 
 use crate::layers::current_trace_id;
+
+/// What a `503` asks clients to wait before retrying: enough for a saturated pool to drain a
+/// few requests, short enough that a panel poll barely notices.
+const UNAVAILABLE_RETRY_AFTER_SECS: u64 = 2;
 
 /// Error returned by handlers.
 #[derive(Debug, thiserror::Error)]
@@ -47,7 +53,8 @@ pub enum AppError {
     /// The request conflicts with existing data, for example a duplicate unique value.
     #[error("{0}")]
     Conflict(String),
-    /// A dependency (database, bus, cache) is unavailable.
+    /// A dependency (database, bus, cache) is unavailable or saturated; `Retry-After` asks the
+    /// client to come back in a moment.
     #[error("{0}")]
     Unavailable(String),
     /// Unexpected failure. The cause is logged, never sent to the client.
@@ -88,7 +95,13 @@ impl AppError {
 
 impl From<sqlx::Error> for AppError {
     fn from(err: sqlx::Error) -> Self {
-        Self::Internal(err.into())
+        match err {
+            // Every connection is busy (or the pool is shutting down): overload, not a bug.
+            sqlx::Error::PoolTimedOut | sqlx::Error::PoolClosed => {
+                Self::Unavailable("database busy, retry shortly".to_owned())
+            }
+            other => Self::Internal(other.into()),
+        }
     }
 }
 
@@ -137,8 +150,10 @@ struct ErrorDetail {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status = self.status();
-        if status.is_server_error() {
-            tracing::error!(error = ?self, "request failed");
+        match &self {
+            Self::Internal(_) => tracing::error!(error = ?self, "request failed"),
+            Self::Unavailable(_) => tracing::warn!(error = %self, "dependency unavailable"),
+            _ => {}
         }
         let body = ErrorBody {
             error: ErrorDetail {
@@ -148,11 +163,71 @@ impl IntoResponse for AppError {
             },
         };
         let mut response = (status, Json(body)).into_response();
-        if let Self::TooManyRequests { retry_after_secs } = self {
+        let retry_after_secs = match self {
+            Self::TooManyRequests { retry_after_secs } => Some(retry_after_secs),
+            Self::Unavailable(_) => Some(UNAVAILABLE_RETRY_AFTER_SECS),
+            _ => None,
+        };
+        if let Some(secs) = retry_after_secs {
             response
                 .headers_mut()
-                .insert(RETRY_AFTER, HeaderValue::from(retry_after_secs));
+                .insert(RETRY_AFTER, HeaderValue::from(secs));
         }
         response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use http_body_util::BodyExt;
+
+    use super::*;
+
+    async fn answer(err: AppError) -> (StatusCode, Option<String>, String) {
+        let response = err.into_response();
+        let status = response.status();
+        let retry_after = response
+            .headers()
+            .get(RETRY_AFTER)
+            .map(|value| value.to_str().unwrap().to_owned());
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            retry_after,
+            String::from_utf8(body.to_vec()).unwrap(),
+        )
+    }
+
+    #[tokio::test]
+    async fn a_saturated_pool_is_a_503_that_asks_to_retry() {
+        for err in [sqlx::Error::PoolTimedOut, sqlx::Error::PoolClosed] {
+            let (status, retry_after, body) = answer(err.into()).await;
+            assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+            assert_eq!(retry_after.as_deref(), Some("2"));
+            assert!(body.contains(r#""code":"unavailable""#), "{body}");
+            assert!(
+                !body.contains("pool"),
+                "nothing about the pool leaks: {body}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn other_database_errors_stay_internal_and_generic() {
+        let (status, retry_after, body) = answer(sqlx::Error::RowNotFound.into()).await;
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(retry_after, None);
+        assert!(body.contains(r#""code":"internal""#), "{body}");
+        assert!(body.contains(r#""message":"internal error""#), "{body}");
+    }
+
+    #[tokio::test]
+    async fn too_many_requests_keeps_its_own_retry_after() {
+        let too_many = AppError::TooManyRequests {
+            retry_after_secs: 17,
+        };
+        let (status, retry_after, _) = answer(too_many).await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(retry_after.as_deref(), Some("17"));
     }
 }
