@@ -21,3 +21,4 @@ pruebas: [loadtest/README.md](../../loadtest/README.md). Decisiones:
 | 2026-10-20 | api-crud con el uptime de `uptime_daily` (antes y después) | `acd1902` | Pasa: `/metrics` p50 41 → 21 ms, p95 global 47 → 26 ms                    | [reporte](2026-10-20-api-crud-metrics.md)    |
 | 2026-10-20 | checker-soak: sondeo de 30 000 monitores repetido          | `2d82966` | Techo del 19-10: puertos agotados; 1 000/s con 24 % de núcleo             | [reporte](2026-10-20-checker-puertos.md)     |
 | 2026-10-21 | status-page en la VPS, con y sin caché de Redis            | `31bbaf3` | Pasa con caché: 50 req/s sin errores (70 % sin ella); SLO hasta 200 req/s | [reporte](2026-10-21-vps-cache.md)           |
+| 2026-10-21 | mixed en la VPS (todo a la vez), con Caddy de 128 y 192 MB | `a4328e2` | Techo en 1× (1 000 pestañas, 20 en el panel); a 2× cede Caddy             | [reporte](2026-10-21-vps-mixta.md)           |
