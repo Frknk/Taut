@@ -25,7 +25,7 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `services/notifier`  | `taut-notifier`: consume `incidents.*` y `notifications.test`; correo (lettre) y webhooks |
 | `services/status-bff`| `taut-status-bff`: `GET /s/{slug}`, página de estado pública (sin destinos ni causas), cacheada en Redis ya comprimida, con la última copia en memoria que se sirve mientras una sola tarea la reconstruye (`cache.rs`, `TAUT_STATUS__CACHE_TTL_SECS`) |
 | `Dockerfile`         | Imagen de cualquier servicio: `--build-arg SERVICE=<nombre>`                            |
-| `web/`               | SvelteKit 3 + Tailwind 4, bits-ui, bun, oxlint, oxfmt, vitest (Node y Chromium); panel en `(app)/` con `Sidebar` (selector de organización), página pública en `status/[slug]`; recetas de estilo en `src/lib/ui.ts` |
+| `web/`               | SvelteKit 3 + Tailwind 4, bits-ui, bun, oxlint, oxfmt, vitest (Node y Chromium); `/` es la landing (`Landing.svelte`) para visitantes y el selector de organización con sesión; panel en `(app)/` con `Sidebar`, página pública en `status/[slug]`; recetas de estilo en `src/lib/ui.ts` |
 | `migrations/`        | SQL de sqlx, una base de datos compartida en el MVP                                      |
 | `compose.yaml`       | postgres (TimescaleDB), redis, nats, mailpit; perfiles `app` (servicios), `obs` (Prometheus, Grafana, postgres-exporter, nats-exporter), `loadtest` (servidor eco) y `k6` |
 | `loadtest/`          | k6: `scenarios/*.js`, `lib/` (config, login, umbrales), `seed/*.sql` (semilla `lt-*` por psql); reportes en `docs/loadtest/` ([ADR 0011](docs/adr/0011-pruebas-de-carga-k6.md)) |

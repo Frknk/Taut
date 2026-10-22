@@ -154,6 +154,7 @@
   --animate-ping-once: ping-once 600ms var(--ease-out);
   --animate-breathe: breathe 1.6s var(--ease-in-out) infinite alternate;
   --animate-draw: draw 400ms var(--ease-out) backwards;
+  --animate-rise-up: rise-up 400ms var(--ease-out) backwards;
 
   @keyframes fade-in {
     from {
@@ -240,6 +241,13 @@
       stroke-dashoffset: 1;
     }
   }
+  /* The landing only (seen once): a longer travel than rise-in, staggered word by word. */
+  @keyframes rise-up {
+    from {
+      opacity: 0;
+      translate: 0 12px;
+    }
+  }
 }
 
 /* Reduced motion keeps the fades that explain a change and drops every movement. */
@@ -300,6 +308,11 @@
     }
   }
   @keyframes draw {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes rise-up {
     from {
       opacity: 0;
     }

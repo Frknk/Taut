@@ -7,6 +7,7 @@
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
   import Empty from '#lib/components/Empty.svelte';
+  import Landing from '#lib/components/Landing.svelte';
   import Loading from '#lib/components/Loading.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import TenantForm from '#lib/components/TenantForm.svelte';
@@ -24,11 +25,7 @@
   let creating = $state(false);
   let showForm = $state(false);
 
-  // Anonymous visitors go to the login page; the (app) pages send users without a tenant here.
-  $effect(() => {
-    if (session.status === 'anonymous') void goto(resolve('/(auth)/login'));
-  });
-
+  // Anonymous visitors see the landing page; the (app) pages send users without a tenant here.
   // The page only asks when it has to: the remembered tenant or the only one opens on its own.
   onMount(async () => {
     if (session.status !== 'authenticated') return;
@@ -52,10 +49,16 @@
 </script>
 
 <svelte:head>
-  <title>Organizaciones · Taut</title>
+  <title
+    >{session.status === 'anonymous'
+      ? 'Taut · Monitoreo de disponibilidad'
+      : 'Organizaciones · Taut'}</title
+  >
 </svelte:head>
 
-{#if !loaded}
+{#if session.status === 'anonymous'}
+  <Landing />
+{:else if !loaded}
   <Loading />
 {:else}
   <main class="flex min-h-screen items-center justify-center p-6">

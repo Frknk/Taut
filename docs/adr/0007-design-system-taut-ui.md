@@ -57,6 +57,11 @@ salto brusco) y según la frecuencia de uso.
 - **Overlays de bits-ui.** Se animan con `data-[state=open|closed]`: bits-ui espera a que la
   animación termine antes de desmontar, sin `forceMount`. Menús y selects crecen desde su
   disparador (`--bits-floating-transform-origin`); los diálogos desde el centro.
+- **La landing** (`Landing.svelte`, la raíz para visitantes sin sesión) es la excepción
+  documentada: se ve una vez, así que el titular entra palabra por palabra con `rise-up` (400 ms,
+  12 px) y la tarjeta de ejemplo cuenta la historia de un monitor en tres segundos (la línea de
+  latencia se dibuja con `draw`, el estado cambia, las barras entran escalonadas y aparece el
+  aviso). Su párrafo de entrada va a 16px. Nada de lo que hay bajo el hero se mueve.
 - **Qué no se anima.** Hovers de color (regla `hover-color-transitions`), la navegación del
   sidebar, el contenido de las tabs, los tooltips y el cursor de los gráficos (siguen al
   puntero), contadores y refrescos del polling. Entre páginas del panel solo hay un crossfade
