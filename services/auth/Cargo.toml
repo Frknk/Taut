@@ -19,6 +19,7 @@ chrono.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 redis.workspace = true
+reqwest = { workspace = true, features = ["json"] }
 serde.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true
@@ -28,6 +29,7 @@ taut-db.workspace = true
 taut-http.workspace = true
 taut-identity.workspace = true
 taut-model.workspace = true
+taut-net.workspace = true
 taut-telemetry.workspace = true
 thiserror.workspace = true
 time.workspace = true

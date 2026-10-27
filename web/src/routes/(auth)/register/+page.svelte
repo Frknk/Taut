@@ -5,8 +5,10 @@
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
   import Step from '#lib/components/Step.svelte';
+  import Turnstile from '#lib/components/Turnstile.svelte';
   import { authRequest, describeError } from '#lib/api.js';
   import { validateRegister, type AuthErrors, type RegisterValues } from '#lib/auth-forms.js';
+  import { captchaBody, captchaPending } from '#lib/turnstile.js';
   import { fieldError, help, input, label, link } from '#lib/ui.js';
 
   // Coming from an invitation: the login links take the user back to it.
@@ -23,22 +25,32 @@
   let sent = $state(false);
   let resent = $state(false);
   let busy = $state(false);
+  let captcha = $state('');
+  let widget = $state<Turnstile>();
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     errors = validateRegister(values);
     if (Object.keys(errors).length > 0) return;
+    error = captchaPending(captcha);
+    if (error) return;
     busy = true;
-    error = '';
     try {
       await authRequest<unknown>('POST', '/v1/auth/register', {
-        body: { name: values.name, email: values.email, password: values.password },
+        body: {
+          name: values.name,
+          email: values.email,
+          password: values.password,
+          ...captchaBody(captcha),
+        },
       });
       sent = true;
     } catch (err) {
       error = describeError(err);
     } finally {
       busy = false;
+      // Cloudflare accepts each token once: the next attempt needs a fresh one.
+      widget?.reset();
     }
   }
 
@@ -146,6 +158,7 @@
         />
         {#if errors.confirm}<p class={fieldError}>{errors.confirm}</p>{/if}
       </div>
+      <Turnstile action="register" bind:token={captcha} bind:this={widget} />
       <Button type="submit" variant="primary" class="w-full" disabled={busy}>
         {busy ? 'Creando…' : 'Crear cuenta'}
       </Button>

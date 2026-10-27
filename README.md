@@ -115,7 +115,13 @@ checker 8082, incidents 8083, notifier 8084, status-bff 8085, auth 8086 (los mis
 `just up-all`). La página de estado pública de un tenant está en
 http://localhost:5173/status/{slug}. Ningún correo sale de la máquina: Mailpit guarda las alertas
 y los correos de cuenta (confirmación, recuperación) y los muestra en http://localhost:8025; ahí
-está el enlace para confirmar el correo después de registrarse.
+está el enlace para confirmar el correo después de registrarse. En producción el correo sale por
+OCI Email Delivery ([ADR 0014](docs/adr/0014-correo-oci-email-delivery.md)).
+
+Registro, login y recuperación de contraseña piden un captcha de Cloudflare Turnstile
+([ADR 0013](docs/adr/0013-captcha-cloudflare-turnstile.md)) cuando hay clave: en local está
+apagado salvo que se configuren `TAUT_AUTH__TURNSTILE_SECRET` y `PUBLIC_TURNSTILE_SITEKEY` (ver
+`.env.example` y `web/.env.example`), así que los `curl` de abajo funcionan sin token.
 
 Si vienes de una versión anterior a la semana 13, los tenants existentes no tienen dueño:
 `just db-reset` y vuelve a crearlos desde el panel.
@@ -149,11 +155,11 @@ keys, `/v1/tenants` y el tenant les responden `401`/`403`. Revocada, responde `4
 
 | Método y ruta                         | Qué hace                                                    |
 | ------------------------------------- | ----------------------------------------------------------- |
-| `POST /v1/auth/register` (auth, :8086) | Crea la cuenta (`name`, `email`, `password`) y envía el correo de confirmación; siempre `202` |
+| `POST /v1/auth/register` (auth, :8086) | Crea la cuenta (`name`, `email`, `password`, `captcha_token`) y envía el correo de confirmación; siempre `202` |
 | `POST /v1/auth/verify-email` · `/resend-verification` | Confirma el correo con el `token` del enlace, o pide otro enlace |
-| `POST /v1/auth/login` · `/refresh` · `/logout` | Entra (`email`, `password`), renueva o cierra la sesión; el refresh viaja en la cookie `taut_refresh` |
+| `POST /v1/auth/login` · `/refresh` · `/logout` | Entra (`email`, `password`, `captcha_token`), renueva o cierra la sesión; el refresh viaja en la cookie `taut_refresh` |
 | `GET /v1/auth/me` · `PUT /v1/auth/password` | Quién soy; cambia la contraseña (cierra las otras sesiones; pide reautenticación reciente) |
-| `POST /v1/auth/forgot-password` · `/reset-password` | Recuperación por correo; siempre `202` |
+| `POST /v1/auth/forgot-password` · `/reset-password` | Recuperación por correo (`email`, `captcha_token`); siempre `202` |
 | `POST /v1/auth/mfa/enroll` · `/confirm` · `/disable` · `/backup-codes` · `GET /v1/auth/mfa` | Verificación en dos pasos (TOTP): activar con el `code` de la app (devuelve 8 códigos de respaldo una sola vez), desactivar (`password` + `code`), regenerar códigos, estado |
 | `POST /v1/auth/mfa`                   | Segundo paso del login: `mfa_token` (del `login` que respondió `mfa_required`) y `code` o `backup_code` |
 | `POST /v1/auth/reauth`                | Reautenticación (`password` y `code` si hay 2FA): token con `auth_time` nuevo para las acciones delicadas |

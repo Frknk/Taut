@@ -12,20 +12,27 @@ use crate::{AppState, mail, password, users};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct EmailInput {
+pub(crate) struct ForgotInput {
     email: String,
+    /// Turnstile token of the form; required when the captcha is on.
+    #[serde(default)]
+    captcha_token: Option<String>,
 }
 
 /// `POST /v1/auth/forgot-password`: always `202`, emails a link when the account exists.
 pub(crate) async fn forgot_password(
     State(state): State<AppState>,
     ClientIp(ip): ClientIp,
-    Json(input): Json<EmailInput>,
+    Json(input): Json<ForgotInput>,
 ) -> Result<StatusCode, AppError> {
     let email = users::normalize_email(&input.email)?;
     let ip_key = ip_key("reset", ip);
     state.limiter.check(&ip_key, REQUESTS_PER_IP).await?;
     state.limiter.hit(&ip_key, REQUESTS_PER_IP).await?;
+    state
+        .captcha
+        .verify(input.captcha_token.as_deref(), ip)
+        .await?;
     let Some(user) = users::find_by_email(&state.pool, &email).await? else {
         tracing::info!("password reset requested for an unknown address");
         return Ok(StatusCode::ACCEPTED);

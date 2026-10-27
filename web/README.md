@@ -14,4 +14,6 @@ bun run test         # vitest: lógica en Node y componentes (*.svelte.test.ts) 
 bun run build        # build/ listo para servir desde un CDN
 ```
 
-`PUBLIC_API_URL` (ver `.env.example`) fija la URL de la api al construir.
+`PUBLIC_API_URL`, `PUBLIC_AUTH_URL` y `PUBLIC_STATUS_URL` (ver `.env.example`) fijan las URL de
+los servicios al construir. `PUBLIC_TURNSTILE_SITEKEY` activa el captcha de Cloudflare Turnstile en
+registro, login y recuperación de contraseña; sin ella el widget no aparece.

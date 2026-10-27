@@ -7,6 +7,7 @@
 #   loadtest/vps-demo.sh escalones   1 min por escalón: 5, 10, 20, 30, 40 y 50 req/s
 #   loadtest/vps-demo.sh preparar    solo el túnel y Grafana, sin carga (antes de la clase)
 #   loadtest/vps-demo.sh cache 0     apaga la caché de status-bff en la VPS (30 la vuelve a encender)
+#   loadtest/vps-demo.sh captcha prueba  auth acepta el token falso de k6 (real vuelve a la clave del .env)
 #   loadtest/vps-demo.sh mixta-sembrar  siembra los tenants lt-m-* de la prueba mixta (200 monitores a 60 s)
 #   loadtest/vps-demo.sh mixta       prueba mixta en escalones de usuarios (scenarios/mixed.js), ~12 min
 #   loadtest/vps-demo.sh mixta-limpiar  borra los tenants lt-m-* para que sus monitores dejen de chequear
@@ -40,7 +41,7 @@ STEP_S="${STEP_S:-60}"
 OBS_DIR="${OBS_DIR:-$HOME/.cache/taut-vps-obs}"
 
 usage() {
-  sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
   exit 1
 }
 
@@ -120,6 +121,27 @@ cache() {
   echo "caché de status-bff en la VPS: ${ttl} s ($([ "$ttl" -eq 0 ] && echo apagada || echo encendida))"
 }
 
+# Clave de Turnstile de auth en la VPS. Los logins de k6 no pueden resolver el captcha: `prueba`
+# recrea auth con la clave de prueba de Cloudflare, que acepta el token falso que envía k6
+# (loadtest/lib/config.js), y `real` vuelve a TURNSTILE_SECRET del .env. Un `docker compose up -d`
+# posterior sin la variable también vuelve a la real.
+TURNSTILE_TEST_SECRET=1x0000000000000000000000000000000AA
+captcha() {
+  local secret
+  case "$1" in
+    prueba) secret="$TURNSTILE_TEST_SECRET" ;;
+    real) secret="" ;;
+    *) usage ;;
+  esac
+  local out
+  # shellcheck disable=SC2029 # $secret es la clave pública de prueba de Cloudflare o vacía.
+  if ! out=$(ssh vps "cd /opt/taut && TURNSTILE_TEST_SECRET=$secret docker compose up -d --wait auth" 2>&1); then
+    echo "$out" >&2
+    exit 1
+  fi
+  echo "captcha de auth en la VPS: clave $1"
+}
+
 # psql en el contenedor de postgres de la VPS, leyendo el SQL por la entrada estándar.
 vps_psql() {
   ssh vps "cd /opt/taut && docker compose exec -T postgres psql -U taut -d taut -q -v ON_ERROR_STOP=1 $*"
@@ -154,6 +176,9 @@ mixta() {
   local stats
   stats="loadtest/results/vps-stats-$(date -u +%Y%m%dT%H%M%SZ)-mixed.txt"
   sample_stats "$stats"
+  # La mixta hace logins: auth acepta el token de k6 mientras dura y vuelve a la clave real al salir.
+  captcha prueba
+  trap 'kill "$STATS_PID" 2>/dev/null || true; captcha real' EXIT
   # shellcheck disable=SC2086 # MIXED_ARGS lleva varias opciones de k6 a propósito.
   LT_STATUS_TENANTS=5 LT_STATUS_MONITORS=5 just loadtest mixed \
     -e STATUS_URL="$TARGET" -e API_URL="$TARGET" -e AUTH_URL="$TARGET" \
@@ -164,6 +189,7 @@ mixta() {
 
 case "${1:-}" in
   cache) [ $# -eq 2 ] || usage; cache "$2"; exit 0 ;;
+  captcha) [ $# -eq 2 ] || usage; captcha "$2"; exit 0 ;;
   mixta-sembrar) [ $# -eq 1 ] || usage; mixta_sembrar; exit 0 ;;
   mixta-limpiar) [ $# -eq 1 ] || usage; mixta_limpiar; exit 0 ;;
   sostenida | pico | ambas | escalones | preparar | mixta) [ $# -eq 1 ] || usage ;;

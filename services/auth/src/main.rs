@@ -21,6 +21,7 @@ async fn main() -> anyhow::Result<()> {
     taut_auth::password::limit_concurrency(settings.auth.max_concurrent_hashes);
     let keys = load_keys(&settings)?;
     let totp = taut_auth::totp_cipher(&settings)?;
+    let captcha = taut_auth::captcha(&settings)?;
     let pool = taut_db::connect(&settings.database).await?;
     if settings.database.migrate_on_start {
         taut_db::migrate(&pool).await?;
@@ -37,6 +38,7 @@ async fn main() -> anyhow::Result<()> {
         redis,
         keys,
         totp,
+        captcha,
         telemetry.metrics().clone(),
     );
     taut_http::serve(app, settings.http.addr).await?;

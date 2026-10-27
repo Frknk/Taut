@@ -155,7 +155,8 @@ pub struct NotifierSettings {
     /// `smtp://user:pass@host:587?tls=required` for STARTTLS or `smtps://user:pass@host:465`.
     /// Carries credentials in production, so it only comes from the environment.
     pub smtp_url: String,
-    /// Sender of alert emails.
+    /// Sender of every email: alerts and account emails (verification, recovery, invitations).
+    /// An SMTP provider usually accepts only an approved sender here.
     pub email_from: String,
 }
 
@@ -181,6 +182,12 @@ pub struct AuthSettings {
     /// Argon2id hashes computed at the same time; the rest wait their turn. Each one takes 19 MB,
     /// so this bounds the memory of logins and registrations to this many times 19 MB.
     pub max_concurrent_hashes: usize,
+    /// Secret key of the Cloudflare Turnstile widget that guards registration, login and
+    /// password recovery. Empty turns the captcha off, which only development and tests allow.
+    /// A secret, so it only comes from the environment.
+    pub turnstile_secret: String,
+    /// Turnstile's `siteverify` endpoint; the tests point it at a local server.
+    pub turnstile_url: String,
 }
 
 /// Error of a malformed `TAUT_AUTH__TOTP_KEY`.
@@ -297,6 +304,9 @@ impl Default for Settings {
                 refresh_ttl_secs: 7 * 24 * 3600,
                 totp_key: String::new(),
                 max_concurrent_hashes: 2,
+                turnstile_secret: String::new(),
+                turnstile_url: "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+                    .to_owned(),
             },
         }
     }
@@ -455,6 +465,11 @@ mod tests {
             assert!(!settings.http.trust_proxy);
             assert_eq!(settings.auth.signing_key_pem().unwrap(), None);
             assert_eq!(settings.auth.totp_key().unwrap(), None);
+            assert!(settings.auth.turnstile_secret.is_empty());
+            assert_eq!(
+                settings.auth.turnstile_url,
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+            );
             Ok(())
         });
     }

@@ -24,8 +24,8 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 /// The auth router plus everything a test needs to talk to it as one browser: its own
-/// client address (so the per-address limits never mix tests), the refresh cookie and the
-/// access token of the last login.
+/// client address (so the per-address limits never mix tests), the refresh cookie, the
+/// access token of the last login and the captcha token its forms send.
 pub struct Client {
     pub router: Router,
     pub keys: KeyPair,
@@ -33,6 +33,8 @@ pub struct Client {
     pub ip: IpAddr,
     pub cookie: Option<String>,
     pub token: Option<String>,
+    /// `captcha_token` of `register` and `login`; `None` sends none.
+    pub captcha: Option<String>,
 }
 
 /// A response: status, JSON body (`Null` when empty) and headers.
@@ -42,9 +44,16 @@ pub struct Reply {
     pub headers: HeaderMap,
 }
 
-/// Builds the service over `pool` with a fresh key pair and the settings of `.env`.
+/// Builds the service over `pool` with a fresh key pair and the settings of `.env`, with the
+/// captcha off whatever `.env` says.
 pub async fn client(pool: PgPool) -> Client {
-    let settings = Settings::load().expect("settings load");
+    client_with(pool, |settings| settings.auth.turnstile_secret.clear()).await
+}
+
+/// Like [`client`], with `adjust` applied to the settings of `.env` first.
+pub async fn client_with(pool: PgPool, adjust: impl FnOnce(&mut Settings)) -> Client {
+    let mut settings = Settings::load().expect("settings load");
+    adjust(&mut settings);
     let bus = Bus::connect(&settings.nats, "auth-tests")
         .await
         .expect("nats is up (just up)");
@@ -57,6 +66,7 @@ pub async fn client(pool: PgPool) -> Client {
         .expect("telemetry installs once per process");
     let keys = KeyPair::generate();
     let totp = taut_auth::totp_cipher(&settings).expect("dev totp key");
+    let captcha = taut_auth::captcha(&settings).expect("captcha settings");
     let router = taut_auth::app(
         Arc::new(settings),
         pool,
@@ -64,6 +74,7 @@ pub async fn client(pool: PgPool) -> Client {
         redis,
         keys.clone(),
         totp,
+        captcha,
         telemetry.metrics().clone(),
     );
     // nextest runs every test in its own process, so a counter would repeat: random it is.
@@ -76,6 +87,7 @@ pub async fn client(pool: PgPool) -> Client {
         ip,
         cookie: None,
         token: None,
+        captcha: None,
     }
 }
 
@@ -138,6 +150,14 @@ impl Client {
         }
     }
 
+    /// `body` plus this client's `captcha_token`, when it has one.
+    pub fn with_captcha(&self, mut body: Value) -> Value {
+        if let Some(captcha) = &self.captcha {
+            body["captcha_token"] = Value::String(captcha.clone());
+        }
+        body
+    }
+
     /// Subscribes to the account emails before an action, so none is missed.
     pub async fn emails(&self) -> async_nats::Subscriber {
         self.bus
@@ -154,7 +174,11 @@ impl Client {
             .send(
                 Method::POST,
                 "/v1/auth/register",
-                Some(json!({ "name": name, "email": email, "password": password })),
+                Some(
+                    self.with_captcha(
+                        json!({ "name": name, "email": email, "password": password }),
+                    ),
+                ),
             )
             .await;
         assert_eq!(reply.status, StatusCode::ACCEPTED, "{}", reply.body);
@@ -184,7 +208,7 @@ impl Client {
             .send(
                 Method::POST,
                 "/v1/auth/login",
-                Some(json!({ "email": email, "password": password })),
+                Some(self.with_captcha(json!({ "email": email, "password": password }))),
             )
             .await;
         if reply.status == StatusCode::OK {

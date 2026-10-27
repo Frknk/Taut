@@ -4,8 +4,10 @@
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
   import Step from '#lib/components/Step.svelte';
+  import Turnstile from '#lib/components/Turnstile.svelte';
   import { authRequest, describeError } from '#lib/api.js';
   import { looksLikeEmail } from '#lib/auth-forms.js';
+  import { captchaBody, captchaPending } from '#lib/turnstile.js';
   import { fieldError, input, label, link } from '#lib/ui.js';
 
   let email = $state('');
@@ -13,20 +15,27 @@
   let error = $state('');
   let sent = $state(false);
   let busy = $state(false);
+  let captcha = $state('');
+  let widget = $state<Turnstile>();
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     fieldMessage = looksLikeEmail(email) ? '' : 'Escribe un correo válido.';
     if (fieldMessage) return;
+    error = captchaPending(captcha);
+    if (error) return;
     busy = true;
-    error = '';
     try {
-      await authRequest<void>('POST', '/v1/auth/forgot-password', { body: { email } });
+      await authRequest<void>('POST', '/v1/auth/forgot-password', {
+        body: { email, ...captchaBody(captcha) },
+      });
       sent = true;
     } catch (err) {
       error = describeError(err);
     } finally {
       busy = false;
+      // Cloudflare accepts each token once: the next attempt needs a fresh one.
+      widget?.reset();
     }
   }
 </script>
@@ -66,6 +75,7 @@
         />
         {#if fieldMessage}<p class={fieldError}>{fieldMessage}</p>{/if}
       </div>
+      <Turnstile action="forgot_password" bind:token={captcha} bind:this={widget} />
       <Button type="submit" variant="primary" class="w-full" disabled={busy}>
         {busy ? 'Enviando…' : 'Enviar enlace'}
       </Button>

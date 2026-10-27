@@ -179,6 +179,8 @@ export function describeError(error: unknown): string {
       return 'Confirma tu correo antes de entrar.';
     case 'reauth_required':
       return 'Confirma tu contraseña para hacer esto.';
+    case 'captcha_failed':
+      return 'No pudimos comprobar que eres una persona; vuelve a intentarlo.';
     case 'too_many_requests':
       return error.retryAfter
         ? `Demasiados intentos; espera ${describeWait(error.retryAfter)} y vuelve a probar.`

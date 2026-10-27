@@ -32,6 +32,7 @@ import { scalar } from '../lib/prom.js';
 import {
   API_URL,
   AUTH_URL,
+  CAPTCHA_TOKEN,
   PASSWORD,
   STATUS_TENANTS,
   STATUS_URL,
@@ -277,7 +278,7 @@ export function logins() {
   const email = ownerEmail(mixedSlug(1 + Math.floor(Math.random() * MIXED_TENANTS)));
   const res = http.post(
     `${AUTH_URL}/v1/auth/login`,
-    JSON.stringify({ email, password: PASSWORD }),
+    JSON.stringify({ email, password: PASSWORD, captcha_token: CAPTCHA_TOKEN }),
     {
       headers: { 'Content-Type': 'application/json' },
       tags: { name: 'POST /v1/auth/login' },
