@@ -102,7 +102,7 @@ siguiendo el patrón de `services/api`.
 
 | ID   | Feature                                  | Tier / pts | Dónde vive  | Datos                                                                                  | API / UI                                                   | Sem. | Criterio de aceptación                                                                 |
 | ---- | ---------------------------------------- | ---------- | ----------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------- |
-| F-40 | Email                                    | P0 / 1     | `notifier` (consume `incidents.*`) | `alert_channels.kind = email`, `config_json.to`; en local, Mailpit en compose; en la nube, un proveedor SMTP/API por decidir | CRUD de canales en `/v1/alert-channels`; pantalla de canales | 6 | Abrir y cerrar un incidente envía dos correos con nombre del monitor, causa y enlace |
+| F-40 | Email                                    | P0 / 1     | `notifier` (consume `incidents.*`) | `alert_channels.kind = email`, `config_json.to`; en local, Mailpit en compose; en la nube, OCI Email Delivery por SMTP (ADR 0014) | CRUD de canales en `/v1/alert-channels`; pantalla de canales | 6 | Abrir y cerrar un incidente envía dos correos con nombre del monitor, causa y enlace |
 | F-41 | Webhook genérico (Slack / Teams / Discord) | P1 / 1   | `notifier`  | `alert_channels.kind ∈ {webhook, discord, slack}`, `config_json.url`; plantilla de payload por kind (`{"content"}` Discord, `{"text"}` Slack, JSON completo genérico) | Igual que email | 7 | Un webhook de Discord recibe el mensaje al abrir y al cerrar; la firma HMAC llega en la sem. 13–14 |
 
 ### Status page
@@ -267,8 +267,9 @@ Lo que el código fijó al implementar cada hito y que no estaba decidido arriba
   los que fallaron. El panel muestra ese historial por incidente y el resultado del último envío
   de cada canal. Los webhooks usan el mismo cliente protegido que el checker (`taut-net`).
 - En local el correo va a Mailpit (`compose.yaml`, bandeja en http://localhost:8025); en la nube
-  `TAUT_NOTIFIER__SMTP_URL` apunta al proveedor que se elija. Los textos de las alertas están en
-  español; los enlaces apuntan a `TAUT_NOTIFIER__PANEL_URL`.
+  `TAUT_NOTIFIER__SMTP_URL` apunta a OCI Email Delivery
+  ([ADR 0014](adr/0014-correo-oci-email-delivery.md), desde el 27-10-2026). Los textos de las
+  alertas están en español; los enlaces apuntan a `TAUT_APP__PANEL_URL`.
 - La columna de configuración de `alert_channels` se llama `config` (jsonb) en vez de
   `config_json`; en la API los canales usan `type`, como los monitores.
 
