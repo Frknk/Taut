@@ -24,6 +24,74 @@ Pruebas de carga con k6 (semana 6): escenarios, semilla y Prometheus + Grafana l
 ([ADR 0011](docs/adr/0011-pruebas-de-carga-k6.md)). Pendiente: el despliegue (PaaS, Terraform y
 Kubernetes, semanas 5–8).
 
+## Arquitectura
+
+El sistema separa tres planos desacoplados por **NATS JetStream**: control (`taut-auth`, `taut-api` y `web/`), chequeo (`taut-scheduler` y `taut-checker`) y lectura/reacción (`taut-incidents`, `taut-notifier` y `taut-status-bff`).
+
+```mermaid
+flowchart LR
+  subgraph clients["Clientes"]
+    browser["Navegador (Panel / Visitante)"]
+    ext["Integraciones (API Key / Heartbeat)"]
+  end
+
+  subgraph control["Plano de control"]
+    web["web/ (SvelteKit SPA)"]
+    auth["taut-auth (Ed25519 JWT, 2FA, Sesiones)"]
+    api["taut-api (REST CRUD, Cuotas, RLS)"]
+  end
+
+  subgraph check["Plano de chequeo"]
+    sched["taut-scheduler (Líder + Heartbeats)"]
+    checker["taut-checker (HTTP, Keyword, TCP, Ping)"]
+  end
+
+  subgraph read["Plano de lectura y reacción"]
+    inc["taut-incidents (Máquina de estados + Ingesta)"]
+    notif["taut-notifier (Correo SMTP + Webhooks)"]
+    bff["taut-status-bff (GET /s/{slug})"]
+  end
+
+  subgraph infra["Almacenamiento y mensajería"]
+    bus(("NATS JetStream"))
+    pg[("PostgreSQL 17 + TimescaleDB (RLS)")]
+    redis[("Redis (Sesiones, Locks, Rate Limit, Caché)")]
+  end
+
+  browser --> web
+  web --> auth
+  web --> api
+  web --> bff
+  ext --> api
+
+  auth --> pg
+  auth --> redis
+  auth -- "users.*" --> bus
+
+  api -. "JWKS (/.well-known/jwks.json)" .-> auth
+  api --> pg
+  api --> redis
+  api -- "notifications.test" --> bus
+
+  sched --> redis
+  sched --> pg
+  sched -- "checks.requested" --> bus
+  sched -- "checks.completed (heartbeat)" --> bus
+
+  bus -- "checks.requested" --> checker
+  checker -- "checks.completed" --> bus
+
+  bus -- "checks.completed" --> inc
+  inc --> pg
+  inc -- "incidents.*" --> bus
+
+  bus -- "incidents.* / users.* / notifications.test" --> notif
+  notif --> pg
+
+  bff --> redis
+  bff --> pg
+```
+
 ## Requisitos
 
 - macOS o Linux con [Homebrew](https://brew.sh) (para `just setup`).
