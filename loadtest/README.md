@@ -60,6 +60,9 @@ página de estado se consulta cada 30 s; el panel pide la lista o el detalle cad
 de incidentes cada 30 s y las métricas cada 60 s). Está hecho para la VPS de la demo:
 `loadtest/vps-demo.sh mixta-sembrar`, `caffeinate -i loadtest/vps-demo.sh mixta` y, al terminar,
 `loadtest/vps-demo.sh mixta-limpiar`, porque los monitores siguen chequeando hasta que se borran.
+Los logins envían el token falso de Turnstile (`CAPTCHA_TOKEN`): en local auth lo ignora y en la
+VPS `mixta` pone a auth con la clave de prueba de Cloudflare mientras corre y la devuelve al
+terminar (a mano: `loadtest/vps-demo.sh captcha prueba` y `captcha real`).
 Como k6 no tiene caché HTTP, cada visita nueva descarga todos los archivos que precarga el HTML;
 los trozos que la app importa después no se piden, así que ese tráfico es un mínimo.
 

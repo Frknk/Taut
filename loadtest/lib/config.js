@@ -54,6 +54,13 @@ export const SERVICE_URLS = (env.SERVICE_URLS || '')
     return { name, url };
   });
 
+/**
+ * `captcha_token` of the logins. k6 cannot solve Turnstile, so it sends Cloudflare's dummy
+ * token: the local stack ignores it (captcha off in development) and the VPS accepts it while
+ * auth runs with Cloudflare's test secret (`loadtest/vps-demo.sh captcha prueba`).
+ */
+export const CAPTCHA_TOKEN = env.CAPTCHA_TOKEN || 'XXXX.DUMMY.TOKEN.XXXX';
+
 /** Password of every seeded user; the seed stores its Argon2id hash (loadtest/seed/base.sql). */
 export const PASSWORD = env.LT_PASSWORD || 'loadtest-only-password';
 

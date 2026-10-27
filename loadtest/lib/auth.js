@@ -7,7 +7,7 @@
 
 import http from 'k6/http';
 import { fail } from 'k6';
-import { AUTH_URL, API_URL, PASSWORD, ownerEmail } from './config.js';
+import { AUTH_URL, API_URL, CAPTCHA_TOKEN, PASSWORD, ownerEmail } from './config.js';
 
 /** Seconds before expiry at which a VU renews its token. */
 const RENEW_MARGIN_S = 60;
@@ -17,12 +17,15 @@ export function login(slug) {
   const email = ownerEmail(slug);
   const res = http.post(
     `${AUTH_URL}/v1/auth/login`,
-    JSON.stringify({ email, password: PASSWORD }),
+    JSON.stringify({ email, password: PASSWORD, captcha_token: CAPTCHA_TOKEN }),
     {
       headers: { 'Content-Type': 'application/json' },
       tags: { name: 'POST /v1/auth/login' },
     },
   );
+  if (res.status === 403 && res.body.includes('captcha_failed')) {
+    fail(`login of ${email} failed the captcha: on the VPS, loadtest/vps-demo.sh captcha prueba`);
+  }
   if (res.status !== 200) {
     fail(`login of ${email} answered ${res.status}: is the seed loaded? (just loadtest-seed)`);
   }
