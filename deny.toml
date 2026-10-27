@@ -12,6 +12,10 @@ ignore = [
   # backend RustCrypto de jsonwebtoken; Taut solo firma y verifica con EdDSA (Ed25519) y nunca
   # construye una clave RSA, así que el código vulnerable no se ejecuta.
   { id = "RUSTSEC-2023-0071", reason = "rsa via jsonwebtoken rust_crypto; Taut only uses EdDSA" },
+  # Tiempo no constante en `crypto-bigint` 0.5, que arrastran `p256` y `p384` (ECDSA) desde el
+  # mismo backend de jsonwebtoken; la corrección (0.7.6) no es compatible con esa cadena. Taut
+  # nunca firma con ECDSA y el verificador rechaza todo token que no sea EdDSA.
+  { id = "RUSTSEC-2026-0387", reason = "crypto-bigint via jsonwebtoken p256/p384; Taut only uses EdDSA" },
 ]
 
 [licenses]

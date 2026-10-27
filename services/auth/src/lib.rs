@@ -3,10 +3,12 @@
 //! Registration, email verification, login (with an optional second factor: TOTP and backup
 //! codes), sessions (an access JWT plus a refresh cookie), re-authentication for the
 //! sensitive actions, password recovery and the JWKS the other services verify tokens with.
+//! Registration, login and recovery also ask for a Cloudflare Turnstile token ([`captcha`]).
 //! It owns the `users`, `user_tokens` and `mfa_backup_codes` tables and the `session:*`,
 //! `rl:*`, `mfa:*` and `totp:*` keys in Redis; tenants and memberships belong to the api.
 //! Emails leave as events on the bus and the notifier sends them.
 
+pub mod captcha;
 pub mod current_user;
 pub mod mail;
 pub mod mfa;
@@ -48,6 +50,8 @@ pub struct AppState {
     pub mfa: mfa::MfaStore,
     /// Encrypts the TOTP secrets at rest.
     pub totp: mfa::TotpCipher,
+    /// Turnstile check of the public forms.
+    pub captcha: captcha::Captcha,
     /// The key that signs tokens.
     pub keys: Arc<KeyPair>,
     /// Verifies the tokens this service signed, for the routes that need a session.
@@ -57,7 +61,9 @@ pub struct AppState {
 }
 
 /// Builds the complete router: health, metrics, `/v1/auth/*`, the JWKS and the middleware.
-/// `totp` encrypts the second-factor secrets (see [`totp_cipher`]).
+/// `totp` encrypts the second-factor secrets (see [`totp_cipher`]) and `captcha` guards the
+/// public forms (see [`captcha()`]).
+#[allow(clippy::too_many_arguments)] // one per dependency, built by main and the tests
 pub fn app(
     settings: Arc<Settings>,
     pool: PgPool,
@@ -65,6 +71,7 @@ pub fn app(
     redis: ConnectionManager,
     keys: KeyPair,
     totp: mfa::TotpCipher,
+    captcha: captcha::Captcha,
     metrics_handle: PrometheusHandle,
 ) -> Router {
     let info = ServiceInfo::new(SERVICE_NAME, env!("CARGO_PKG_VERSION"), &settings.app);
@@ -98,6 +105,7 @@ pub fn app(
         mfa: mfa::MfaStore::new(redis.clone()),
         limiter: ratelimit::Limiter::new(redis),
         totp,
+        captcha,
         settings,
         pool,
         bus,
@@ -127,6 +135,24 @@ pub fn totp_cipher(settings: &Settings) -> anyhow::Result<mfa::TotpCipher> {
         }
         Environment::Staging | Environment::Prod => {
             anyhow::bail!("TAUT_AUTH__TOTP_KEY is required outside development")
+        }
+    }
+}
+
+/// The Turnstile check from `TAUT_AUTH__TURNSTILE_SECRET`; in development and tests, off when
+/// none is configured, elsewhere an error.
+pub fn captcha(settings: &Settings) -> anyhow::Result<captcha::Captcha> {
+    let auth = &settings.auth;
+    if !auth.turnstile_secret.trim().is_empty() {
+        return captcha::Captcha::new(&auth.turnstile_secret, &auth.turnstile_url);
+    }
+    match settings.app.env {
+        Environment::Dev | Environment::Test => {
+            tracing::warn!("no TAUT_AUTH__TURNSTILE_SECRET configured: the captcha is off");
+            Ok(captcha::Captcha::disabled())
+        }
+        Environment::Staging | Environment::Prod => {
+            anyhow::bail!("TAUT_AUTH__TURNSTILE_SECRET is required outside development")
         }
     }
 }

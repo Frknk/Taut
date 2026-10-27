@@ -32,3 +32,5 @@ después, y no se edita para cambiarla: una decisión nueva reemplaza a la anter
 | 0010 | [Row-Level Security por tenant con un rol sin login](0010-row-level-security-por-tenant.md) | Aceptado | 2026-10-18 |
 | 0011 | [Pruebas de carga con k6 en modelo abierto, semilla SQL y Prometheus local](0011-pruebas-de-carga-k6.md) | Aceptado | 2026-10-19 |
 | 0012 | [Planes free, pro y business sin facturación](0012-planes-de-prototipo.md) | Aceptado | 2026-10-19 |
+| 0013 | [Captcha con Cloudflare Turnstile en registro, login y recuperación](0013-captcha-cloudflare-turnstile.md) | Aceptado | 2026-10-27 |
+| 0014 | [Correo de producción con OCI Email Delivery](0014-correo-oci-email-delivery.md) | Aceptado | 2026-10-27 |

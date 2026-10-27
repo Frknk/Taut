@@ -20,6 +20,9 @@ pub(crate) struct RegisterInput {
     name: String,
     email: String,
     password: String,
+    /// Turnstile token of the form; required when the captcha is on.
+    #[serde(default)]
+    captcha_token: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,6 +46,10 @@ pub(crate) async fn register(
     state
         .limiter
         .hit(&ip_key("register", ip), REQUESTS_PER_IP)
+        .await?;
+    state
+        .captcha
+        .verify(input.captcha_token.as_deref(), ip)
         .await?;
 
     if let Some(existing) = users::find_by_email(&state.pool, &email).await? {

@@ -18,7 +18,7 @@ en [docs/adr](docs/adr/README.md); léelos antes de proponer cambios de arquitec
 | `crates/net`         | `taut-net`: `guarded_client()`, cliente reqwest que rechaza direcciones internas (checks y webhooks) |
 | `crates/identity`    | `taut-identity`: `KeyPair` (firma Ed25519, JWKS), `Verifier`, `Claims`, tokens opacos, API keys y firma de webhooks (`webhook::sign`/`verify`); sin I/O |
 | `services/api`       | `taut-api`: `lib.rs` construye el `Router` (`app()`), `main.rs` lo arranca; tests en `tests/` |
-| `services/auth`      | `taut-auth`: registro, verificación, login, 2FA (`mfa.rs`: TOTP cifrado, códigos de respaldo), sesiones (Redis), reautenticación, recuperación y `/.well-known/jwks.json`; publica `users.*` |
+| `services/auth`      | `taut-auth`: registro, verificación, login, 2FA (`mfa.rs`: TOTP cifrado, códigos de respaldo), sesiones (Redis), reautenticación, recuperación y `/.well-known/jwks.json`; captcha Turnstile en `captcha.rs`; publica `users.*` |
 | `services/scheduler` | `taut-scheduler`: líder por lock en Redis; publica `checks.requested` y evalúa heartbeats |
 | `services/checker`   | `taut-checker`: consume `checks.requested`, un módulo por tipo en `src/checks/`, publica `checks.completed` |
 | `services/incidents` | `taut-incidents`: guarda `checks.completed`, máquina de estados (`state.rs`), publica `incidents.*` |
@@ -90,7 +90,10 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   correos completos en los logs. Los correos de cuenta son eventos `AccountEmail` que envía el
   notifier. Segundo factor solo con `taut_auth::mfa`: el secreto TOTP se guarda cifrado
   (`TotpCipher`, `TAUT_AUTH__TOTP_KEY`), cada código se acepta una vez (`MfaStore::check_totp`) y
-  en auth las rutas delicadas empiezan con `current.require_recent_auth()?`.
+  en auth las rutas delicadas empiezan con `current.require_recent_auth()?`. Registro, login y
+  recuperación llaman a `state.captcha.verify` (Cloudflare Turnstile,
+  [ADR 0013](docs/adr/0013-captcha-cloudflare-turnstile.md)) después de los límites y antes de
+  Argon2, la base de datos o el correo; `TAUT_AUTH__TURNSTILE_SECRET` es obligatoria fuera de dev.
 - **HTTP saliente**: toda petición hecha en nombre de un tenant (chequeos, webhooks) usa
   `taut_net::guarded_client`; nunca un `reqwest::Client` sin protección. Los errores de webhooks
   se registran con `without_url()`: la URL de Discord o Slack es un secreto. Los webhooks
@@ -119,7 +122,7 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
   Nunca colores primitivos (`bg-neutral-50`, `text-red-700`) ni la variante `dark:`. Reusa los
   componentes de `src/lib/components/` (Button, Badge, Banner, LayerCard, Tabs/TabList/TabPanel,
   Select, Dialog, Menu/MenuItem/MenuRadioItem, Tooltip, Empty, Logo, TenantForm, Breadcrumb,
-  Step, CopyLabel, Loading, DrawnCheck) y las recetas
+  Step, CopyLabel, Loading, DrawnCheck, Turnstile) y las recetas
   de `src/lib/ui.ts`; el logo va sin fondo ni texto.
   La navegación del panel vive en `Sidebar.svelte`: una sección nueva se agrega ahí, al grupo
   Monitoreo u Organización (lo personal va al menú de usuario del pie), y a `SECTIONS` de
@@ -138,7 +141,8 @@ Usa siempre las recetas de `just` (`just --list`); no inventes comandos equivale
 - **Accesibilidad** en `web/` ([ADR 0009](docs/adr/0009-bits-ui-componentes-accesibles.md)): todo
   widget interactivo (diálogo, menú, select, tabs, acordeón, tooltip, toggle) se construye sobre
   [bits-ui](https://bits-ui.com), nunca con ARIA o teclado a mano. Los estados se estilan con los
-  `data-*` que expone (`data-highlighted`, `data-[state=open]`). Nada de `title=` para información:
+  `data-*` que expone (`data-highlighted`, `data-[state=open]`). La única excepción es el widget
+  de Turnstile, un iframe de Cloudflare (`Turnstile.svelte`). Nada de `title=` para información:
   `Tooltip`. Cada componente tiene su `*.svelte.test.ts` (Vitest en Chromium) que prueba el
   teclado y termina con `expectAccessible()` de `src/lib/test/axe.ts`.
 - **Movimiento** en `web/` ([ADR 0007](docs/adr/0007-design-system-taut-ui.md), skill `animate`):

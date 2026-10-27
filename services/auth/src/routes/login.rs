@@ -15,6 +15,9 @@ use crate::{AppState, password, users};
 pub(crate) struct LoginInput {
     email: String,
     password: String,
+    /// Turnstile token of the form; required when the captcha is on.
+    #[serde(default)]
+    captcha_token: Option<String>,
 }
 
 /// Answer of a login whose password was right but whose account has a second factor: the
@@ -47,8 +50,9 @@ fn invalid_credentials() -> AppError {
 }
 
 /// Checks the password and starts a session, or asks for the second factor when the account
-/// has one. A wrong password counts against the account and the address; an unverified
-/// account is told so only after the right password.
+/// has one. A wrong password counts against the account and the address; a failed captcha
+/// only against the address, so nobody locks someone else's account without solving it. An
+/// unverified account is told so only after the right password.
 pub(crate) async fn login(
     State(state): State<AppState>,
     ClientIp(ip): ClientIp,
@@ -60,6 +64,14 @@ pub(crate) async fn login(
     let ip_key = ip_key("login", ip);
     state.limiter.check(&account_key, LOGIN_PER_ACCOUNT).await?;
     state.limiter.check(&ip_key, LOGIN_PER_IP).await?;
+    if let Err(err) = state
+        .captcha
+        .verify(input.captcha_token.as_deref(), ip)
+        .await
+    {
+        state.limiter.hit(&ip_key, LOGIN_PER_IP).await?;
+        return Err(err);
+    }
 
     let user = users::find_by_email(&state.pool, &email).await?;
     let matched = password::verify(
