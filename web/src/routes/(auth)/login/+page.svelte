@@ -6,10 +6,12 @@
   import Banner from '#lib/components/Banner.svelte';
   import Button from '#lib/components/Button.svelte';
   import Step from '#lib/components/Step.svelte';
+  import Turnstile from '#lib/components/Turnstile.svelte';
   import { ApiError, authRequest, describeError } from '#lib/api.js';
   import { validateLogin, type AuthErrors, type LoginValues } from '#lib/auth-forms.js';
   import { codeError } from '#lib/mfa-form.js';
   import { session } from '#lib/session.svelte.js';
+  import { captchaPending } from '#lib/turnstile.js';
   import { fieldError, help, input, label, link } from '#lib/ui.js';
 
   let values = $state<LoginValues>({ email: '', password: '' });
@@ -18,6 +20,8 @@
   let unverified = $state(false);
   let resent = $state(false);
   let busy = $state(false);
+  let captcha = $state('');
+  let widget = $state<Turnstile>();
   /** Token of the first step while the second factor is pending; `''` on the first step. */
   let mfaToken = $state('');
   let code = $state('');
@@ -32,11 +36,12 @@
     event.preventDefault();
     errors = validateLogin(values);
     if (Object.keys(errors).length > 0) return;
+    error = captchaPending(captcha);
+    if (error) return;
     busy = true;
-    error = '';
     unverified = false;
     try {
-      const outcome = await session.login(values.email, values.password);
+      const outcome = await session.login(values.email, values.password, captcha);
       if (outcome.status === 'mfa_required') {
         mfaToken = outcome.mfaToken;
         return;
@@ -49,6 +54,8 @@
       else error = describeError(err);
     } finally {
       busy = false;
+      // Cloudflare accepts each token once: the next attempt needs a fresh one.
+      widget?.reset();
     }
   }
 
@@ -189,6 +196,7 @@
         />
         {#if errors.password}<p class={fieldError}>{errors.password}</p>{/if}
       </div>
+      <Turnstile action="login" bind:token={captcha} bind:this={widget} />
       <Button type="submit" variant="primary" class="w-full" disabled={busy}>
         {busy ? 'Entrando…' : 'Entrar'}
       </Button>

@@ -10,6 +10,7 @@ import { mfaBody } from './mfa-form.js';
 import { reauthPrompt } from './reauth.svelte.js';
 import { expiresAtMs, refreshDelayMs } from './session-timing.js';
 import { selectedTenant } from './tenant.svelte.js';
+import { captchaBody } from './turnstile.js';
 import type { LoginResponse, SessionResponse, User } from './types.js';
 
 export type SessionStatus = 'booting' | 'anonymous' | 'authenticated';
@@ -61,10 +62,13 @@ class Session {
     return this.refreshing;
   }
 
-  /** First step: the password. With 2FA on, the session only starts after `completeMfa`. */
-  async login(email: string, password: string): Promise<LoginOutcome> {
+  /**
+   * First step: the password, with the Turnstile token of the form when there is one. With 2FA
+   * on, the session only starts after `completeMfa`.
+   */
+  async login(email: string, password: string, captcha = ''): Promise<LoginOutcome> {
     const response = await authRequest<LoginResponse>('POST', '/v1/auth/login', {
-      body: { email, password },
+      body: { email, password, ...captchaBody(captcha) },
     });
     if ('status' in response) return { status: 'mfa_required', mfaToken: response.mfa_token };
     this.apply(response);
