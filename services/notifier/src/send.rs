@@ -5,8 +5,7 @@
 use std::time::Duration;
 
 use chrono::Utc;
-use lettre::message::Mailbox;
-use lettre::message::header::ContentType;
+use lettre::message::{Mailbox, MultiPart};
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use reqwest::header::CONTENT_TYPE;
 use serde_json::Value;
@@ -67,8 +66,10 @@ impl Senders {
             .from(self.from.clone())
             .to(to)
             .subject(&message.subject)
-            .header(ContentType::TEXT_PLAIN)
-            .body(message.text.clone())
+            .multipart(MultiPart::alternative_plain_html(
+                message.text.clone(),
+                message.html.clone(),
+            ))
             .map_err(|err| format!("cannot build email: {err}"))?;
         self.mailer
             .send(email)
